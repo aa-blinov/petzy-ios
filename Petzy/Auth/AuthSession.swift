@@ -15,7 +15,9 @@ actor AuthSession {
         self.storage = storage
     }
 
-    var isSignedIn: Bool { tokens != nil }
+    var isSignedIn: Bool {
+        tokens != nil
+    }
 
     /// Поднимает сохранённые токены при старте приложения.
     func restore() {
@@ -40,7 +42,7 @@ actor AuthSession {
             urlSession: urlSession, baseURL: baseURL,
             path: "/api/auth/login", method: "POST", jsonBody: body
         )
-        guard (200..<300).contains(response.statusCode) else {
+        guard (200 ..< 300).contains(response.statusCode) else {
             // 401 с неверным паролем: показываем текст бэкенда, а не «сессия истекла».
             throw HTTP.apiError(data: data, response: response)
         }
@@ -62,7 +64,7 @@ actor AuthSession {
                 urlSession: urlSession, baseURL: baseURL,
                 path: "/api/auth/refresh", method: "POST", jsonBody: body
             )
-            guard (200..<300).contains(response.statusCode) else {
+            guard (200 ..< 300).contains(response.statusCode) else {
                 signOut()
                 return false
             }

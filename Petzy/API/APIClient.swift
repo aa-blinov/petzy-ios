@@ -12,9 +12,9 @@ struct APIClient: Sendable {
         try await send(APIRequest(path: path), as: type)
     }
 
-    func post<T: Decodable & Sendable, Body: Encodable & Sendable>(
+    func post<T: Decodable & Sendable>(
         _ path: String,
-        body: Body,
+        body: some Encodable & Sendable,
         as type: T.Type = T.self
     ) async throws -> T {
         let encoded = try JSONEncoder().encode(body)
@@ -28,9 +28,9 @@ struct APIClient: Sendable {
     }
 
     private func send<T: Decodable & Sendable>(_ request: APIRequest, as type: T.Type) async throws -> T {
-        let first = try await perform(request, token: try await auth.accessToken())
+        let first = try await perform(request, token: auth.accessToken())
         if first.1.statusCode == 401, await auth.refreshAccessToken() {
-            let second = try await perform(request, token: try await auth.accessToken())
+            let second = try await perform(request, token: auth.accessToken())
             return try Self.decode(second, as: type)
         }
         return try Self.decode(first, as: type)
@@ -45,11 +45,13 @@ struct APIClient: Sendable {
 
     private static func decode<T: Decodable>(
         _ result: (Data, HTTPURLResponse),
-        as type: T.Type
+        as _: T.Type
     ) throws -> T {
-        guard (200..<300).contains(result.1.statusCode) else {
+        guard (200 ..< 300).contains(result.1.statusCode) else {
             // 401 здесь уже после попытки обновиться: сессии нет, нужен вход.
-            if result.1.statusCode == 401 { throw APIError.unauthorized }
+            if result.1.statusCode == 401 {
+                throw APIError.unauthorized
+            }
             throw HTTP.apiError(data: result.0, response: result.1)
         }
         do {

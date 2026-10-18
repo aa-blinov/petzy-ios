@@ -36,10 +36,14 @@ final class StubURLProtocol: URLProtocol {
     }
 
     // swiftlint:disable:next static_over_final_class
-    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canInit(with _: URLRequest) -> Bool {
+        true
+    }
 
     // swiftlint:disable:next static_over_final_class
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
 
     override func startLoading() {
         Self.requests.append(request)
@@ -48,7 +52,8 @@ final class StubURLProtocol: URLProtocol {
 
         guard let url = request.url,
               let response = HTTPURLResponse(url: url, statusCode: stub.statusCode,
-                                             httpVersion: "HTTP/1.1", headerFields: nil) else {
+                                             httpVersion: "HTTP/1.1", headerFields: nil)
+        else {
             client?.urlProtocol(self, didFailWithError: APIError.transport("стаб не собрал ответ"))
             return
         }

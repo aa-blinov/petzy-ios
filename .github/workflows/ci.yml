@@ -1,0 +1,47 @@
+name: CI
+
+# Petzy.xcodeproj не хранится в git: он генерируется из project.yml.
+# Юнит-тесты не ходят в сеть. UI-тесты нужны живого локального стенда petzy,
+# в CI их нет, поэтому здесь только юнит-часть.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Сборка, стиль и юнит-тесты
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Показать версию Xcode
+        run: xcodebuild -version
+
+      - name: Поставить xcodegen и swiftlint
+        run: |
+          brew install xcodegen
+          brew install swiftlint
+
+      - name: Сгенерировать проект
+        run: xcodegen generate
+
+      - name: Проверить стиль
+        run: swiftlint lint --strict
+
+      - name: Собрать
+        run: |
+          xcodebuild -project Petzy.xcodeproj -scheme Petzy \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -derivedDataPath .build build
+
+      - name: Юнит-тесты
+        run: |
+          xcodebuild -project Petzy.xcodeproj -scheme Petzy \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -derivedDataPath .build test -only-testing:PetzyTests

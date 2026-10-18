@@ -33,13 +33,17 @@ project change, XcodeGen globs the directory.
 - iOS 27.0 minimum, Swift 6 language mode, `SWIFT_STRICT_CONCURRENCY=complete`
 
 ```bash
-make setup    # brew install xcodegen swiftlint, then generate
-make build    # generate + build for the simulator
-make test     # unit tests, fast, no server
-make test-ui  # UI tests against the live local stack (needs make backend)
-make run      # build, install and launch on the simulator
-make shot     # screenshot of the current screen
-make lint     # swiftlint
+make setup     # brew install xcodegen swiftlint, then generate
+make build     # generate + build for the simulator
+make test      # unit tests, fast, no server
+make test-ui   # UI tests against the live local stack (needs make backend)
+make run       # build, install and launch on the simulator
+make shot      # screenshot of the current screen
+make lint      # swiftlint
+make lint-strict  # same, warnings count as errors (what CI runs)
+make format    # rewrite the code per .swiftformat
+make format-check  # check the shape without changing anything
+make hooks     # point git at .githooks, once per clone
 ```
 
 Straight through `xcodebuild`:
@@ -52,6 +56,48 @@ xcodebuild -project Petzy.xcodeproj -scheme Petzy \
 
 Only one simulator exists on this machine (`iPhone Duo`, iOS 27.1). Override with
 `make run SIM="..."`.
+
+## Style and hooks
+
+- SwiftLint, 120 columns, same as the backend's ruff. `make lint-strict` is what
+  CI runs.
+- SwiftFormat, 0.64, config in `.swiftformat`. `make format` before committing;
+  `make format-check` is the read-only version.
+- The two disagree in one known place: swiftformat moves the brace of a
+  multi-line `if let` onto its own line, SwiftLint's `opening_brace` forbids it.
+  Write such conditions on one line instead of adding a suppression.
+- Git hooks live in `.githooks/`, not `.git/hooks/`. `make hooks` points git at
+  them once per clone. `pre-commit` checks formatting and style of staged Swift
+  files, `pre-push` runs the strict lint and the unit tests. Never `--no-verify`.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push to `master`: install the tools,
+`xcodegen generate`, `swiftlint lint --strict`, build, unit tests. UI tests are
+not in CI, they need a running Petzy stand. The runner is `macos-15` with the
+default Xcode; if the SDK there is older than iOS 27, pin `runs-on` and
+`DEVELOPER_DIR` to a runner that has a new enough Xcode.
+
+## Agents
+
+`.mcp.json` registers two MCP servers: `xcodebuild` (XcodeBuildMCP, owned by
+Sentry) for build, test and scheme discovery, and `ios-simulator` for
+screenshots and taps. Both are also registered in the local runtime; they start
+on the next turn after being added.
+
+`.xcodebuildmcp/config.yaml` holds the session defaults, so MCP calls need no
+arguments:
+
+```json
+build_sim({})
+test_sim({})
+```
+
+Keep `simulatorName` there and not `simulatorId`: the name is portable between
+machines and the server resolves the UDID itself. `projectPath` is absolute and
+belongs to this machine; on another one, fix that line or drop it and pass the
+path per call. The config points at `Petzy.xcodeproj`, which is generated, so
+run `make generate` first if the file is missing.
 
 ## TDD
 
@@ -230,6 +276,7 @@ The rules come from the web app (`AGENTS.md` in the backend repo):
 - API errors carry the server's own Russian text. «Неверный логин или пароль» and
   «сессия закончилась» are different problems for the person in front of the
   screen.
-- SwiftLint, 120 columns, same as the backend's ruff.
+- SwiftLint and SwiftFormat, 120 columns, same as the backend's ruff. See
+  "Style and hooks" above.
 - Swift Testing, not XCTest, for unit tests. XCTest only where the framework
   requires it, which today means XCUITest.

@@ -1,0 +1,7 @@
+# SwiftFormat: только то, что не вызывает споров. Ширина 120 совпадает со
+# swiftlint и с ruff в репозитории petzy.
+--swiftversion 6.0
+--maxwidth 120
+--indent 4
+--trimwhitespace always
+--commas inline

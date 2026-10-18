@@ -1,0 +1,17 @@
+# XcodeBuildMCP: значения по умолчанию для агента.
+#
+# Проект генерируется из project.yml, поэтому Petzy.xcodeproj должен существовать:
+# если его нет, сначала `make generate`.
+#
+# simulatorName переносим между машинами, сервер сам находит UDID.
+# projectPath абсолютный и привязан к этой машине: на другой поправь строку или
+# удали её и передавай путь при вызове.
+schemaVersion: 1
+sessionDefaultsProfiles:
+  ios:
+    projectPath: /Users/justcomex/Documents/Проекты/pet/petzy-ios/Petzy.xcodeproj
+    scheme: Petzy
+    simulatorName: iPhone Duo
+    derivedDataPath: /Users/justcomex/Documents/Проекты/pet/petzy-ios/.build
+    bundleId: ru.petzy.app
+activeSessionDefaultsProfile: ios

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Перед пуском: стиль, сборка и юнит-тесты. UI-тесты живого стенда сюда не
+# входят: им нужен поднятый petzy, а пушить лучше без него. Их гоняют вручную
+# через make test-ui, когда стенд поднят.
+
+set -e
+
+echo "Стиль..."
+swiftlint lint --strict
+
+echo "Форматирование..."
+swiftformat Petzy PetzyTests PetzyUITests --lint >/dev/null
+
+echo "Юнит-тесты..."
+xcodegen generate >/dev/null
+xcodebuild -project Petzy.xcodeproj -scheme Petzy \
+  -destination 'platform=iOS Simulator,name=iPhone Duo' \
+  -derivedDataPath .build test -only-testing:PetzyTests | tail -5
+
+echo "Всё зелёное"

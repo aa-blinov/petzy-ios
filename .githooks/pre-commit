@@ -1,0 +1,20 @@
+#!/bin/sh
+# Быстрые проверки перед коммитом: форматирование и стиль.
+# Полный набор с тестами живёт в pre-push.
+
+set -e
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.swift$' || true)
+
+if [ -n "$STAGED" ]; then
+    echo "$STAGED" | while read -r file; do
+        swiftformat --lint "$file" >/dev/null || {
+            echo "Форматирование: $file"
+            swiftformat "$file"
+            echo "Правки внесены, посмотри diff и добавь файл снова"
+            exit 1
+        }
+    done
+fi
+
+swiftlint lint --quiet

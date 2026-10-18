@@ -20,7 +20,7 @@ final class AppModel {
 
     init(auth: AuthSession) {
         self.auth = auth
-        self.client = APIClient(baseURL: AppConfig.baseURL, urlSession: AppConfig.urlSession, auth: auth)
+        client = APIClient(baseURL: AppConfig.baseURL, urlSession: AppConfig.urlSession, auth: auth)
     }
 
     func start() async {

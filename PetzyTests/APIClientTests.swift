@@ -1,12 +1,12 @@
 import Foundation
-import Testing
 @testable import Petzy
+import Testing
 
 @Suite("Запросы к API")
 struct APIClientTests {
     private let baseURL = URL(string: "http://localhost:5002")!
 
-        /// Сессию надо поднять из хранилища, как это делает приложение при старте:
+    /// Сессию надо поднять из хранилища, как это делает приложение при старте:
     /// без `restore()` в `AuthSession` токенов нет и любой запрос падает с `.signedOut`.
     private func makeClient(storage: any TokenStorage) async -> APIClient {
         let session = StubURLProtocol.makeSession()
@@ -30,9 +30,9 @@ struct APIClientTests {
                     "species": "dog",
                     "breed": "Лабрадор",
                     "birth_date": "2021-08-01",
-                    "gender": "male",
-                ],
-            ],
+                    "gender": "male"
+                ]
+            ]
         ])
         let client = await makeClient(storage: signedInStorage())
 
@@ -43,7 +43,7 @@ struct APIClientTests {
         #expect(response.pets[0].name == "Рекс")
         #expect(PetSpecies.label(for: response.pets[0].species) == "Собака")
         #expect(StubURLProtocol.requests.first?.value(forHTTPHeaderField: "Authorization")
-                == "Bearer access-1")
+            == "Bearer access-1")
     }
 
     @Test("Истёкший access: сначала обновление, потом повтор того же запроса")
@@ -52,10 +52,10 @@ struct APIClientTests {
         StubURLProtocol.stub(status: 401, json: ["error": "Нет токена или он истёк"])
         StubURLProtocol.stub(status: 200, json: [
             "access_token": "access-2",
-            "refresh_token": "refresh-2",
+            "refresh_token": "refresh-2"
         ])
         StubURLProtocol.stub(status: 200, json: [
-            "pets": [["_id": "1", "name": "Рекс"]],
+            "pets": [["_id": "1", "name": "Рекс"]]
         ])
         let storage = signedInStorage()
         let client = await makeClient(storage: storage)
@@ -70,7 +70,7 @@ struct APIClientTests {
     @Test("Обновление не удалось: запрос не повторяется, сессия закрыта")
     func stopsAfterOneRetry() async throws {
         StubURLProtocol.reset()
-        for _ in 0..<4 {
+        for _ in 0 ..< 4 {
             StubURLProtocol.stub(status: 401, json: ["error": "Нет токена или он истёк"])
         }
         let storage = signedInStorage()
@@ -94,10 +94,10 @@ struct APIClientTests {
         StubURLProtocol.stub(status: 401, json: ["error": "Нет токена или он истёк"])
         StubURLProtocol.stub(status: 200, json: [
             "access_token": "access-2",
-            "refresh_token": "refresh-2",
+            "refresh_token": "refresh-2"
         ])
         // Повтор тоже отвечает 401: второй попытки обновить токен уже не будет.
-        for _ in 0..<3 {
+        for _ in 0 ..< 3 {
             StubURLProtocol.stub(status: 401, json: ["error": "Нет токена или он истёк"])
         }
         let client = await makeClient(storage: signedInStorage())
@@ -116,7 +116,7 @@ struct APIClientTests {
         StubURLProtocol.stub(status: 429, json: [
             "code": "rate_limit_exceeded",
             "error": "Слишком много запросов",
-            "success": false,
+            "success": false
         ])
         let client = await makeClient(storage: signedInStorage())
 

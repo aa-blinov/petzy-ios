@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import Petzy
+import Testing
 
 @Suite("Вход и обновление токена")
 struct AuthSessionTests {
@@ -17,7 +17,7 @@ struct AuthSessionTests {
         StubURLProtocol.stub(status: 200, json: [
             "message": "Вы вошли",
             "access_token": "access-1",
-            "refresh_token": "refresh-1",
+            "refresh_token": "refresh-1"
         ])
         let storage = InMemoryTokenStorage()
         let auth = makeSession(storage: storage)
@@ -37,7 +37,7 @@ struct AuthSessionTests {
         StubURLProtocol.reset()
         StubURLProtocol.stub(status: 200, json: [
             "access_token": "access-2",
-            "refresh_token": "refresh-2",
+            "refresh_token": "refresh-2"
         ])
         let storage = InMemoryTokenStorage(
             tokens: StoredTokens(accessToken: "access-1", refreshToken: "refresh-1")
@@ -89,7 +89,7 @@ struct AuthSessionTests {
         StubURLProtocol.stub(status: 401, json: [
             "code": "unauthorized_invalid_credentials",
             "error": "Неверный логин или пароль",
-            "success": false,
+            "success": false
         ])
         let auth = makeSession(storage: InMemoryTokenStorage())
 

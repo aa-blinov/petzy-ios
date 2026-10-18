@@ -60,10 +60,13 @@ make run
 | `make generate` | Пересобирает `Petzy.xcodeproj` из `project.yml` |
 | `make open` | Открывает проект в Xcode |
 | `make build` | Собирает под симулятор |
-| `make test` | Прогоняет тесты |
+| `make test` | Прогоняет юнит-тесты |
+| `make test-ui` | Прогоняет UI-тесты против локального стека |
 | `make run` | Собирает, ставит и запускает на симуляторе |
 | `make shot` | Скриншот текущего экрана |
 | `make lint` | Проверка стиля |
+| `make format` | Приводит код к виду по `.swiftformat` |
+| `make hooks` | Включает гит-хуки, один раз на клон |
 | `make backend` | Поднимает локальный стек petzy в Docker |
 | `make backend-stop` | Останавливает его |
 | `make clean` | Убирает сборку и сгенерированный проект |

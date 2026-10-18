@@ -19,7 +19,7 @@ DEST = platform=iOS Simulator,name=$(SIM)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup generate open build test run shot lint lint-strict backend backend-stop logs clean
+.PHONY: help setup generate open build test test-ui run shot lint lint-strict format format-check hooks backend backend-stop logs clean
 
 help: ## Показать все команды
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-13s\033[0m %s\n",$$1,$$2}'
@@ -31,6 +31,10 @@ setup: ## Поставить xcodegen и swiftlint, сгенерировать �
 
 generate: ## Собрать Petzy.xcodeproj из project.yml
 	@xcodegen generate
+
+hooks: ## Включить гит-хуки этого репозитория (один раз на клон)
+	@git config core.hooksPath .githooks
+	@echo "хуки включены: core.hooksPath = .githooks"
 
 open: generate ## Открыть проект в Xcode
 	@open Petzy.xcodeproj
@@ -66,6 +70,12 @@ lint: ## Проверить стиль
 
 lint-strict: ## Проверить стиль, предупреждения считаем ошибками (для CI)
 	@swiftlint lint --strict
+
+format: ## Привести код к виду по .swiftformat
+	@swiftformat Petzy PetzyTests PetzyUITests
+
+format-check: ## Проверить вид, ничего не меняя
+	@swiftformat Petzy PetzyTests PetzyUITests --lint
 
 backend: ## Поднять локальный стек petzy (нужен API на :5002)
 	@cd $(PETZY_DIR) && $(COMPOSE) up -d --build

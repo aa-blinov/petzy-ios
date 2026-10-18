@@ -68,7 +68,7 @@ final class LoginAndPetsUITests: XCTestCase {
         app.launchArguments = ["-uiTestSignedOut"]
         app.launchEnvironment = [
             "PETZY_TEST_LOGIN": demoLogin,
-            "PETZY_TEST_PASSWORD": "точно неверный",
+            "PETZY_TEST_PASSWORD": "точно неверный"
         ]
         app.launch()
 
@@ -86,7 +86,7 @@ final class LoginAndPetsUITests: XCTestCase {
         app.launchArguments = ["-uiTestSignedOut"]
         app.launchEnvironment = [
             "PETZY_TEST_LOGIN": demoLogin,
-            "PETZY_TEST_PASSWORD": demoPassword,
+            "PETZY_TEST_PASSWORD": demoPassword
         ]
         app.launch()
         return app
