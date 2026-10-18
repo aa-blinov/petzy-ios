@@ -64,7 +64,7 @@ struct Pet: Decodable, Sendable, Identifiable, Equatable {
 /// Значение поля записи. У разных типов записи поля разные, и в одном и том же
 /// поле встречаются и числа, и текст, поэтому единого типа здесь не будет.
 /// Число и текст различаем при разборе, а не догадываемся при показе.
-enum FieldValue: Decodable, Sendable {
+enum FieldValue: Codable, Sendable, Equatable {
     case number(Double)
     case text(String)
 
@@ -88,6 +88,69 @@ enum FieldValue: Decodable, Sendable {
             return String(format: "%g", rounded).replacingOccurrences(of: ".", with: ",")
         }
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case let .text(text):
+            try container.encode(text)
+        case let .number(number):
+            try container.encode(number)
+        }
+    }
+}
+
+/// Тело запроса записи. У создания есть тип и питомец, у правки их нет: тип у
+/// записи не меняется, а питомца менять нельзя. Один тип на оба случая, чтобы
+/// не держать два одинаковых описания.
+struct EventRequest: Encodable, Sendable {
+    let petID: String?
+    let date: String
+    let time: String
+    let comment: String
+    let fields: [String: FieldValue]
+    let type: String?
+    /// Часовой пояс телефона: время в записи остаётся тем, что человек ввёл
+    /// у себя, а не пересчитанным по серверу. На сервере поле называется `tz`,
+    /// а такое короткое имя swiftlint в Swift не пропускает, поэтому здесь
+    /// длиннее, а ключ остаётся серверным.
+    let timeZone: String
+
+    enum CodingKeys: String, CodingKey {
+        case petID = "pet_id"
+        case date, time, comment, fields, type
+        case timeZone = "tz"
+    }
+
+    static func create(_ draft: EventDraft, petID: String) -> EventRequest {
+        EventRequest(
+            petID: petID,
+            date: draft.date,
+            time: draft.time,
+            comment: draft.comment,
+            fields: draft.encodedFields,
+            type: draft.type.key,
+            timeZone: TimeZone.current.identifier
+        )
+    }
+
+    static func update(_ draft: EventDraft) -> EventRequest {
+        EventRequest(
+            petID: nil,
+            date: draft.date,
+            time: draft.time,
+            comment: draft.comment,
+            fields: draft.encodedFields,
+            type: nil,
+            timeZone: TimeZone.current.identifier
+        )
+    }
+}
+
+/// Ответ на сохранение записи. Текст показываем как есть, он от бэкенда.
+struct EventSavedResponse: Decodable, Sendable {
+    let message: String
+    let id: String?
 }
 
 /// Запись дневника. `date_time` приходит как «2026-10-04 11:00»: время человека,
@@ -156,19 +219,44 @@ struct EventsPage: Decodable, Sendable {
     }
 }
 
+/// Вариант выбора в поле. Появляется у полей вида `choice`.
+struct EventFieldOption: Decodable, Sendable {
+    let text: String
+    let value: String
+}
+
 /// Поле типа записи: как оно называется в записи и как подписано для человека.
-/// Подпись нужна для показа: ключ `weight` в ленте читаться не должен.
-struct EventFieldInfo: Decodable, Sendable {
+/// Подпись нужна для показа: ключ `weight` в ленте читаться не должен. Вид,
+/// обязательность и границы нужны форме добавления, чтобы собрать запись из
+/// того, что человек набрал, и не отправить на сервер ерунду.
+struct EventFieldInfo: Decodable, Sendable, Identifiable {
     let name: String
     let label: String
+    /// `number`, `text` или `choice`.
+    let type: String
+    let required: Bool
+    let min: Double?
+    let max: Double?
+    let options: [EventFieldOption]?
+
+    /// У поля уже есть имя, оно и есть его identity в списке.
+    var id: String {
+        name
+    }
 }
 
 /// Тип записи: как она называется, каким значком рисуется и какие у неё поля.
-struct EventTypeInfo: Decodable, Sendable {
+/// `category` приходит `null` у своих типов, их форма выбора не спрашивает.
+struct EventTypeInfo: Decodable, Sendable, Identifiable {
     let key: String
     let label: String
     let icon: String?
+    let category: String?
     let fields: [EventFieldInfo]
+
+    var id: String {
+        key
+    }
 }
 
 struct EventTypesResponse: Decodable, Sendable {

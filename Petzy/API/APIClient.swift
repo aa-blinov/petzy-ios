@@ -21,19 +21,40 @@ struct APIClient: Sendable {
         return try await send(APIRequest(path: path, method: "POST", body: encoded), as: type)
     }
 
+    func put<T: Decodable & Sendable>(
+        _ path: String,
+        body: some Encodable & Sendable,
+        as type: T.Type = T.self
+    ) async throws -> T {
+        let encoded = try JSONEncoder().encode(body)
+        return try await send(APIRequest(path: path, method: "PUT", body: encoded), as: type)
+    }
+
+    /// Ответа может не быть вовсе: удалённая запись просто уходит.
+    func delete(_ path: String) async throws {
+        let result = try await raw(APIRequest(path: path, method: "DELETE"))
+        guard (200 ..< 300).contains(result.1.statusCode) else {
+            throw HTTP.apiError(data: result.0, response: result.1)
+        }
+    }
+
     private struct APIRequest: Sendable {
         var path: String
         var method = "GET"
         var body: Data?
     }
 
-    private func send<T: Decodable & Sendable>(_ request: APIRequest, as type: T.Type) async throws -> T {
+    /// Запрос с одной попыткой обновить истёкший access-токен и повторить.
+    private func raw(_ request: APIRequest) async throws -> (Data, HTTPURLResponse) {
         let first = try await perform(request, token: auth.accessToken())
         if first.1.statusCode == 401, await auth.refreshAccessToken() {
-            let second = try await perform(request, token: auth.accessToken())
-            return try Self.decode(second, as: type)
+            return try await perform(request, token: auth.accessToken())
         }
-        return try Self.decode(first, as: type)
+        return first
+    }
+
+    private func send<T: Decodable & Sendable>(_ request: APIRequest, as type: T.Type) async throws -> T {
+        try await Self.decode(raw(request), as: type)
     }
 
     private func perform(_ request: APIRequest, token: String) async throws -> (Data, HTTPURLResponse) {

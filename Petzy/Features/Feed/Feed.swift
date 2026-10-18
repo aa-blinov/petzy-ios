@@ -55,7 +55,7 @@ enum Feed {
 
     /// Дата в том же виде, в каком её присылает сервер, чтобы сравнение строк
     /// не зависело от локали устройства.
-    private static func isoDay(_ date: Date, calendar: Calendar) -> String {
+    static func isoDay(_ date: Date, calendar: Calendar) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }

@@ -6,17 +6,61 @@ import SwiftUI
 struct FeedView: View {
     let model: AppModel
 
+    @State private var pickingType = false
+    @State private var form: EventFormTarget?
+    @State private var pendingDelete: PetEvent?
+
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle("Лента")
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) { PetSwitcher(model: model) }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            pickingType = true
+                        } label: {
+                            Label("Новая запись", systemImage: "plus")
+                        }
+                    }
                 }
         }
         // Питомца сменили — лента должна перечитаться, а не остаться от прежнего.
         .task(id: model.selectedPetID) {
             await model.loadFeed()
+        }
+        .sheet(isPresented: $pickingType) {
+            NavigationStack {
+                EventCatalogView(model: model) { type in
+                    pickingType = false
+                    form = EventFormTarget(draft: EventFormView.emptyDraft(type: type), recordID: nil)
+                }
+            }
+        }
+        .sheet(item: $form) { target in
+            EventFormView(model: model, draft: target.draft, recordID: target.recordID)
+        }
+        .confirmationDialog(
+            "Удалить запись?",
+            isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: {
+                    if !$0 {
+                        pendingDelete = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Удалить", role: .destructive) {
+                if let event = pendingDelete {
+                    Task { await model.deleteEvent(id: event.id) }
+                }
+                pendingDelete = nil
+            }
+            Button("Отмена", role: .cancel) { pendingDelete = nil }
+        } message: {
+            Text("Запись пропадёт из дневника")
         }
     }
 
@@ -44,7 +88,7 @@ struct FeedView: View {
             ForEach(model.days) { day in
                 Section(Feed.dayHeader(day.date, today: .now, calendar: .current)) {
                     ForEach(day.events) { event in
-                        FeedRow(event: event, model: model)
+                        row(event)
                     }
                 }
             }
@@ -56,6 +100,28 @@ struct FeedView: View {
             }
         }
         .listStyle(.plain)
+    }
+
+    private func row(_ event: PetEvent) -> some View {
+        FeedRow(event: event, model: model)
+            .contentShape(.rect)
+            .onTapGesture { openEditor(event) }
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button("Изменить") { openEditor(event) }
+                // Полный свайп выключен: удаление на сервере жёсткое, и одна
+                // подтверждённая кнопка лучше случайного жеста.
+                // В iOS 26 кнопки свайпа берут цвет из тинта: одной роли
+                // `.destructive` недостаточно, «Удалить» вышла бы того же
+                // коричневого цвета, что «Изменить». Роль оставлена тоже: по ней
+                // доступность читает действие как разрушающее.
+                Button("Удалить", role: .destructive) { pendingDelete = event }
+                    .tint(.red)
+            }
+    }
+
+    private func openEditor(_ event: PetEvent) {
+        guard let type = model.typeInfo(for: event.type) else { return }
+        form = EventFormTarget(draft: EventDraft(event: event, type: type), recordID: event.id)
     }
 }
 

@@ -251,16 +251,21 @@ on line one look identical until it finishes.
 **`simctl get_app_container` fails with `Unable to lookup in current state:
 Shutdown`** when the device is off. Boot it first.
 
-**The software keyboard renders with only three keys** (shift, next keyboard, Go)
-in this environment. `typeText` therefore drops letters: a 15 character password
+**`typeText` into a `SecureField` drops characters.** A 15 character password
 arrived as its last six characters, digits and hyphens only. Chunked typing, the
 hardware keyboard setting, `textContentType`, and the keyboard layout all made no
-difference, and `simctl` confirmed the keyboard really had three keys.
+difference. The keyboard itself is **not** the cause: a screenshot of the search
+field in the type catalog shows a full Russian layout, about thirty keys, so this
+is specific to the secure field and not to typing in general. `idb`'s `ui_type`
+also rejects non-ASCII outright (`text must match ^[\x20-\x7E]+$`), so Russian
+text cannot be typed through MCP either.
 
-So: **do not type into `SecureField` from a UI test.** Feed credentials through
-the environment instead (see below). Read what the app actually received with
-`app.debugDescription` or a file in its container; the accessibility value of a
-secure field does not give a usable character count.
+So: **do not type into `SecureField` from a UI test**, and do not plan a UI test
+around typing Russian text. Feed credentials through the environment instead (see
+below). Read what the app actually received with `app.debugDescription` or a file
+in its container; the accessibility value of a secure field does not give a usable
+character count. Pick record types without fields, or already filled values, when
+the test has to get past a form.
 
 ## The backend
 
@@ -399,10 +404,21 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
   ([HIG Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)),
   and in iOS 26 the button gets Liquid Glass on its own.
 - **Row actions are `swipeActions`**, not web-style swipe-left-to-delete. Destructive
-  button uses `Button(role: .destructive)` with `allowsFullSwipe` **off**, and the
-  delete goes through a `confirmationDialog`. A server-side delete is hard and
-  unrecoverable, and silently losing a medication dose is worse than one extra tap.
-  This is the exact pattern in [What's new in SwiftUI, WWDC26](https://developer.apple.com/videos/play/wwdc2026/269/).
+  button uses `Button(role: .destructive)`, the delete goes through a
+  `confirmationDialog`, and the full swipe is switched off through the
+  **parameter of `swipeActions`**, not as a modifier on the button:
+  `.swipeActions(edge: .trailing, allowsFullSwipe: false)`. Written as a modifier
+  on the button it does not compile, and the compiler reports it as «unable to
+  type-check this expression», not as a missing member.
+- **In iOS 26 a `swipeActions` button is painted from the tint, and
+  `role: .destructive` alone leaves it the accent colour.** Verified on the
+  simulator: «Удалить» and «Изменить» came out the same brown, and only
+  `.tint(.red)` on the destructive button turned it red. The same button inside
+  a `confirmationDialog` *is* red with the role alone. So the destructive action
+  in a row needs both: the role and the tint. A server-side delete is hard and
+  unrecoverable, and silently losing a medication dose is worse than one extra
+  tap. This is the exact pattern in
+  [What's new in SwiftUI, WWDC26](https://developer.apple.com/videos/play/wwdc2026/269/).
 - **Pets carry a photo and a name.** No photo frames, no coloured card background,
   no handwritten font. Those were web decoration.
 - **Native components, no glass of our own.** Use the system control, strip its
@@ -415,6 +431,15 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
 - Models decode with hand-written `CodingKeys`, not
   `JSONDecoder.convertFromSnakeCase`. The pet id is `_id`, which the automatic
   conversion turns into `Id`, and that typo does not surface as a build error.
+- **A struct with its own `init` loses the memberwise one.** Adding the second
+  initializer to `EventDraft` silently removed the synthesised `init(type:…)` that
+  the tests and the form were calling, and the errors pointed at every call site
+  instead of at the struct. When a struct grows a convenience initializer, write
+  the plain one out by hand.
+- «the compiler is unable to type-check this expression in reasonable time» is
+  almost never a slow type checker. It is a modifier or argument the API does not
+  have, and the real diagnostic («no member `allowsFullSwipe`») shows up only
+  after the expression is broken up into smaller ones.
 - `Pet` carries only the fields the app uses today. `/api/pets` returns more; add
   a field when a screen needs it rather than importing everything.
 - API errors carry the server's own Russian text. «Неверный логин или пароль» and

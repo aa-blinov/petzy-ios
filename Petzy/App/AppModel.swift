@@ -45,6 +45,21 @@ final class AppModel {
         Feed.group(rawEvents, knownTypes: Set(eventTypes.keys))
     }
 
+    /// Типы записи для выбора под кнопкой «+». Порядок внутри групп задаёт
+    /// сравнение по-русски: справочник приходит словарём, порядок в нём
+    /// никакой.
+    var typeCatalog: [EventTypeInfo] {
+        eventTypes.values.sorted {
+            $0.label.localizedStandardCompare($1.label) == .orderedAscending
+        }
+    }
+
+    /// Описание типа по ключу. `nil`, если тип не пришёл: правку незнакомой
+    /// записи открыть нечем, и лучше ничего не сделать, чем показать пустую форму.
+    func typeInfo(for key: String) -> EventTypeInfo? {
+        eventTypes[key]
+    }
+
     /// Питомцы из последнего успешного ответа. Пустой список, пока грузится
     /// или грузить нечего.
     var pets: [Pet] {
@@ -133,6 +148,45 @@ final class AppModel {
         defer { isLoadingFeed = false }
         do {
             try await apply(fetchPage(petID: petID, before: cursor), appending: true)
+        } catch {
+            handleFeedError(error)
+        }
+    }
+
+    /// Сохраняет новую запись и, если получилось, перечитывает ленту: запись
+    /// должна появиться сразу, а не после ручного обновления.
+    func createEvent(_ draft: EventDraft) async {
+        guard let petID = selectedPetID else { return }
+        feedErrorText = nil
+        do {
+            let request = EventRequest.create(draft, petID: petID)
+            _ = try await client.post("/api/events", body: request, as: EventSavedResponse.self)
+            await loadFeed()
+        } catch {
+            handleFeedError(error)
+        }
+    }
+
+    /// Правка существующей записи.
+    func updateEvent(id: String, draft: EventDraft) async {
+        feedErrorText = nil
+        do {
+            let request = EventRequest.update(draft)
+            _ = try await client.put("/api/events/\(id)", body: request, as: EventSavedResponse.self)
+            await loadFeed()
+        } catch {
+            handleFeedError(error)
+        }
+    }
+
+    /// Удаление. Убираем из своей копии только после ответа сервера: иначе
+    /// запись исчезла бы с экрана, но осталась бы в базе, и человек бы её
+    /// искал, думая, что неудачно сохранил.
+    func deleteEvent(id: String) async {
+        feedErrorText = nil
+        do {
+            try await client.delete("/api/events/\(id)")
+            rawEvents.removeAll { $0.id == id }
         } catch {
             handleFeedError(error)
         }

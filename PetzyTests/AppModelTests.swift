@@ -126,7 +126,10 @@ struct AppModelTests {
     func feedFollowsCursorToTheEnd() async {
         StubURLProtocol.reset()
         StubURLProtocol.stub(status: 200, json: ["event_types": [
-            ["key": "weight", "label": "Вес", "icon": "scalemass", "fields": [["name": "weight", "label": "Вес (кг)"]]]
+            ["key": "weight", "label": "Вес", "icon": "scalemass", "fields": [[
+                "name": "weight", "label": "Вес (кг)", "type": "number",
+                "required": true, "min": 0.0, "max": 100.0, "options": nil
+            ]]]
         ]])
         StubURLProtocol.stub(status: 200, json: [
             "items": [stubEvent("e1", dateTime: "2026-10-18 09:00")],
@@ -178,5 +181,143 @@ struct AppModelTests {
         await model.loadMore()
 
         #expect(StubURLProtocol.requests.count == before)
+    }
+
+    private func stubTypeReference() {
+        StubURLProtocol.stub(status: 200, json: ["event_types": [
+            ["key": "weight", "label": "Вес", "icon": "scale", "fields": [
+                [
+                    "name": "weight", "label": "Вес (кг)", "type": "number",
+                    "required": true, "min": 0.0, "max": 100.0, "options": nil
+                ]
+            ]]
+        ]])
+    }
+
+    private func weightDraft() -> EventDraft {
+        EventDraft(
+            type: EventTypeInfo(key: "weight", label: "Вес", icon: "scale", category: "health", fields: [
+                EventFieldInfo(
+                    name: "weight", label: "Вес (кг)", type: "number",
+                    required: true, min: 0, max: 100, options: nil
+                )
+            ]),
+            values: ["weight": "29,3"],
+            comment: "после прогулки",
+            date: "2026-10-18",
+            time: "12:00"
+        )
+    }
+
+    /// Запрос проверяется целиком: путь, тип и питомец в теле. Если хоть одное из
+    /// этого разъедется, запись уйдёт не туда или потеряет значения.
+    @Test("Новая запись уходит с типом, питомцем и значениями")
+    func createEventSendsEverything() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["message": "Запись сохранена", "id": "e-new"])
+        // После сохранения лента перечитывается целиком, ей нужны свои ответы.
+        stubTypeReference()
+        StubURLProtocol.stub(status: 200, json: ["items": [], "next_cursor": nil])
+        let model = await makeModel(defaults: makeDefaults())
+        model.select(petID: "pet-1")
+
+        await model.createEvent(weightDraft())
+
+        let request = StubURLProtocol.requests.first { $0.httpMethod == "POST" }
+        #expect(request?.httpMethod == "POST")
+        #expect(request?.url?.path == "/api/events")
+        let body = Self.body(of: request)
+        #expect(body["type"] as? String == "weight")
+        #expect(body["pet_id"] as? String == "pet-1")
+        #expect(body["date"] as? String == "2026-10-18")
+        #expect(body["time"] as? String == "12:00")
+        #expect(body["comment"] as? String == "после прогулки")
+        #expect((body["fields"] as? [String: Any])?["weight"] as? Double == 29.3)
+        #expect(body["tz"] != nil, "часовой пояс телефона обязателен")
+    }
+
+    @Test("Правка уходит без типа и питомца, адрес содержит id записи")
+    func updateEventSendsOnlyChanges() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["message": "Запись обновлена"])
+        let model = await makeModel(defaults: makeDefaults())
+
+        await model.updateEvent(id: "e-1", draft: weightDraft())
+
+        let request = StubURLProtocol.requests.first { $0.httpMethod == "PUT" }
+        #expect(request?.httpMethod == "PUT")
+        #expect(request?.url?.path == "/api/events/e-1")
+        let body = Self.body(of: request)
+        #expect(body["type"] == nil)
+        #expect(body["pet_id"] == nil)
+        #expect((body["fields"] as? [String: Any])?["weight"] as? Double == 29.3)
+    }
+
+    /// Удаление на сервере жёсткое и необратимое. Проверяем и запрос, и то,
+    /// что запись действительно исчезла из ленты на экране.
+    @Test("Удаление уходит отдельным запросом и убирает запись из ленты")
+    func deleteEventRemovesItFromFeed() async {
+        StubURLProtocol.reset()
+        stubTypeReference()
+        StubURLProtocol.stub(status: 200, json: [
+            "items": [stubEvent("e-1", dateTime: "2026-10-18 09:00")],
+            "next_cursor": nil
+        ])
+        StubURLProtocol.stub(status: 200, json: ["message": "Запись удалена"])
+        let model = await makeModel(defaults: makeDefaults())
+        model.select(petID: "pet-1")
+        await model.loadFeed()
+        #expect(model.rawEvents.count == 1)
+
+        await model.deleteEvent(id: "e-1")
+
+        let request = StubURLProtocol.requests.first { $0.httpMethod == "DELETE" }
+        #expect(request?.url?.path == "/api/events/e-1")
+        #expect(model.rawEvents.isEmpty)
+    }
+
+    /// Ответ сервера с чужой ошибкой должен дойти до человека, а не молчать.
+    @Test("Ошибка сохранения показывается")
+    func saveErrorIsShown() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 422, json: [
+            "code": "validation_error", "error": "Вес должен быть от 0 до 100"
+        ])
+        let model = await makeModel(defaults: makeDefaults())
+        model.select(petID: "pet-1")
+
+        await model.createEvent(weightDraft())
+
+        #expect(model.feedErrorText == "Вес должен быть от 0 до 100")
+    }
+
+    /// Тело запроса. `URLSession` отдаёт `URLProtocol` не `httpBody`, а поток,
+    /// поэтому читать приходится из обоих: иначе тело выглядит пустым, хотя
+    /// запрос ушёл вовсе с данными.
+    private static func body(of request: URLRequest?) -> [String: Any] {
+        guard let data = bodyData(of: request),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return [:] }
+        return object
+    }
+
+    private static func bodyData(of request: URLRequest?) -> Data? {
+        if let body = request?.httpBody {
+            return body
+        }
+        guard let stream = request?.httpBodyStream else { return nil }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        let size = 4096
+        var buffer = [UInt8](repeating: 0, count: size)
+        while stream.hasBytesAvailable {
+            let read = stream.read(&buffer, maxLength: size)
+            if read <= 0 {
+                break
+            }
+            data.append(buffer, count: read)
+        }
+        return data
     }
 }
