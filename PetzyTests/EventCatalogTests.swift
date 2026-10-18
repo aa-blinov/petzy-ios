@@ -13,7 +13,7 @@ struct EventCatalogTests {
         category: String?,
         fields: [EventFieldInfo] = []
     ) -> EventTypeInfo {
-        EventTypeInfo(key: key, label: label, icon: "star", category: category, fields: fields)
+        EventTypeInfo(key: key, label: label, icon: "star", category: category, fields: fields, chart: nil)
     }
 
     private func numberField(_ name: String, _ label: String) -> EventFieldInfo {

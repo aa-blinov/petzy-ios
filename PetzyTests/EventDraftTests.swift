@@ -42,7 +42,7 @@ struct EventDraftTests {
     }
 
     private func typeInfo(_ fields: [EventFieldInfo]) -> EventTypeInfo {
-        EventTypeInfo(key: "weight", label: "Вес", icon: "scale", category: "health", fields: fields)
+        EventTypeInfo(key: "weight", label: "Вес", icon: "scale", category: "health", fields: fields, chart: nil)
     }
 
     private func draft(_ fields: [EventFieldInfo], _ values: [String: String]) -> EventDraft {

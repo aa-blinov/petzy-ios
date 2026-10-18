@@ -47,8 +47,23 @@ final class StubURLProtocol: URLProtocol {
 
     override func startLoading() {
         Self.requests.append(request)
-        let stub = Self.stubs.first ?? Stub(statusCode: 500, body: Data())
-        Self.stubs.removeFirst()
+        // Лишний запрос получает 500, и это видно в тесте. Брать заглушку из
+        // пустого списка нельзя: `removeFirst` на пустом массиве роняет весь
+        // прогон, и падение выглядит как «тесты не запускаются», а не как
+        // «тест запросил лишнее».
+        guard !Self.stubs.isEmpty else {
+            guard let url = request.url,
+                  let response = HTTPURLResponse(url: url, statusCode: 500,
+                                                 httpVersion: "HTTP/1.1", headerFields: nil)
+            else {
+                client?.urlProtocol(self, didFailWithError: APIError.transport("стаб не собрал ответ"))
+                return
+            }
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
+        let stub = Self.stubs.removeFirst()
 
         guard let url = request.url,
               let response = HTTPURLResponse(url: url, statusCode: stub.statusCode,

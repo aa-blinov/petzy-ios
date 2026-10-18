@@ -165,7 +165,13 @@ struct PetEvent: Decodable, Sendable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
-        case type, comment, fields
+        /// `type` у ленты, `record_type` у таймлайна истории. Обе схемы
+        /// отдают один и тот же список записей, а называют тип по-разному,
+        /// и без второго имени записи истории выглядели бы записью
+        /// неизвестного типа и молча пропали бы из списка.
+        case type
+        case recordType = "record_type"
+        case comment, fields
         case dateTime = "date_time"
         case isDeleted = "is_deleted"
     }
@@ -175,11 +181,22 @@ struct PetEvent: Decodable, Sendable, Identifiable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
-        type = try container.decode(String.self, forKey: .type)
         dateTime = try container.decode(String.self, forKey: .dateTime)
         comment = try container.decodeIfPresent(String.self, forKey: .comment) ?? ""
         fields = try container.decodeIfPresent([String: FieldValue].self, forKey: .fields) ?? [:]
         isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
+        guard let type = try container.decodeIfPresent(String.self, forKey: .type)
+            ?? container.decodeIfPresent(String.self, forKey: .recordType)
+        else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.type,
+                DecodingError.Context(
+                    codingPath: container.codingPath,
+                    debugDescription: "у записи нет ни type, ни record_type"
+                )
+            )
+        }
+        self.type = type
     }
 
     init(
@@ -253,10 +270,33 @@ struct EventTypeInfo: Decodable, Sendable, Identifiable {
     let icon: String?
     let category: String?
     let fields: [EventFieldInfo]
+    let chart: EventChart?
 
     var id: String {
         key
     }
+}
+
+/// Как рисуется график типа: `value` — линия по величине записи, `count` —
+/// столбцы по количеству записей. Без него график показывал бы среднее там,
+/// где нужен счёт.
+struct EventChart: Decodable, Sendable, Equatable {
+    let kind: String
+    let valueField: String?
+    /// Подпись величины с единицами измерения: «Вес (кг)». Без неё на оси
+    /// были бы голые числа.
+    let valueLabel: String?
+
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case valueField = "value_field"
+        case valueLabel = "value_label"
+    }
+}
+
+/// Типы, записи о которых у питомца есть. Ими заполняется фильтр истории.
+struct UsedTypesResponse: Decodable, Sendable {
+    let types: [String]
 }
 
 struct EventTypesResponse: Decodable, Sendable {

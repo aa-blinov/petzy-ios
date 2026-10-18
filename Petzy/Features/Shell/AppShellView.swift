@@ -38,6 +38,16 @@ private struct SettingsSection: View {
     var body: some View {
         NavigationStack {
             List {
+                NavigationLink {
+                    HistoryView(model: model)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("История записей", systemImage: "clock.arrow.circlepath")
+                        Text("Всё за всё время, фильтр по типу и графики")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Button("Выйти", role: .destructive, action: model.signOut)
             }
             .navigationTitle("Настройки")

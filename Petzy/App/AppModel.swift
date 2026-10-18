@@ -38,7 +38,29 @@ final class AppModel {
     private(set) var hasMoreEvents = false
     private(set) var isLoadingFeed = false
     private(set) var feedErrorText: String?
-    private var eventTypes: [String: EventTypeInfo] = [:]
+    var eventTypes: [String: EventTypeInfo] = [:]
+
+    /// Типы, записи о которых у питомца есть. В фильтре истории показываются
+    /// только они: питомцу, у которого никогда не было температуры,
+    /// «Температура» предлагать незачем.
+    var usedTypes: [String] = []
+    var historyRaw: [PetEvent] = []
+    var historyCursor: String?
+    var hasMoreHistory = false
+    var isLoadingHistory = false
+    var historyErrorText: String?
+    /// Выбранный фильтр по типу. `nil` — «Все».
+    var historyType: String?
+    var statsPoints: [EventStatsPoint] = []
+    /// Свойства истории меняются из `AppModel+History.swift`, а `private(set)`
+    /// не даёт сеттеру выйти за пределы файла объявления.
+    ///
+    /// Тип, по которому грузились точки графика. Точки всегда относятся к
+    /// нему, и держать рядом ещё и выбранный фильтр означало бы, что график
+    /// исчезает при смене фильтра на «Все», хотя точки на экране ещё есть.
+    var statsType: String?
+    /// Выбранный период графика в днях.
+    var statsPeriodDays = 30
 
     /// Готовая лента по дням. Пусто, пока грузится или грузить нечего.
     var days: [EventDay] {
@@ -233,7 +255,7 @@ final class AppModel {
         feedErrorText = apiError?.errorDescription ?? error.localizedDescription
     }
 
-    private static func query(_ value: String) -> String {
+    static func query(_ value: String) -> String {
         value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
     }
 
