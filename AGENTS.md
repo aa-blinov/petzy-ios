@@ -27,7 +27,7 @@ project change, XcodeGen globs the directory.
 
 - Project: `Petzy.xcodeproj` (run `make generate` first)
 - Scheme: `Petzy`
-- Destination: `platform=iOS Simulator,name=iPhone Duo`
+- Destination: `platform=iOS Simulator,name=iPhone 18 Pro`
 - Bundle id: `ru.petzy.app`
 - Derived data: `.build` (in the repo, gitignored)
 - iOS 26.0 minimum, Swift 6 language mode, `SWIFT_STRICT_CONCURRENCY=complete`
@@ -59,8 +59,16 @@ make hooks     # point git at .githooks, once per clone
 rather than a piece of it, unless nothing Swift changed, in which case
 `make lint-strict format-check` is enough.
 
-Only one simulator exists on this machine (`iPhone Duo`, iOS 27.1). Override with
-`make run SIM="..."`.
+The working simulator is `iPhone 18 Pro` on iOS 27.0, set in the `Makefile` as
+`SIM ?= iPhone 18 Pro`. Override with `make run SIM="..."`. `iPhone Duo` (iOS
+27.1) is still around as a spare.
+
+The runtime for the modern devices is **older than the Xcode runtime**: Xcode
+27.1 with iOS 27.1 cannot create an iPhone 18 Pro at all, `simctl create`
+answers `Incompatible device`. `xcodebuild -downloadPlatform iOS` pulls iOS
+27.0 and installs a set of devices with it, which is what made the switch
+possible. When a device type is rejected the same way, check
+`xcrun simctl list runtimes` before assuming the type is the problem.
 
 **`iPhone Duo` is not a normal phone.** Its screen is 466×678 pt and the system
 puts the `TabView` bar in a **vertical rail on the right edge**, not along the
@@ -193,7 +201,7 @@ $(xcode-select -p)/../Applications/DeviceHub.app
 Launch it **with the device UDID**, or the display never attaches:
 
 ```bash
-UDID=$(xcrun simctl list devices available | grep -m1 "iPhone Duo" \
+UDID=$(xcrun simctl list devices available | grep -m1 "iPhone 18 Pro" \
   | sed -E 's/.*\(([-0-9A-F]+)\).*/\1/')
 open -a "$(xcode-select -p)/../Applications/DeviceHub.app" --args -CurrentDeviceUDID "$UDID"
 ```

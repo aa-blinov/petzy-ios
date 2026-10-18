@@ -21,8 +21,8 @@ final class LoginAndShellUITests: XCTestCase {
             "После входа оболочка не открылась: \(app.debugDescription)"
         )
         // Кнопки, а не app.tabBars: на iPhone Duo панель вкладок уходит в боковую
-        // полосу и отдельного элемента tabBar в дереве не остаётся. Сама кнопка
-        // есть на любом расположении.
+        // полосу и отдельного элемента tabBar в дереве не остаётся. На обычном
+        // iPhone 18 Pro панель снизу, и app.buttons[tab] работает на обоих.
         for tab in ["Лекарства", "Медкарта", "Документы", "Настройки"] {
             XCTAssertTrue(app.buttons[tab].exists, "Вкладка «\(tab)» пропала")
         }

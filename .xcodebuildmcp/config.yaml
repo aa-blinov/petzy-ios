@@ -11,7 +11,7 @@ sessionDefaultsProfiles:
   ios:
     projectPath: /Users/justcomex/Documents/Проекты/pet/petzy-ios/Petzy.xcodeproj
     scheme: Petzy
-    simulatorName: iPhone Duo
+    simulatorName: iPhone 18 Pro
     derivedDataPath: /Users/justcomex/Documents/Проекты/pet/petzy-ios/.build
     bundleId: ru.petzy.app
 activeSessionDefaultsProfile: ios

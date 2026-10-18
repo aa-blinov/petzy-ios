@@ -12,9 +12,9 @@ echo "Форматирование..."
 swiftformat Petzy PetzyTests PetzyUITests --lint >/dev/null
 
 echo "Юнит-тесты..."
-xcodegen generate >/dev/null
-xcodebuild -project Petzy.xcodeproj -scheme Petzy \
-  -destination 'platform=iOS Simulator,name=iPhone Duo' \
-  -derivedDataPath .build test -only-testing:PetzyTests | tail -5
+# pipefail обязателен: пайп до tail иначе съедает код возврата make, и красные
+# тесты пропускают пуш. Назначение симулятора берётся из Makefile (SIM).
+set -o pipefail
+make test | tail -5
 
 echo "Всё зелёное"

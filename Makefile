@@ -5,13 +5,17 @@
 #
 # Первым делом после клона: make setup
 
-SIM        ?= iPhone Duo
+SIM        ?= iPhone 18 Pro
 BUNDLE_ID  ?= ru.petzy.app
 PETZY_DIR  ?= $(HOME)/Documents/petzy
 DERIVED    ?= .build
 COMPOSE    := docker compose -p petzy-local -f docker-compose.yml -f docker-compose.local.yml
 
 DEVICE_HUB = $(shell xcode-select -p)/../Applications/DeviceHub.app
+
+# macOS make 3.81 не знает .SHELLFLAGS, а пайп до tail съедает код возврата
+# xcodebuild: без pipefail провалившиеся тесты выглядят как зелёный make ci.
+# -o pipefail понимает и /bin/sh macOS, поэтому он пишется прямо в рецептах.
 
 UDID = $(shell xcrun simctl list devices available | grep -m1 "$(SIM)" | sed -E 's/.*\(([-0-9A-F]+)\).*/\1/')
 APP  = $(DERIVED)/Build/Products/Debug-iphonesimulator/Petzy.app
@@ -40,15 +44,15 @@ open: generate ## Открыть проект в Xcode
 	@open Petzy.xcodeproj
 
 build: generate ## Собрать приложение под симулятор
-	@xcodebuild -project Petzy.xcodeproj -scheme Petzy -destination '$(DEST)' \
+	@set -o pipefail; xcodebuild -project Petzy.xcodeproj -scheme Petzy -destination '$(DEST)' \
 		-derivedDataPath $(DERIVED) build | tail -20
 
 test: generate ## Прогнать юнит-тесты (быстро, без сети)
-	@xcodebuild -project Petzy.xcodeproj -scheme Petzy -destination '$(DEST)' \
+	@set -o pipefail; xcodebuild -project Petzy.xcodeproj -scheme Petzy -destination '$(DEST)' \
 		-derivedDataPath $(DERIVED) test -only-testing:PetzyTests | tail -30
 
 test-ui: generate ## Прогнать UI-тесты против локального стека (нужен make backend)
-	@xcodebuild -project Petzy.xcodeproj -scheme Petzy -destination '$(DEST)' \
+	@set -o pipefail; xcodebuild -project Petzy.xcodeproj -scheme Petzy -destination '$(DEST)' \
 		-derivedDataPath $(DERIVED) test -only-testing:PetzyUITests | tail -40
 
 run: build ## Собрать, поставить и запустить на симуляторе
