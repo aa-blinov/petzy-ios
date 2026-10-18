@@ -31,6 +31,14 @@ project change, XcodeGen globs the directory.
 - Bundle id: `ru.petzy.app`
 - Derived data: `.build` (in the repo, gitignored)
 - iOS 26.0 minimum, Swift 6 language mode, `SWIFT_STRICT_CONCURRENCY=complete`
+- `.xcode-version` pins the local Xcode (27.1); `.swift-version` pins the language
+
+**Go through `make`, not through `xcodebuild` by hand.** The Makefile owns the
+destination, the derived data path and the scheme, and it is the one place where a
+change of simulator or of scheme lands. Hand-written `xcodebuild` calls drift out
+of sync with CI and are the usual source of "works here, fails in CI". The one
+exception is debugging a single failing test, where reading the full
+`xcodebuild` output beats `tail`.
 
 ```bash
 make setup     # brew install xcodegen swiftlint, then generate
@@ -43,16 +51,13 @@ make lint      # swiftlint
 make lint-strict  # same, warnings count as errors (what CI runs)
 make format    # rewrite the code per .swiftformat
 make format-check  # check the shape without changing anything
+make ci        # lint-strict + format-check + build + test, all of CI in one run
 make hooks     # point git at .githooks, once per clone
 ```
 
-Straight through `xcodebuild`:
-
-```bash
-xcodebuild -project Petzy.xcodeproj -scheme Petzy \
-  -destination 'platform=iOS Simulator,name=iPhone Duo' \
-  -derivedDataPath .build test -only-testing:PetzyTests
-```
+`make ci` is the pre-push check in full. Before handing a change over, run it
+rather than a piece of it, unless nothing Swift changed, in which case
+`make lint-strict format-check` is enough.
 
 Only one simulator exists on this machine (`iPhone Duo`, iOS 27.1). Override with
 `make run SIM="..."`.
@@ -88,6 +93,11 @@ iOS 27 SDK.
 Sentry) for build, test and scheme discovery, and `ios-simulator` for
 screenshots and taps. Both are also registered in the local runtime; they start
 on the next turn after being added.
+
+A third, `xcode-bridge` (`xcrun mcpbridge`), is registered in the local runtime
+but not in `.mcp.json`: it needs a running Xcode with the project open, so it
+answers in a headless session. It gives `DocumentationSearch` and
+`RenderPreview`. Do not build a task around it; use `make` instead.
 
 `.xcodebuildmcp/config.yaml` holds the session defaults, so MCP calls need no
 arguments:
@@ -213,7 +223,20 @@ Petzy/Auth/        AuthSession (login, refresh), TokenStorage, KeychainTokenStor
 Petzy/Features/    one directory per screen: Login, Pets
 PetzyTests/        Swift Testing suites, StubURLProtocol for the fake network
 PetzyUITests/      XCUITest flows against the live local stack
+docs/PORT-PLAN.md  what is being ported from the web app, in which order
 ```
+
+## Porting from the web app
+
+`docs/PORT-PLAN.md` holds the inventory of all 48 web routes and the 11 stages
+they are ported in. Read it before adding a screen, and keep it current: a stage
+that is done is marked as done there rather than in a commit message.
+
+Two directions are worth knowing, because the web app is the source of truth for
+behaviour and for Russian wording. The route map is
+`frontend/src/App.tsx` in the `petzy` repo, the design system is its `DESIGN.md`
+and `frontend/src/styles/globals.css`, and the API truth is `/api/openapi.json`
+of a running stand.
 
 ## Auth
 

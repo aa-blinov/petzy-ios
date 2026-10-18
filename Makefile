@@ -19,7 +19,7 @@ DEST = platform=iOS Simulator,name=$(SIM)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup generate open build test test-ui run shot lint lint-strict format format-check hooks backend backend-stop logs clean
+.PHONY: help setup generate open build test test-ui run shot lint lint-strict format format-check ci hooks backend backend-stop logs clean
 
 help: ## Показать все команды
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-13s\033[0m %s\n",$$1,$$2}'
@@ -76,6 +76,8 @@ format: ## Привести код к виду по .swiftformat
 
 format-check: ## Проверить вид, ничего не меняя
 	@swiftformat Petzy PetzyTests PetzyUITests --lint
+
+ci: lint-strict format-check build test ## Всё, что делает CI, локально одной командой
 
 backend: ## Поднять локальный стек petzy (нужен API на :5002)
 	@cd $(PETZY_DIR) && $(COMPOSE) up -d --build
