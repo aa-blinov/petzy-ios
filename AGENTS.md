@@ -1,0 +1,235 @@
+# Working in this repo
+
+Petzy for iOS: a native SwiftUI client for the same API the pet health diary web
+app uses. The backend lives in a separate repository (`petzy`, Flask + MongoDB);
+this repo holds only the app. The interface is Russian.
+
+**This project is developed with TDD.** See "TDD" below, it is not optional.
+
+## Git
+
+The rules from the `petzy` repo apply here too:
+
+- Work in `master`: no feature branches, no pull requests. Commit locally as each
+  piece is done.
+- Push only when the owner says so.
+- **Never add an AI attribution trailer** (`Co-Authored-By: Claude`, mentions of
+  Claude or Anthropic) to commits or pull request descriptions. History is
+  attributed to the human author only.
+- Never `--no-verify`: fix the cause.
+
+## Build
+
+The Xcode project is generated from `project.yml` and is **not** in git.
+`.pbxproj` is a build artifact: never edit it, never commit it. Change
+`project.yml` and run `make generate`. Adding a file under `Petzy/` needs no
+project change, XcodeGen globs the directory.
+
+- Project: `Petzy.xcodeproj` (run `make generate` first)
+- Scheme: `Petzy`
+- Destination: `platform=iOS Simulator,name=iPhone Duo`
+- Bundle id: `ru.petzy.app`
+- Derived data: `.build` (in the repo, gitignored)
+- iOS 27.0 minimum, Swift 6 language mode, `SWIFT_STRICT_CONCURRENCY=complete`
+
+```bash
+make setup    # brew install xcodegen swiftlint, then generate
+make build    # generate + build for the simulator
+make test     # unit tests, fast, no server
+make test-ui  # UI tests against the live local stack (needs make backend)
+make run      # build, install and launch on the simulator
+make shot     # screenshot of the current screen
+make lint     # swiftlint
+```
+
+Straight through `xcodebuild`:
+
+```bash
+xcodebuild -project Petzy.xcodeproj -scheme Petzy \
+  -destination 'platform=iOS Simulator,name=iPhone Duo' \
+  -derivedDataPath .build test -only-testing:PetzyTests
+```
+
+Only one simulator exists on this machine (`iPhone Duo`, iOS 27.1). Override with
+`make run SIM="..."`.
+
+## TDD
+
+Every piece of behaviour is written test first. The order is not negotiable:
+
+1. Write a test that fails, and check that it fails **for the reason you think**.
+   A test that fails on a typo or on a missing symbol proves nothing: it would
+   have "caught" the bug while testing nothing. Read the failure message.
+2. Make it pass with the least code that works.
+3. Refactor with the test green, run again.
+
+Rules that follow from that:
+
+- No production code without a test that failed before it existed. If a change is
+  too small to test, say so out loud rather than skipping silently.
+- Network in unit tests is never real. `StubURLProtocol` answers with canned
+  responses in order.
+- UI tests are for wiring: does the screen reach the server and show what came
+  back. They are not for logic; logic belongs in unit tests where it runs in
+  milliseconds.
+- Assert **which requests happened and in what order**, not only what came back.
+  `StubURLProtocol.requestedPaths` is what catches a retry that fired twice.
+- A test that cannot fail is worse than no test. Delete it.
+- Commit on green. A red test in history is fine and useful; a red test that gets
+  papered over is not.
+
+## The simulator on this machine
+
+Xcode 27.1 behaves differently from older versions, and the defaults here cost
+real time to rediscover. All of this was verified in practice.
+
+**There is no `Simulator.app`.** In Xcode 27 the simulator window is
+`DeviceHub.app`, inside the Xcode bundle:
+
+```bash
+$(xcode-select -p)/../Applications/DeviceHub.app
+```
+
+Launch it **with the device UDID**, or the display never attaches:
+
+```bash
+UDID=$(xcrun simctl list devices available | grep -m1 "iPhone Duo" \
+  | sed -E 's/.*\(([-0-9A-F]+)\).*/\1/')
+open -a "$(xcode-select -p)/../Applications/DeviceHub.app" --args -CurrentDeviceUDID "$UDID"
+```
+
+Without the UDID the app runs fine but every screenshot is **solid black**, and
+so is the home screen. A black screenshot says nothing about the app. Check the
+home screen before blaming the code.
+
+**There are two displays.** `LCD` is the real one, `LCD-1` stays black. Name the
+display explicitly:
+
+```bash
+xcrun simctl io "$UDID" screenshot --display=1 out.png
+```
+
+**`simctl get_app_container` fails with `Unable to lookup in current state:
+Shutdown`** when the device is off. Boot it first.
+
+**The software keyboard renders with only three keys** (shift, next keyboard, Go)
+in this environment. `typeText` therefore drops letters: a 15 character password
+arrived as its last six characters, digits and hyphens only. Chunked typing, the
+hardware keyboard setting, `textContentType`, and the keyboard layout all made no
+difference, and `simctl` confirmed the keyboard really had three keys.
+
+So: **do not type into `SecureField` from a UI test.** Feed credentials through
+the environment instead (see below). Read what the app actually received with
+`app.debugDescription` or a file in its container; the accessibility value of a
+secure field does not give a usable character count.
+
+## The backend
+
+The app talks to a Petzy API server over HTTP. The local one is Docker:
+
+```bash
+make backend            # docker compose up in ~/Documents/petzy, API on :5002
+make backend-stop
+```
+
+`PETZY_API_BASE_URL` in `project.yml` is baked into `Info.plist`
+(`http://localhost:5002`). To point a run somewhere else without touching the
+file, pass a launch argument:
+
+```bash
+xcrun simctl launch "$UDID" ru.petzy.app -petzyBaseURL https://petzy.duckdns.org
+```
+
+The simulator reaches the Mac on `localhost`. A **physical device** cannot: give
+it the Mac's LAN address and give `NSAllowsLocalNetworking` an exception domain
+for that host. Not wired up, because there is no signing identity.
+
+Demo login for the local stack: `demo`, password from `DEMO_PASSWORD` in
+`scripts/seed_demo.py` of the backend repo. Five login attempts a minute from one
+address, and ten wrong ones lock that login for fifteen minutes including the
+right password. The `petzy` e2e suite (`e2e/run.py`) logs into the same stand and
+shares that budget, so UI tests can fail from rate limiting that has nothing to
+do with them.
+
+The API reference is at `/api/docs`, the machine-readable spec at
+`/api/openapi.json`. Read it before guessing a field.
+
+## Layout
+
+```
+Petzy/App/         @main, AppConfig (base URL), AppModel (session state), RootView
+Petzy/API/         HTTP (one request builder), APIClient (authed routes), models
+Petzy/Auth/        AuthSession (login, refresh), TokenStorage, KeychainTokenStorage
+Petzy/Features/    one directory per screen: Login, Pets
+PetzyTests/        Swift Testing suites, StubURLProtocol for the fake network
+PetzyUITests/      XCUITest flows against the live local stack
+```
+
+## Auth
+
+The backend is already prepared for a native client: **a request without an
+`Origin` header is treated as native and gets `access_token` and `refresh_token`
+in the response body** (a browser gets httpOnly cookies instead). `HTTP.send`
+deliberately never sets `Origin`; a test asserts it.
+
+Rules the backend enforces and the app must respect:
+
+- `access_token` lives 15 minutes, `refresh_token` 7 days.
+- `POST /api/auth/refresh` returns a **new** `refresh_token` that replaces the
+  old one. The old one still works for 30 seconds; presented later it counts as
+  stolen and ends that sign-in. Always store the new pair.
+- The refresh token goes in the Keychain, never in `UserDefaults`.
+- `APIClient` retries once after a 401 and the refresh. A second 401 becomes
+  `.unauthorized`; there is no loop.
+- Never `try?` a Keychain read. A swallowed failure looks exactly like "the person
+  never signed in" and makes them type their password on every launch. `restore()`
+  logs what it found.
+
+**Sign-out is local only.** `AuthSession.signOut()` deletes the tokens from the
+device and does not call `POST /api/auth/logout`, because that endpoint ends the
+user's sessions on *every* device at once. Signing out on the phone should not log
+the person out of their tablet. A separate "sign out everywhere" button is the
+place for that endpoint, when it is wanted.
+
+### Test hooks
+
+Two launch-time hooks exist only for tests, and both default to doing nothing:
+
+- `-uiTestSignedOut` makes `AppModel.start()` wipe the tokens before restoring,
+  so a UI test always starts on the login screen. It does **not** skip the
+  Keychain, which is the thing being tested.
+- `PETZY_TEST_LOGIN` and `PETZY_TEST_PASSWORD` prefill the login form. Needed
+  because of the broken software keyboard above. The real button press still
+  happens, so login, response parsing, the Keychain and the pets request are all
+  genuinely exercised.
+
+When checking session restore, clear `launchArguments` before the relaunch. Left
+set, `-uiTestSignedOut` wipes the tokens itself and the test silently checks a
+cold start instead.
+
+## Interface text
+
+The rules come from the web app (`AGENTS.md` in the backend repo):
+
+- Russian, calm and direct.
+- No « · » or any glyph joining two facts. Side by side with a comma.
+- No « — » or « – » outside number ranges.
+- A single UI line (toast, hint, note, empty state) ends without a full stop;
+  sentences inside it keep theirs.
+- Touch targets at least 44 pt.
+
+## Swift conventions
+
+- Swift 6, strict concurrency on. Anything crossing an actor boundary or escaping
+  into a task is `Sendable`; make it compile before moving on.
+- Models decode with hand-written `CodingKeys`, not
+  `JSONDecoder.convertFromSnakeCase`. The pet id is `_id`, which the automatic
+  conversion turns into `Id`, and that typo does not surface as a build error.
+- `Pet` carries only the fields the app uses today. `/api/pets` returns more; add
+  a field when a screen needs it rather than importing everything.
+- API errors carry the server's own Russian text. «Неверный логин или пароль» and
+  «сессия закончилась» are different problems for the person in front of the
+  screen.
+- SwiftLint, 120 columns, same as the backend's ruff.
+- Swift Testing, not XCTest, for unit tests. XCTest only where the framework
+  requires it, which today means XCUITest.

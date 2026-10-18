@@ -1,0 +1,26 @@
+# Xcode-проект генерируется из project.yml, в git не хранится.
+*.xcodeproj/
+*.xcworkspace/
+Petzy/Resources/Info.plist
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcuserdatad
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+# Снимки из make shot: в репозитории только отобранные вручную.
+screenshots/[0-9]*.png

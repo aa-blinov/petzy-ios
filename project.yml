@@ -1,0 +1,100 @@
+# Источник истины для Xcode-проекта. Petzy.xcodeproj генерируется из этого файла
+# (`make generate`) и в git не попадает: правится только project.yml.
+name: Petzy
+
+options:
+  bundleIdPrefix: ru.petzy
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "27.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    ALWAYS_SEARCH_USER_PATHS: NO
+    CODE_SIGN_STYLE: Automatic
+  configs:
+    Debug:
+      ONLY_ACTIVE_ARCH: YES
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+    Release:
+      SWIFT_COMPILATION_MODE: wholemodule
+
+targets:
+  Petzy:
+    type: application
+    platform: iOS
+    sources:
+      - path: Petzy
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.petzy.app
+        PRODUCT_NAME: Petzy
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: Petzy/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Petzy
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # Симулятор ходит на http://localhost:5002, ATS по умолчанию это режет.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        # Локальный стек petzy (docker-compose.local.yml). Продакшен:
+        # https://petzy.duckdns.org. Переопределяется аргументом запуска
+        # -petzyBaseURL https://... (см. AGENTS.md).
+        PETZY_API_BASE_URL: http://localhost:5002
+
+  PetzyTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: PetzyTests
+    dependencies:
+      - target: Petzy
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.petzy.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  # Прогон против живого локального стека petzy (`make backend`).
+  # Умеет работать без окна симулятора, поэтому проверяет приложение даже там,
+  # где Simulator.app не установлен.
+  PetzyUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: PetzyUITests
+    dependencies:
+      - target: Petzy
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ru.petzy.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Petzy
+
+schemes:
+  Petzy:
+    build:
+      targets:
+        Petzy: all
+        PetzyTests: [test]
+        PetzyUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - name: PetzyTests
+        - name: PetzyUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

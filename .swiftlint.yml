@@ -1,0 +1,17 @@
+included:
+  - Petzy
+  - PetzyTests
+
+line_length:
+  warning: 120
+  error: 160
+  ignores_comments: false
+  ignores_urls: true
+
+excluded:
+  - Petzy/Resources
+
+disabled_rules:
+  # Запятая в конце литерала в Swift идиоматична и не трогает предыдущие строки
+  # при добавлении новых: диффы остаются маленькими.
+  - trailing_comma
