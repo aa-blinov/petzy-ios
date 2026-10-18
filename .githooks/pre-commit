@@ -6,15 +6,15 @@ set -e
 
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.swift$' || true)
 
+# Один запуск на все файлы, а не по одному на файл: swiftformat стартует
+# долго, и пятнадцать запусков подряд превращают хук в помеху.
 if [ -n "$STAGED" ]; then
-    echo "$STAGED" | while read -r file; do
-        swiftformat --lint "$file" >/dev/null || {
-            echo "Форматирование: $file"
-            swiftformat "$file"
-            echo "Правки внесены, посмотри diff и добавь файл снова"
-            exit 1
-        }
-    done
+    # shellcheck disable=SC2086
+    swiftformat $STAGED --lint || {
+        echo "swiftformat --lint нашёл неформатированный код. Поправить:"
+        echo "  make format"
+        exit 1
+    }
 fi
 
 swiftlint lint --quiet
