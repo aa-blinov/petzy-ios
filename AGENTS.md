@@ -169,6 +169,45 @@ display explicitly:
 xcrun simctl io "$UDID" screenshot --display=1 out.png
 ```
 
+**`idb` is installed by hand, not by Homebrew.** `brew install idb-companion`
+does not work: the formula and the cask are both gone from Homebrew, and the
+cask named `companion` is an unrelated Stream Deck app. The project itself is
+alive (facebook/idb), so both halves were installed from release v1.7.6:
+
+```bash
+# CLI, Python: любой интерпретатор 3.8+
+python3 -m venv ~/.local/share/idb/venv
+~/.local/share/idb/venv/bin/pip install fb-idb
+
+# companion: готовая сборка из релиза, 28 МБ
+curl -sSL -o /tmp/idb-companion.tar.gz \
+  https://github.com/facebook/idb/releases/download/v1.7.6/idb-companion.macos-arm64.tar.gz
+tar -xzf /tmp/idb-companion.tar.gz -C ~/.local/share/idb/companion
+ln -sf ~/.local/share/idb/venv/bin/idb            ~/.local/bin/idb
+ln -sf ~/.local/share/idb/companion/idb_companion ~/.local/bin/idb_companion
+```
+
+Both need `~/.local/bin` on PATH, which it already is here. Without the
+companion the CLI installs fine and still cannot see any simulator: every
+`ios-simulator` MCP call that touches the UI fails with `spawn idb ENOENT`.
+
+**Do not move a Python venv after creating it.** Its scripts carry an absolute
+shebang to the interpreter; after a `mv` every entry point dies with
+`bad interpreter: No such file or directory`.
+
+**A `Task` that was stopped may still have left `xcodebuild` running.**
+Cancelling a background command kills the shell wrapper, not the build. Two
+`xcodebuild` runs on the same `-derivedDataPath` block each other and the next
+run appears to hang with no output. Check before blaming the build:
+
+```bash
+pgrep -fl "Xcode.app/Contents/Developer/usr/bin/xcodebuild"
+```
+
+And when watching a long run, redirect to a file (`> /tmp/log 2>&1`) instead of
+piping into `grep`: a pipe buffers, so a running build and a build that failed
+on line one look identical until it finishes.
+
 **`simctl get_app_container` fails with `Unable to lookup in current state:
 Shutdown`** when the device is off. Boot it first.
 

@@ -62,8 +62,11 @@ run: build ## Собрать, поставить и запустить на си
 
 shot: ## Скриншот текущего экрана симулятора
 	@mkdir -p screenshots
-	@xcrun simctl io $(UDID) screenshot "screenshots/$$(date +%Y%m%d-%H%M%S).png"
-	@echo "screenshots/$$(date +%Y%m%d-%H%M%S).png"
+	@# Дисплей указываем явно: LCD-1 остаётся чёрным, снимок без --display
+	@# выходит пустым и говорит о приложении ровно ничего.
+	@out="screenshots/$$(date +%Y%m%d-%H%M%S).png"
+	@xcrun simctl io $(UDID) screenshot --display=1 "$$out"
+	@echo "$$out"
 
 lint: ## Проверить стиль
 	@swiftlint lint
