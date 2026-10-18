@@ -4,6 +4,7 @@ import SwiftUI
 /// Само содержимое вкладок переезжает по этапам, см. docs/PORT-PLAN.md.
 struct AppShellView: View {
     let model: AppModel
+    let flow: AuthFlowModel
 
     /// Модели разделов живут здесь, а не внутри вкладок: значок на панели вкладок
     /// рисует сам TabView, и содержимое экрана он не видит.
@@ -43,7 +44,7 @@ struct AppShellView: View {
             // заходя внутрь.
             .badge(documents?.expired ?? 0)
             Tab("Настройки", systemImage: "gearshape") {
-                SettingsSection(model: model)
+                SettingsSection(model: model, flow: flow)
             }
         }
         .task { await model.loadPets() }
@@ -64,6 +65,7 @@ struct AppShellView: View {
 /// чтобы сменить пользователя.
 private struct SettingsSection: View {
     let model: AppModel
+    let flow: AuthFlowModel
 
     @State private var exporting = false
     @State private var addingPet = false
@@ -94,6 +96,22 @@ private struct SettingsSection: View {
                 // Без `.plain` вся строка красится в акцент и читается как
                 // ссылка, а не как пункт настроек рядом с «Историей».
                 .buttonStyle(.plain)
+                NavigationLink {
+                    HelpView()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Справка", systemImage: "questionmark.circle")
+                        Text("Как всё устроено и что делать, если что-то не выходит")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                NavigationLink {
+                    PrivacyView(model: flow, showsAgree: false) {}
+                } label: {
+                    Label("Политика обработки данных", systemImage: "hand.raised")
+                        .font(.subheadline)
+                }
                 NavigationLink {
                     AccountView(client: model.client, auth: model.auth, app: model)
                 } label: {

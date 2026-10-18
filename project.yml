@@ -48,6 +48,13 @@ targets:
         # https://petzy.duckdns.org. Переопределяется аргументом запуска
         # -petzyBaseURL https://... (см. AGENTS.md).
         PETZY_API_BASE_URL: http://localhost:5002
+        # Ссылка из письма приходит на веб-версию, и открыть её в приложении
+        # может только телефон с подписью разработчика: пока подписи нет,
+        # схема заведена заранее, а письма ведут на сайт.
+        CFBundleURLTypes:
+          - CFBundleURLName: ru.petzy.app
+            CFBundleURLSchemes:
+              - petzy
 
   PetzyTests:
     type: bundle.unit-test

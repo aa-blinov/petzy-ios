@@ -2,13 +2,21 @@ import SwiftUI
 
 @main
 struct PetzyApp: App {
-    @State private var model = AppModel(
-        auth: AuthSession(baseURL: AppConfig.baseURL, urlSession: AppConfig.urlSession)
-    )
+    @State private var model: AppModel
+    @State private var flow: AuthFlowModel
+
+    init() {
+        let auth = AuthSession(baseURL: AppConfig.baseURL, urlSession: AppConfig.urlSession)
+        let app = AppModel(auth: auth)
+        // Модель входа одна на всё приложение: её пересоздание на каждом
+        // перерисовывании окна теряло бы набранное и отправленные запросы.
+        _model = State(initialValue: app)
+        _flow = State(initialValue: AuthFlowModel(client: app.client, auth: auth, app: app))
+    }
 
     var body: some Scene {
         WindowGroup {
-            RootView(model: model)
+            RootView(model: model, flow: flow)
                 .tint(Accent.color)
                 // Интерфейс русский и переключения языка в нём нет, поэтому локаль
                 // задана явно: на английском устройстве дата в форме выходила бы

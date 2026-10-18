@@ -8,17 +8,25 @@ struct APIClient: Sendable {
     let urlSession: URLSession
     let auth: AuthSession
 
-    func get<T: Decodable & Sendable>(_ path: String, as type: T.Type = T.self) async throws -> T {
-        try await send(APIRequest(path: path), as: type)
+    /// `anonymous` — запрос без сессии: вход, регистрация, восстановление
+    /// пароля и справка о политике идут до токенов, и заголовка
+    /// `Authorization` у них быть не должно.
+    func get<T: Decodable & Sendable>(
+        _ path: String,
+        as type: T.Type = T.self,
+        anonymous: Bool = false
+    ) async throws -> T {
+        try await send(APIRequest(path: path, anonymous: anonymous), as: type)
     }
 
     func post<T: Decodable & Sendable>(
         _ path: String,
         body: some Encodable & Sendable,
-        as type: T.Type = T.self
+        as type: T.Type = T.self,
+        anonymous: Bool = false
     ) async throws -> T {
         let encoded = try JSONEncoder().encode(body)
-        return try await send(APIRequest(path: path, method: "POST", body: encoded), as: type)
+        return try await send(APIRequest(path: path, method: "POST", body: encoded, anonymous: anonymous), as: type)
     }
 
     func put<T: Decodable & Sendable>(
@@ -101,10 +109,15 @@ struct APIClient: Sendable {
         var path: String
         var method = "GET"
         var body: Data?
+        /// Запрос без сессии: токен не подставляется и обновляться нечему.
+        var anonymous = false
     }
 
     /// Запрос с одной попыткой обновить истёкший access-токен и повторить.
     private func raw(_ request: APIRequest) async throws -> (Data, HTTPURLResponse) {
+        if request.anonymous {
+            return try await perform(request, token: nil)
+        }
         let first = try await perform(request, token: auth.accessToken())
         if first.1.statusCode == 401, await auth.refreshAccessToken() {
             return try await perform(request, token: auth.accessToken())
@@ -134,7 +147,7 @@ struct APIClient: Sendable {
         return try Self.decode(first, as: type)
     }
 
-    private func perform(_ request: APIRequest, token: String) async throws -> (Data, HTTPURLResponse) {
+    private func perform(_ request: APIRequest, token: String?) async throws -> (Data, HTTPURLResponse) {
         try await HTTP.send(
             urlSession: urlSession, baseURL: baseURL, path: request.path,
             method: request.method, jsonBody: request.body, accessToken: token

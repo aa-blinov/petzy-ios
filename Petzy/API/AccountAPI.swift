@@ -11,6 +11,13 @@ enum AccountAPI {
         return response.domain
     }
 
+    /// Требуется ли согласие с текущей редакцией политики. Спрашивается один
+    /// раз при входе: ради одного поля перечитывать весь аккаунт незачем.
+    static func consentNeeded(_ client: APIClient) async throws -> Bool {
+        let response: ConsentDTO = try await client.get("/api/me/account")
+        return response.privacyConsentNeeded
+    }
+
     /// Смена почты. Пустая почта убирает адрес, а новая уходит в
     /// `pending_email` и ждёт подтверждения письмом.
     static func changeEmail(_ client: APIClient, email: String, password: String) async throws -> AccountInfo {
@@ -115,4 +122,12 @@ private struct AccountDTO: Decodable {
 
 private struct MessageAck: Decodable {
     let message: String?
+}
+
+private struct ConsentDTO: Decodable {
+    let privacyConsentNeeded: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case privacyConsentNeeded = "privacy_consent_needed"
+    }
 }

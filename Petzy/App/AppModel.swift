@@ -23,9 +23,18 @@ final class AppModel {
     /// тут не нужен; секрет только у refresh-токена.
     private static let selectedPetKey = "selectedPetId"
 
+    /// Показывалось ли первое знакомство с приложением. Ключ в UserDefaults:
+    /// это не секрет, Keychain тут не нужен.
+    private static let onboardingKey = "seenOnboarding"
+
     private(set) var state: State = .restoring
     private(set) var isSigningIn = false
     var errorText: String?
+
+    /// Требуется ли согласие с текущей редакцией политики. Сервер поднимает
+    /// этот флаг, когда аккаунт создан администратором или когда политику
+    /// поменяли после того, как человек с ней соглашался.
+    private(set) var privacyConsentNeeded = false
 
     private(set) var petsState: PetsState = .loading
     private(set) var selectedPetID: String?
@@ -278,9 +287,35 @@ final class AppModel {
         // иначе уводит с экрана входа, и проверять вход нечем.
         if ProcessInfo.processInfo.arguments.contains("-uiTestSignedOut") {
             await auth.signOut()
+            // UI-тест проверяет вход, а не знакомство: первый экран спросил бы
+            // лишний тап и уводил с экрана входа.
+            skipOnboarding()
         }
         await auth.restore()
         state = await auth.isSignedIn ? .signedIn : .signedOut
+        if state == .signedIn {
+            await loadConsent()
+        }
+    }
+
+    /// Согласие спрашивается при каждом входе: редакция политики может
+    /// поменяться, пока телефон лежал в кармане. Ответ не пришёл — вопрос не
+    /// показываем: лучше пропустить проверку, чем застрять на пустом экране.
+    private func loadConsent() async {
+        privacyConsentNeeded = await (try? AccountAPI.consentNeeded(client)) ?? false
+    }
+
+    func acceptPrivacyConsent() {
+        privacyConsentNeeded = false
+    }
+
+    /// Человек ещё не видел первый экран с объяснением.
+    var needsOnboarding: Bool {
+        !defaults.bool(forKey: Self.onboardingKey)
+    }
+
+    func skipOnboarding() {
+        defaults.set(true, forKey: Self.onboardingKey)
     }
 
     func signIn(username: String, password: String) async {
@@ -297,6 +332,19 @@ final class AppModel {
             errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
             state = .signedOut
         }
+    }
+
+    /// Вошёл ли человек: после регистрации и смены пароля по ссылке да, хотя
+    /// форма входа их не показывала.
+    var isSignedIn: Bool {
+        state == .signedIn
+    }
+
+    /// Сессия началась не через форму входа: регистрация и смена пароля по
+    /// ссылке отдают токены сразу и заводят человека внутрь приложения.
+    func acceptSession() {
+        state = .signedIn
+        errorText = nil
     }
 
     func signOut() {
