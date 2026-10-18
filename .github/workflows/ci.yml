@@ -3,6 +3,9 @@ name: CI
 # Petzy.xcodeproj не хранится в git: он генерируется из project.yml.
 # Юнит-тесты не ходят в сеть. UI-тесты нужны живого локального стенда petzy,
 # в CI их нет, поэтому здесь только юнит-часть.
+#
+# Проект собирается под iOS 27 SDK. На macos-15 стоит Xcode 16.4, который про
+# iOS 27 не знает, поэтому раннер новый и Xcode выбирается явно.
 
 on:
   push:
@@ -16,9 +19,14 @@ concurrency:
 jobs:
   build-and-test:
     name: Сборка, стиль и юнит-тесты
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+
+      - name: Выбрать Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Показать версию Xcode
         run: xcodebuild -version
@@ -31,17 +39,25 @@ jobs:
       - name: Сгенерировать проект
         run: xcodegen generate
 
+      - name: Выбрать симулятор
+        run: |
+          # Имя устройства на раннере каждый раз другое, а конкретное знать нельзя.
+          # Берём первый доступный iPhone, чтобы не ловить «Unable to find a destination».
+          SIM_NAME=$(xcrun simctl list devices available | grep -oE 'iPhone [^(]+' | head -1)
+          echo "Симулятор: $SIM_NAME"
+          echo "SIM_NAME=$SIM_NAME" >> "$GITHUB_ENV"
+
       - name: Проверить стиль
         run: swiftlint lint --strict
 
       - name: Собрать
         run: |
           xcodebuild -project Petzy.xcodeproj -scheme Petzy \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath .build build
 
       - name: Юнит-тесты
         run: |
           xcodebuild -project Petzy.xcodeproj -scheme Petzy \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -destination "platform=iOS Simulator,name=$SIM_NAME" \
             -derivedDataPath .build test -only-testing:PetzyTests
