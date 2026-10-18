@@ -5,9 +5,10 @@ import SwiftUI
 struct AppShellView: View {
     let model: AppModel
 
-    /// Модель лекарств живёт здесь, а не внутри вкладки: точку о просроченном
-    /// приёме рисует сама панель вкладок, и та не видит содержимое экрана.
+    /// Модели разделов живут здесь, а не внутри вкладок: значок на панели вкладок
+    /// рисует сам TabView, и содержимое экрана он не видит.
     @State private var medications: MedicationsModel?
+    @State private var medicalCard: MedicalCardModel?
 
     var body: some View {
         // Подпись вкладки живёт в `Tab`, а не в самом содержимом. Без неё
@@ -25,8 +26,13 @@ struct AppShellView: View {
             // значок не рисует, только число, и оно полезнее пустого кружка.
             .badge(medications?.overdueCount ?? 0)
             Tab("Медкарта", systemImage: "cross.case") {
-                PlaceholderSection(model: model, title: "Медкарта", systemImage: "cross.case")
+                if let medicalCard {
+                    MedicalCardView(model: medicalCard, app: model)
+                }
             }
+            // Значок считает просроченные прививки и обработки: о них узнают,
+            // не заходя внутрь, и он гаснет сам после повторной записи.
+            .badge(medicalCard?.overdueCount ?? 0)
             Tab("Документы", systemImage: "doc") {
                 PlaceholderSection(model: model, title: "Документы", systemImage: "doc")
             }
@@ -41,6 +47,7 @@ struct AppShellView: View {
             // чужому курсу.
             guard let petID = model.selectedPetID else { return }
             medications = MedicationsModel(client: model.client, petID: petID)
+            medicalCard = MedicalCardModel(client: model.client, petID: petID)
         }
     }
 }

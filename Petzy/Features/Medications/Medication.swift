@@ -108,13 +108,9 @@ struct Medication: Identifiable, Sendable {
         "\(Amount.text(defaultDose ?? 1)) \(doseUnit ?? "шт.")"
     }
 
-    /// `2026-10-01` в `01.10.2026`. Дата приходит строкой и в таком виде
-    /// сравнивается с тем, что показывает сервер, поэтому не переводится в
-    /// Date: смена часового пояса тут ни при чём.
+    /// Дата по-русски, `01.10.2026`. Разбор один на всё приложение.
     static func russianDay(_ iso: String) -> String {
-        let parts = iso.split(separator: "-")
-        guard parts.count == 3 else { return iso }
-        return "\(parts[2]).\(parts[1]).\(parts[0])"
+        MomentText.russianDay(iso)
     }
 }
 
@@ -175,31 +171,31 @@ enum Amount {
     }
 }
 
-/// Три формы слова, между которыми выбирают склонением.
-private struct Forms {
-    let one: String
-    let few: String
-    let many: String
+/// Склонение по-русски: 1 день, 2 дня, 5 дней. Правило общее для всего
+/// приложения, потому что «дней» встречается и в остатке лекарства, и в
+/// сроке прививки.
+enum Words {
+    /// «11 дней» вместе с числом, а не только формой слова.
+    static func text(_ count: Int, one: String, few: String, many: String) -> String {
+        "\(count) \(pick(count, one: one, few: few, many: many))"
+    }
+
+    static func pick(_ count: Int, one: String, few: String, many: String) -> String {
+        let rest100 = count % 100
+        let rest10 = count % 10
+        if (11 ... 14).contains(rest100) {
+            return many
+        }
+        if rest10 == 1 {
+            return one
+        }
+        return (2 ... 4).contains(rest10) ? few : many
+    }
 }
 
-/// Склонение по-русски: 1 день, 2 дня, 5 дней.
 enum Days {
     static func text(_ count: Double) -> String {
-        let whole = Int(count)
-        // Слова берутся по числу: 1 день, 2 дня, 5 дней.
-        let forms = Forms(one: "день", few: "дня", many: "дней")
-        let rest100 = whole % 100
-        let rest10 = whole % 10
-        let word: String = if rest100 >= 11, rest100 <= 14 {
-            forms.many
-        } else if rest10 == 1 {
-            forms.one
-        } else if (2 ... 4).contains(rest10) {
-            forms.few
-        } else {
-            forms.many
-        }
-        return "\(Amount.text(count)) \(word)"
+        "\(Amount.text(count)) \(Words.pick(Int(count), one: "день", few: "дня", many: "дней"))"
     }
 }
 

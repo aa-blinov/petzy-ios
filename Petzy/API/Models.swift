@@ -259,6 +259,14 @@ enum MomentText {
         return "\(parts[2]).\(parts[1]).\(parts[0])"
     }
 
+    /// `2026-10-01` в `01.10.2026`. Дата приходит строкой и в таком виде
+    /// не переводится в Date: смена часового пояса тут ни при чём.
+    static func russianDay(_ iso: String) -> String {
+        let parts = iso.split(separator: "-")
+        guard parts.count == 3 else { return iso }
+        return "\(parts[2]).\(parts[1]).\(parts[0])"
+    }
+
     static func isoDay(_ date: Date, calendar: Calendar) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
