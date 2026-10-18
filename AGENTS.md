@@ -153,6 +153,13 @@ Rules that follow from that:
 - Commit on green. A red test in history is fine and useful; a red test that gets
   papered over is not.
 
+**Do not leave known gaps.** If you notice that something is unfinished, broken
+or unverified — while writing it, while testing it, or while looking at the
+screen — finish it in the same pass and say in the report what it was and how
+it was checked. A list of "what I did not check" at the end of a message is a
+to-do list in disguise. If a gap genuinely cannot be closed now, it goes into
+`docs/PORT-PLAN.md` as an open item with the reason, not into the prose.
+
 **Tests passing is not the same as working.** Unit tests check logic, and they
 passed on a shell whose tabs were invisible. Always run the change on the
 simulator and look at it before calling anything done:
