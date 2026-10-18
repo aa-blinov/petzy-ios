@@ -30,7 +30,7 @@ project change, XcodeGen globs the directory.
 - Destination: `platform=iOS Simulator,name=iPhone Duo`
 - Bundle id: `ru.petzy.app`
 - Derived data: `.build` (in the repo, gitignored)
-- iOS 27.0 minimum, Swift 6 language mode, `SWIFT_STRICT_CONCURRENCY=complete`
+- iOS 26.0 minimum, Swift 6 language mode, `SWIFT_STRICT_CONCURRENCY=complete`
 
 ```bash
 make setup     # brew install xcodegen swiftlint, then generate
@@ -74,9 +74,13 @@ Only one simulator exists on this machine (`iPhone Duo`, iOS 27.1). Override wit
 
 `.github/workflows/ci.yml` runs on every push to `master`: install the tools,
 `xcodegen generate`, `swiftlint lint --strict`, build, unit tests. UI tests are
-not in CI, they need a running Petzy stand. The runner is `macos-15` with the
-default Xcode; if the SDK there is older than iOS 27, pin `runs-on` and
-`DEVELOPER_DIR` to a runner that has a new enough Xcode.
+not in CI, they need a running Petzy stand.
+
+The runner is `macos-26` with `latest-stable` Xcode. That works because the
+minimum is iOS 26: under an iOS 27 minimum the image's Xcode 26.6 had no
+simulator destination at all and the unit tests could not run. If the minimum
+goes back up to 27, the Xcode version has to be pinned to one that ships the
+iOS 27 SDK.
 
 ## Agents
 

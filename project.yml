@@ -6,7 +6,7 @@ options:
   bundleIdPrefix: ru.petzy
   createIntermediateGroups: true
   deploymentTarget:
-    iOS: "27.0"
+    iOS: "26.0"
 
 settings:
   base:
