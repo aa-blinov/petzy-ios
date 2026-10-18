@@ -149,6 +149,16 @@ private struct SettingsSection: View {
                     }
                 }
                 NavigationLink {
+                    AccessTokensView(model: AccessTokensModel(client: model.client))
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Доступы для ассистентов", systemImage: "key")
+                        Text("Токен вместо пароля для человека или скрипта")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                NavigationLink {
                     HistoryView(model: model)
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
