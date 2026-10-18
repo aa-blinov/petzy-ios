@@ -62,6 +62,21 @@ rather than a piece of it, unless nothing Swift changed, in which case
 Only one simulator exists on this machine (`iPhone Duo`, iOS 27.1). Override with
 `make run SIM="..."`.
 
+**`iPhone Duo` is not a normal phone.** Its screen is 466×678 pt and the system
+puts the `TabView` bar in a **vertical rail on the right edge**, not along the
+bottom. Two consequences that cost real time:
+
+- A `TabView` filled with bare views renders its buttons with **empty labels**,
+  and they collapse into a nameless strip. The label belongs in `Tab("Лента",
+  systemImage: "list.bullet") { ... }`, not in the content view.
+- In XCUITest there is **no `app.tabBars` element at all** on this device; the
+  tabs are `AXRadioButton` with the `AXTabButton` subtype. Select them as
+  `app.buttons["Лента"]`, which also works on a bottom tab bar.
+
+`make test-ui` swallows its own output through `tail -40`, so a run in progress
+looks frozen. When you need to watch it, run `xcodebuild` from the Makefile's
+line directly into a file.
+
 ## Style and hooks
 
 - SwiftLint, 120 columns, same as the backend's ruff. `make lint-strict` is what
@@ -252,6 +267,23 @@ do with them.
 
 The API reference is at `/api/docs`, the machine-readable spec at
 `/api/openapi.json`. Read it before guessing a field.
+
+**The backend already supports offline writing.** Do not assume it does not, and
+do not file tickets for it without checking `web/events.py` first. As of the
+commits that sit on `master` locally but not on `origin`:
+
+- `local_id` on `POST /api/events`, plus `PUT`/`DELETE /api/events/local/{local_id}`
+  to edit and delete before the answer comes back. Repeating a `POST` with the
+  same `local_id` does not create a second record.
+- `updated_at`, set by the server in UTC with milliseconds, compare as text.
+  There is no `?since=` filter on purpose: read the whole feed.
+- Cursor paging: `before` carries the previous `next_cursor`, and new records
+  never shift a page. `page`/`page_size` is the web app's own path.
+- Soft delete: `with_deleted=1` returns tombstones with `is_deleted` and
+  `deleted_at`, kept for 30 days.
+
+All of it is written out in the «Синхронизация с нативным приложением» section
+of `web/openapi_doc.py`. Read that section before designing offline work.
 
 ## Layout
 

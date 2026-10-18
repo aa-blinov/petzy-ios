@@ -6,12 +6,24 @@ struct AppShellView: View {
     let model: AppModel
 
     var body: some View {
+        // Подпись вкладки живёт в `Tab`, а не в самом содержимом. Без неё
+        // кнопка остаётся без имени и схлопывается в узкую полосу у края.
         TabView {
-            PlaceholderSection(model: model, title: "Лента", systemImage: "list.bullet")
-            PlaceholderSection(model: model, title: "Лекарства", systemImage: "pills")
-            PlaceholderSection(model: model, title: "Медкарта", systemImage: "cross.case")
-            PlaceholderSection(model: model, title: "Документы", systemImage: "doc")
-            SettingsSection(model: model)
+            Tab("Лента", systemImage: "list.bullet") {
+                PlaceholderSection(model: model, title: "Лента", systemImage: "list.bullet")
+            }
+            Tab("Лекарства", systemImage: "pills") {
+                PlaceholderSection(model: model, title: "Лекарства", systemImage: "pills")
+            }
+            Tab("Медкарта", systemImage: "cross.case") {
+                PlaceholderSection(model: model, title: "Медкарта", systemImage: "cross.case")
+            }
+            Tab("Документы", systemImage: "doc") {
+                PlaceholderSection(model: model, title: "Документы", systemImage: "doc")
+            }
+            Tab("Настройки", systemImage: "gearshape") {
+                SettingsSection(model: model)
+            }
         }
         .task { await model.loadPets() }
     }

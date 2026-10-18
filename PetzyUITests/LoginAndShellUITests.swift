@@ -29,11 +29,14 @@ final class LoginAndShellUITests: XCTestCase {
         app.buttons["Войти"].tap()
 
         XCTAssertTrue(
-            app.tabBars.buttons["Лента"].waitForExistence(timeout: 30),
+            app.buttons["Лента"].waitForExistence(timeout: 30),
             "После входа оболочка не открылась: \(app.debugDescription)"
         )
+        // Кнопки, а не app.tabBars: на iPhone Duo панель вкладок уходит в боковую
+        // полосу и отдельного элемента tabBar в дереве не остаётся. Сама кнопка
+        // есть на любом расположении.
         for tab in ["Лекарства", "Медкарта", "Документы", "Настройки"] {
-            XCTAssertTrue(app.tabBars.buttons[tab].exists, "Вкладка «\(tab)» пропала")
+            XCTAssertTrue(app.buttons[tab].exists, "Вкладка «\(tab)» пропала")
         }
         XCTAssertTrue(
             app.buttons["Рекс"].waitForExistence(timeout: 15),
@@ -48,7 +51,7 @@ final class LoginAndShellUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Войти"].waitForExistence(timeout: 30))
         app.buttons["Войти"].tap()
         XCTAssertTrue(
-            app.tabBars.buttons["Лента"].waitForExistence(timeout: 30),
+            app.buttons["Лента"].waitForExistence(timeout: 30),
             "Первый вход не прошёл: \(app.debugDescription)"
         )
 
@@ -59,7 +62,7 @@ final class LoginAndShellUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(
-            app.tabBars.buttons["Лента"].waitForExistence(timeout: 30),
+            app.buttons["Лента"].waitForExistence(timeout: 30),
             "После перезапуска снова спросили пароль"
         )
     }
@@ -81,7 +84,7 @@ final class LoginAndShellUITests: XCTestCase {
             app.staticTexts["Неверный логин или пароль"].waitForExistence(timeout: 30),
             "Текст ошибки от бэкенда не показан"
         )
-        XCTAssertFalse(app.tabBars.buttons["Лента"].exists, "Оболочка открылась с чужим паролем")
+        XCTAssertFalse(app.buttons["Лента"].exists, "Оболочка открылась с чужим паролем")
     }
 
     private func launchSignedOut() -> XCUIApplication {
