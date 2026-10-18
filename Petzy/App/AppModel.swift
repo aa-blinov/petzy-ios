@@ -47,6 +47,18 @@ final class AppModel {
     private(set) var hasMoreEvents = false
     private(set) var isLoadingFeed = false
     private(set) var feedErrorText: String?
+    /// Счётчик прокрутки ленты наверх. Повторное нажатие на активную вкладку
+    /// само по себе ни к чему не приводит, а «В начало» ожидают от любого
+    /// приложения. Счётчик, а не флаг: два нажатия подряд это два события.
+    private(set) var feedScrollToTop = 0
+    /// Что сказать о сохранённой записи, которой нет в загруженной части
+    /// ленты. Запись с датой в прошлом после сохранения просто исчезает, и
+    /// человек решает, что она не записалась.
+    var feedNotice: String?
+    /// Сколько страниц сверх первой дочитал человек и чей это дневник: у
+    /// другого питомца своей второй страницы может не быть.
+    private var feedDepth = 0
+    private var feedPetID: String?
     var eventTypes: [String: EventTypeInfo] = [:]
 
     /// Типы, записи о которых у питомца есть. В фильтре истории показываются
@@ -166,6 +178,14 @@ final class AppModel {
     /// Первая страница ленты: заново, со справочником типов и выбранным питомцем.
     func loadFeed() async {
         guard let petID = selectedPetID else { return }
+        if feedPetID != petID {
+            feedDepth = 0
+            feedPetID = petID
+        }
+        // Сколько страниц человек уже дочитал. Лента после сохранения записи
+        // читается заново первой страницей, и без этого человек терял место,
+        // до которого дочитал, и догружал всё заново.
+        let depth = feedDepth
         rawEvents = []
         feedNextCursor = nil
         hasMoreEvents = false
@@ -178,6 +198,9 @@ final class AppModel {
             let types = try await client.get("/api/event-types", as: EventTypesResponse.self)
             eventTypes = Dictionary(types.eventTypes.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
             try await apply(fetchPage(petID: petID, before: nil), appending: false)
+            for _ in 0 ..< depth {
+                await loadMore()
+            }
         } catch {
             handleFeedError(error)
         }
@@ -191,9 +214,28 @@ final class AppModel {
         defer { isLoadingFeed = false }
         do {
             try await apply(fetchPage(petID: petID, before: cursor), appending: true)
+            feedDepth += 1
         } catch {
             handleFeedError(error)
         }
+    }
+
+    /// Вернуть ленту наверх. Просьба приходит из вкладки: `TabView` о
+    /// повторном нажатии на активную вкладку молчит.
+    func scrollFeedToTop() {
+        feedScrollToTop += 1
+    }
+
+    /// Показать сохранённую запись. Если её нет в загруженной части ленты,
+    /// говорим словами, за какой день она: запись с датой в прошлом после
+    /// сохранения иначе просто исчезает, и человек решает, что она не
+    /// записалась. Прокрутить ленту к конкретной записи не выходит:
+    /// `scrollTo` по id строки в `List` с дроблением по дням молча проходит
+    /// мимо, даже когда у строки есть явный id.
+    private func showSaved(_ id: String?, date: String) {
+        feedNotice = nil
+        guard let id, !rawEvents.contains(where: { $0.id == id }) else { return }
+        feedNotice = "Она за " + MomentText.russianDay(date) + ", в ленте до неё надо долистать"
     }
 
     /// Сохраняет новую запись и, если получилось, перечитывает ленту: запись
@@ -203,8 +245,9 @@ final class AppModel {
         feedErrorText = nil
         do {
             let request = EventRequest.create(draft, petID: petID)
-            _ = try await client.post("/api/events", body: request, as: EventSavedResponse.self)
+            let saved = try await client.post("/api/events", body: request, as: EventSavedResponse.self)
             await loadFeed()
+            showSaved(saved.id, date: draft.date)
         } catch {
             handleFeedError(error)
         }

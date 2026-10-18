@@ -62,6 +62,11 @@ struct FeedView: View {
         } message: {
             Text("Запись пропадёт из дневника")
         }
+        .alert("Запись сохранена", isPresented: noticeBinding) {
+            Button("Понятно") { model.feedNotice = nil }
+        } message: {
+            Text(model.feedNotice ?? "")
+        }
     }
 
     @ViewBuilder
@@ -84,22 +89,44 @@ struct FeedView: View {
     }
 
     private var list: some View {
-        List {
-            ForEach(model.days) { day in
-                Section(Feed.dayHeader(day.date, today: .now, calendar: .current)) {
-                    ForEach(day.events) { event in
-                        row(event)
+        ScrollViewReader { proxy in
+            List {
+                ForEach(model.days) { day in
+                    Section(Feed.dayHeader(day.date, today: .now, calendar: .current)) {
+                        ForEach(day.events) { event in
+                            row(event)
+                        }
                     }
                 }
-            }
-            if model.hasMoreEvents {
-                Button(model.isLoadingFeed ? "Загружаем" : "Загрузить ещё") {
-                    Task { await model.loadMore() }
+                if model.hasMoreEvents {
+                    Button(model.isLoadingFeed ? "Загружаем" : "Загрузить ещё") {
+                        Task { await model.loadMore() }
+                    }
+                    .disabled(model.isLoadingFeed)
                 }
-                .disabled(model.isLoadingFeed)
+            }
+            .listStyle(.plain)
+            .onChange(of: model.feedScrollToTop) { _, _ in
+                // Отдельной прокрутки «наверх» у списка нет: верх это начало
+                // первого дня.
+                if let first = model.days.first {
+                    proxy.scrollTo(first.id)
+                }
             }
         }
-        .listStyle(.plain)
+    }
+
+    /// Запись с датой в прошлом в загруженную ленту не попадает, и после
+    /// сохранения её не видно. Говорим словами, за какой день она.
+    private var noticeBinding: Binding<Bool> {
+        Binding(
+            get: { model.feedNotice != nil },
+            set: {
+                if !$0 {
+                    model.feedNotice = nil
+                }
+            }
+        )
     }
 
     private func row(_ event: PetEvent) -> some View {

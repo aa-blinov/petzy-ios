@@ -11,15 +11,31 @@ struct AppShellView: View {
     @State private var medications: MedicationsModel?
     @State private var medicalCard: MedicalCardModel?
     @State private var documents: DocumentsModel?
+    @State private var tab: ShellTab = .feed
+
+    /// Повторное нажатие на активную вкладку `TabView` пропускает мимо: выбор
+    /// не меняется, и сеттер не вызывается. Своя привязка это видит и
+    /// возвращает ленту наверх, как в любом приложении.
+    private var tabBinding: Binding<ShellTab> {
+        Binding(
+            get: { tab },
+            set: { new in
+                if new == tab, new == .feed {
+                    model.scrollFeedToTop()
+                }
+                tab = new
+            }
+        )
+    }
 
     var body: some View {
         // Подпись вкладки живёт в `Tab`, а не в самом содержимом. Без неё
         // кнопка остаётся без имени и схлопывается в узкую полосу у края.
-        TabView {
-            Tab("Лента", systemImage: "list.bullet") {
+        TabView(selection: tabBinding) {
+            Tab("Лента", systemImage: "list.bullet", value: .feed) {
                 FeedView(model: model)
             }
-            Tab("Лекарства", systemImage: "pills") {
+            Tab("Лекарства", systemImage: "pills", value: .medications) {
                 if let medications {
                     MedicationsView(model: medications, app: model)
                 }
@@ -27,7 +43,7 @@ struct AppShellView: View {
             // Значок на вкладке: сколько приёмов просрочено. Своей точки
             // значок не рисует, только число, и оно полезнее пустого кружка.
             .badge(medications?.overdueCount ?? 0)
-            Tab("Медкарта", systemImage: "cross.case") {
+            Tab("Медкарта", systemImage: "cross.case", value: .medicalCard) {
                 if let medicalCard {
                     MedicalCardView(model: medicalCard, app: model)
                 }
@@ -35,7 +51,7 @@ struct AppShellView: View {
             // Значок считает просроченные прививки и обработки: о них узнают,
             // не заходя внутрь, и он гаснет сам после повторной записи.
             .badge(medicalCard?.overdueCount ?? 0)
-            Tab("Документы", systemImage: "doc") {
+            Tab("Документы", systemImage: "doc", value: .documents) {
                 if let documents {
                     DocumentsView(model: documents, app: model)
                 }
@@ -43,7 +59,7 @@ struct AppShellView: View {
             // Значок считает документы с истёкшим сроком: о них узнают, не
             // заходя внутрь.
             .badge(documents?.expired ?? 0)
-            Tab("Настройки", systemImage: "gearshape") {
+            Tab("Настройки", systemImage: "gearshape", value: .settings) {
                 SettingsSection(model: model, flow: flow)
             }
         }
@@ -58,6 +74,16 @@ struct AppShellView: View {
             documents = DocumentsModel(client: model.client, petID: petID)
         }
     }
+}
+
+/// Пять вкладок. Значение нужно для выбора в `TabView`: без него не видно
+/// повторное нажатие на активную вкладку.
+private enum ShellTab: Hashable {
+    case feed
+    case medications
+    case medicalCard
+    case documents
+    case settings
 }
 
 /// Настройки переезжают на этапе 9, но выход из аккаунта нужен уже сейчас:
@@ -166,45 +192,6 @@ private struct SettingsSection: View {
     }
 }
 
-/// Заглушка раздела, который ещё не перенесён. Показывает честное «ещё нет»,
-/// а не пустой список: пустой список читается как «у питомца нет записей».
-private struct PlaceholderSection: View {
-    let model: AppModel
-    let title: String
-    let systemImage: String
-
-    var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle(title)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) { PetSwitcher(model: model) }
-                }
-        }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        // Не загрузились питомцы, а с ними и весь смысл раздела. Показываем
-        // это на весь экран, а не мелкой строкой в панели.
-        if case let .failed(text) = model.petsState {
-            ContentUnavailableView {
-                Label("Не загрузилось", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(text)
-            } actions: {
-                Button("Повторить") { Task { await model.loadPets() } }
-            }
-        } else {
-            ContentUnavailableView {
-                Label(title, systemImage: systemImage)
-            } description: {
-                Text("Этот раздел ещё не перенесён сюда")
-            }
-        }
-    }
-}
-
 /// Переключатель питомца. Живёт в панели слева, где в вебе тоже стоит выбор
 /// питомца. Кнопка «+» сюда не попадает: она добавляет запись в ленте,
 /// а лента переезжает на этапе 2.
@@ -230,7 +217,13 @@ struct PetSwitcher: View {
                     }
                 }
             } label: {
-                Label(model.selectedPet?.name ?? "Питомец", systemImage: "pawprint")
+                // Панель в iOS 26 сворачивает `Label` до одного значка, а
+                // `.labelStyle(.titleAndIcon)` не помогает: имя питомца
+                // пропадало, и по одному знаку не видно, чей дневник открыт.
+                HStack(spacing: 4) {
+                    Image(systemName: "pawprint")
+                    Text(model.selectedPet?.name ?? "Питомец")
+                }
             }
         }
     }
