@@ -72,6 +72,9 @@ struct AppShellView: View {
             medications = MedicationsModel(client: model.client, petID: petID)
             medicalCard = MedicalCardModel(client: model.client, petID: petID)
             documents = DocumentsModel(client: model.client, petID: petID)
+            // Значения по умолчанию тоже питомца, а не аккаунта: у другого
+            // питомца свой набор.
+            await model.loadFormDefaults()
         }
     }
 }
@@ -154,6 +157,24 @@ private struct SettingsSection: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Label("Доступы для ассистентов", systemImage: "key")
                         Text("Токен вместо пароля для человека или скрипта")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                NavigationLink {
+                    FormDefaultsView(
+                        model: FormDefaultsModel(
+                            client: model.client,
+                            petID: model.selectedPetID ?? "",
+                            defaults: model.formDefaults,
+                            app: model
+                        ),
+                        app: model
+                    )
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Значения по умолчанию", systemImage: "text.badge.checkmark")
+                        Text("Чем новая запись открывается уже заполненной")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

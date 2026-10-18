@@ -45,7 +45,7 @@ struct HistoryView: View {
             NavigationStack {
                 EventCatalogView(model: model) { type in
                     addingType = false
-                    form = EventFormTarget(draft: EventFormView.emptyDraft(type: type), recordID: nil)
+                    form = EventFormTarget(draft: model.newDraft(for: type), recordID: nil)
                 }
             }
         }

@@ -45,6 +45,8 @@ final class AppModel {
     private(set) var rawEvents: [PetEvent] = []
     private(set) var feedNextCursor: String?
     private(set) var hasMoreEvents = false
+    /// Значения по умолчанию выбранного питомца: ими открывается новая запись.
+    var formDefaults: FormDefaults = [:]
     private(set) var isLoadingFeed = false
     private(set) var feedErrorText: String?
     /// Счётчик прокрутки ленты наверх. Повторное нажатие на активную вкладку

@@ -33,7 +33,7 @@ struct FeedView: View {
             NavigationStack {
                 EventCatalogView(model: model) { type in
                     pickingType = false
-                    form = EventFormTarget(draft: EventFormView.emptyDraft(type: type), recordID: nil)
+                    form = EventFormTarget(draft: model.newDraft(for: type), recordID: nil)
                 }
             }
         }

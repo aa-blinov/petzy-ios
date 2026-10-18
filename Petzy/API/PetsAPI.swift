@@ -49,6 +49,29 @@ enum PetsAPI {
         return response.domain
     }
 
+    /// Значения по умолчанию лежат на питомце, а не в справочнике типов: ими
+    /// пользуется всякий, кто добавляет этому питомцу записи, включая
+    /// соавторов.
+    static func formDefaults(_ client: APIClient, id: String) async throws -> FormDefaults {
+        let response: PetCardResponse = try await client.get("/api/pets/\(AppModel.query(id))")
+        // Поля у питомца без единого сохранённого значения сервер не отдаёт.
+        return response.pet.formDefaults ?? [:]
+    }
+
+    /// Набор заменяется целиком: сервер не дополняет его, а переписывает. Поэтому
+    /// убрать значение можно только явным сохранением без него.
+    static func saveFormDefaults(
+        _ client: APIClient,
+        id: String,
+        defaults: FormDefaults
+    ) async throws -> FormDefaults {
+        let response: FormDefaultsResponse = try await client.put(
+            "/api/pets/\(AppModel.query(id))/form-defaults",
+            body: FormDefaultsBody(formDefaults: defaults)
+        )
+        return response.formDefaults
+    }
+
     static func delete(_ client: APIClient, id: String) async throws {
         try await client.delete("/api/pets/\(AppModel.query(id))")
     }
@@ -94,6 +117,22 @@ private struct PetAck: Decodable {
     let success: Bool?
 }
 
+private struct FormDefaultsBody: Encodable {
+    let formDefaults: FormDefaults
+
+    enum CodingKeys: String, CodingKey {
+        case formDefaults = "form_defaults"
+    }
+}
+
+private struct FormDefaultsResponse: Decodable {
+    let formDefaults: FormDefaults
+
+    enum CodingKeys: String, CodingKey {
+        case formDefaults = "form_defaults"
+    }
+}
+
 /// Карточка питомца с сервера. Оформление `look` и медицинский профиль сюда не
 /// входят: их показывает медкарта, а держать лишнее в каждой копии карточки
 /// незачем.
@@ -108,6 +147,7 @@ private struct PetDTO: Decodable {
     let healthNotes: String?
     let photoURL: String?
     let currentUserIsOwner: Bool?
+    let formDefaults: FormDefaults?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -117,6 +157,7 @@ private struct PetDTO: Decodable {
         case healthNotes = "health_notes"
         case photoURL = "photo_url"
         case currentUserIsOwner = "current_user_is_owner"
+        case formDefaults = "form_defaults"
     }
 
     var domain: PetProfile {
