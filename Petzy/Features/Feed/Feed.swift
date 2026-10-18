@@ -37,26 +37,9 @@ enum Feed {
     /// Подпись дня: «Сегодня», «Вчера» или дата. Словами только два ближайших
     /// дня, дальше дата в привычном виде «15.10.2026».
     static func dayHeader(_ date: String, today: Date, calendar: Calendar) -> String {
-        let parts = date.split(separator: "-")
-        guard parts.count == 3 else { return date }
-
-        let start = calendar.startOfDay(for: today)
-        if date == isoDay(start, calendar: calendar) {
-            return "Сегодня"
-        }
-        // Условие в одну строку: многострочный `if let` swiftformat раскрывает
-        // скобкой на новой строке, а swiftlint это запрещает.
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: start)
-        if let yesterday, date == isoDay(yesterday, calendar: calendar) {
-            return "Вчера"
-        }
-        return "\(parts[2]).\(parts[1]).\(parts[0])"
+        MomentText.humanDay(date, today: today, calendar: calendar)
     }
 
-    /// Дата в том же виде, в каком её присылает сервер, чтобы сравнение строк
-    /// не зависело от локали устройства.
-    static func isoDay(_ date: Date, calendar: Calendar) -> String {
-        let parts = calendar.dateComponents([.year, .month, .day], from: date)
-        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
-    }
+    // Дата в том же виде, в каком её присылает сервер, чтобы сравнение строк
+    // не зависело от локали устройства.
 }

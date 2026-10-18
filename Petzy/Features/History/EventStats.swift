@@ -140,7 +140,7 @@ enum EventStats {
             // Неделя в России начинается с понедельника.
             let weekday = calendar.component(.weekday, from: date)
             let monday = calendar.date(byAdding: .day, value: 1 - weekday, to: date) ?? date
-            return Feed.isoDay(monday, calendar: calendar)
+            return MomentText.isoDay(monday, calendar: calendar)
         case .month:
             return String(format: "%04d-%02d", parts[0], parts[1])
         }

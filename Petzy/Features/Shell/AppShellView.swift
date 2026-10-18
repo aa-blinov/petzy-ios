@@ -5,6 +5,10 @@ import SwiftUI
 struct AppShellView: View {
     let model: AppModel
 
+    /// Модель лекарств живёт здесь, а не внутри вкладки: точку о просроченном
+    /// приёме рисует сама панель вкладок, и та не видит содержимое экрана.
+    @State private var medications: MedicationsModel?
+
     var body: some View {
         // Подпись вкладки живёт в `Tab`, а не в самом содержимом. Без неё
         // кнопка остаётся без имени и схлопывается в узкую полосу у края.
@@ -13,8 +17,13 @@ struct AppShellView: View {
                 FeedView(model: model)
             }
             Tab("Лекарства", systemImage: "pills") {
-                PlaceholderSection(model: model, title: "Лекарства", systemImage: "pills")
+                if let medications {
+                    MedicationsView(model: medications, app: model)
+                }
             }
+            // Значок на вкладке: сколько приёмов просрочено. Своей точки
+            // значок не рисует, только число, и оно полезнее пустого кружка.
+            .badge(medications?.overdueCount ?? 0)
             Tab("Медкарта", systemImage: "cross.case") {
                 PlaceholderSection(model: model, title: "Медкарта", systemImage: "cross.case")
             }
@@ -26,6 +35,13 @@ struct AppShellView: View {
             }
         }
         .task { await model.loadPets() }
+        .task(id: model.selectedPetID) {
+            // Модель пересоздаётся на каждый питомца: питомец приходит в её
+            // запросы, и подменить его на ходу значило бы ждать ответа по
+            // чужому курсу.
+            guard let petID = model.selectedPetID else { return }
+            medications = MedicationsModel(client: model.client, petID: petID)
+        }
     }
 }
 

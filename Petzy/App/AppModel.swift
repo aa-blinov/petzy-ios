@@ -265,7 +265,9 @@ final class AppModel {
         feedErrorText = apiError?.errorDescription ?? error.localizedDescription
     }
 
-    static func query(_ value: String) -> String {
+    /// Экранирование значения для строки запроса. `nonisolated`, потому что
+    /// пути строит и слой API, а он не привязан к главному актору.
+    nonisolated static func query(_ value: String) -> String {
         value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
     }
 

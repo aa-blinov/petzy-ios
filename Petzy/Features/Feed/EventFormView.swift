@@ -102,7 +102,7 @@ struct EventFormView: View {
 
     private func save() {
         var ready = draft
-        ready.date = Feed.isoDay(day, calendar: .current)
+        ready.date = MomentText.isoDay(day, calendar: .current)
         ready.time = Self.clock(moment)
         Task {
             if let recordID {
@@ -122,7 +122,7 @@ struct EventFormView: View {
             type: type,
             values: [:],
             comment: "",
-            date: Feed.isoDay(now, calendar: .current),
+            date: MomentText.isoDay(now, calendar: .current),
             time: clock(now)
         )
     }
