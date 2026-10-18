@@ -10,7 +10,7 @@ struct AppShellView: View {
         // кнопка остаётся без имени и схлопывается в узкую полосу у края.
         TabView {
             Tab("Лента", systemImage: "list.bullet") {
-                PlaceholderSection(model: model, title: "Лента", systemImage: "list.bullet")
+                FeedView(model: model)
             }
             Tab("Лекарства", systemImage: "pills") {
                 PlaceholderSection(model: model, title: "Лекарства", systemImage: "pills")

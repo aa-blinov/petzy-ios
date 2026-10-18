@@ -115,4 +115,68 @@ struct AppModelTests {
         #expect(StubURLProtocol.requestedPaths == ["/api/pets", "/api/auth/refresh"])
         #expect(model.state == .signedOut)
     }
+
+    private func stubEvent(_ id: String, dateTime: String) -> [String: Any] {
+        ["_id": id, "type": "weight", "date_time": dateTime, "comment": "", "fields": ["weight": 29.3]]
+    }
+
+    /// Лента читается курсором, а не по номеру страницы: запись, написанная
+    /// пока шли по страницам, не должна сдвинуть выборку и потеряться.
+    @Test("Лента дочитывается курсором до последней страницы")
+    func feedFollowsCursorToTheEnd() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["event_types": [
+            ["key": "weight", "label": "Вес", "icon": "scalemass", "fields": [["name": "weight", "label": "Вес (кг)"]]]
+        ]])
+        StubURLProtocol.stub(status: 200, json: [
+            "items": [stubEvent("e1", dateTime: "2026-10-18 09:00")],
+            "next_cursor": "cur-1"
+        ])
+        StubURLProtocol.stub(status: 200, json: [
+            "items": [stubEvent("e2", dateTime: "2026-10-17 09:00")],
+            "next_cursor": nil
+        ])
+        let model = await makeModel(defaults: makeDefaults())
+        model.select(petID: "pet-1")
+
+        await model.loadFeed()
+
+        #expect(
+            StubURLProtocol.requestedPaths == ["/api/event-types", "/api/events"],
+            "лента пошла не туда: \(StubURLProtocol.requestedPaths)"
+        )
+        #expect(model.feedErrorText == nil, "ошибка загрузки: \(model.feedErrorText ?? "нет")")
+        #expect(model.days.map(\.date) == ["2026-10-18"])
+        #expect(model.hasMoreEvents)
+        #expect(model.feedNextCursor == "cur-1")
+
+        await model.loadMore()
+
+        #expect(model.days.map(\.date) == ["2026-10-18", "2026-10-17"])
+        #expect(model.days.flatMap(\.events).count == 2)
+        #expect(model.hasMoreEvents == false)
+        let lastQuery = StubURLProtocol.requests.last?.url?.query ?? ""
+        #expect(lastQuery.contains("before=cur-1"), "вторая страница запрошена без курсора: \(lastQuery)")
+    }
+
+    /// Догружать больше нечего: повторный вызов не должен слать запрос в сервер.
+    @Test("Последняя страница больше не читается")
+    func lastPageIsNotRequestedAgain() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: [
+            "event_types": [["key": "weight", "label": "Вес", "fields": []]]
+        ])
+        StubURLProtocol.stub(status: 200, json: [
+            "items": [stubEvent("e1", dateTime: "2026-10-18 09:00")],
+            "next_cursor": nil
+        ])
+        let model = await makeModel(defaults: makeDefaults())
+        model.select(petID: "pet-1")
+        await model.loadFeed()
+        let before = StubURLProtocol.requests.count
+
+        await model.loadMore()
+
+        #expect(StubURLProtocol.requests.count == before)
+    }
 }

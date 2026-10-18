@@ -19,7 +19,7 @@ enum HTTP {
         jsonBody: Data? = nil,
         accessToken: String? = nil
     ) async throws -> (Data, HTTPURLResponse) {
-        var request = URLRequest(url: baseURL.appending(path: path))
+        var request = URLRequest(url: Self.resolve(path, baseURL: baseURL))
         request.httpMethod = method
         request.httpBody = jsonBody
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -43,6 +43,25 @@ enum HTTP {
         } catch {
             throw APIError.transport(error.localizedDescription)
         }
+    }
+
+    /// Собирает адрес из `путь?параметры`. `appending(path:)` считает всю строку
+    /// частью пути и прячет в неё знак вопроса, поэтому параметры уезжают в путь
+    /// и сервер их не видит. Делим сами: путь и запрос — разные части адреса.
+    static func resolve(_ path: String, baseURL: URL) -> URL {
+        guard let questionMark = path.firstIndex(of: "?") else {
+            return baseURL.appending(path: path)
+        }
+        let withoutQuery = String(path[path.startIndex ..< questionMark])
+        let query = String(path[path.index(after: questionMark)...])
+        let url = baseURL.appending(path: withoutQuery)
+        guard !query.isEmpty, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url
+        }
+        // Значения в запросе приходят уже экранированными, поэтому это именно
+        // percentEncodedQuery: второй раз экранировать нельзя.
+        components.percentEncodedQuery = query
+        return components.url ?? url
     }
 
     /// Текст ошибки от бэкенда, если он есть: «Неверный логин или пароль» полезнее,

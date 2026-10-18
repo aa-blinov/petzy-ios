@@ -9,6 +9,7 @@ struct PetzyApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(model: model)
+                .tint(Accent.color)
         }
     }
 }

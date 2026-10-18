@@ -30,6 +30,21 @@ final class AppModel {
     private(set) var petsState: PetsState = .loading
     private(set) var selectedPetID: String?
 
+    /// Дни ленты выбранного питомца. Сами записи лежат в `rawEvents`: дни
+    /// собираются из них на показ, иначе догруженная страница не срослась бы
+    /// с уже показанными днями.
+    private(set) var rawEvents: [PetEvent] = []
+    private(set) var feedNextCursor: String?
+    private(set) var hasMoreEvents = false
+    private(set) var isLoadingFeed = false
+    private(set) var feedErrorText: String?
+    private var eventTypes: [String: EventTypeInfo] = [:]
+
+    /// Готовая лента по дням. Пусто, пока грузится или грузить нечего.
+    var days: [EventDay] {
+        Feed.group(rawEvents, knownTypes: Set(eventTypes.keys))
+    }
+
     /// Питомцы из последнего успешного ответа. Пустой список, пока грузится
     /// или грузить нечего.
     var pets: [Pet] {
@@ -88,6 +103,84 @@ final class AppModel {
             }
             petsState = .failed(apiError?.errorDescription ?? error.localizedDescription)
         }
+    }
+
+    /// Первая страница ленты: заново, со справочником типов и выбранным питомцем.
+    func loadFeed() async {
+        guard let petID = selectedPetID else { return }
+        rawEvents = []
+        feedNextCursor = nil
+        hasMoreEvents = false
+        feedErrorText = nil
+        isLoadingFeed = true
+        defer { isLoadingFeed = false }
+        do {
+            // Типы нужны и для названия записи, и для значка. Без них запись
+            // неизвестного вида пришлось бы выкинуть, а это молчаливая потеря.
+            let types = try await client.get("/api/event-types", as: EventTypesResponse.self)
+            eventTypes = Dictionary(types.eventTypes.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
+            try await apply(fetchPage(petID: petID, before: nil), appending: false)
+        } catch {
+            handleFeedError(error)
+        }
+    }
+
+    /// Следующая страница по курсору. Догружать нечего — запроса не будет:
+    /// лишний запрос на последней странице это и лишний шаг к лимиту входа.
+    func loadMore() async {
+        guard hasMoreEvents, let cursor = feedNextCursor, let petID = selectedPetID else { return }
+        isLoadingFeed = true
+        defer { isLoadingFeed = false }
+        do {
+            try await apply(fetchPage(petID: petID, before: cursor), appending: true)
+        } catch {
+            handleFeedError(error)
+        }
+    }
+
+    /// Название типа записи, каким его знает справочник.
+    func label(for type: String) -> String {
+        eventTypes[type]?.label ?? type
+    }
+
+    /// Имя из набора веба переводится в значок системы, иначе значок был бы пустым.
+    func icon(for type: String) -> String {
+        EventIcon.symbol(for: eventTypes[type]?.icon)
+    }
+
+    /// Подпись поля так, как её назвал человек, а не ключ из записи.
+    func fieldLabel(_ name: String, of type: String) -> String {
+        eventTypes[type]?.fields.first { $0.name == name }?.label ?? name
+    }
+
+    private func fetchPage(petID: String, before: String?) async throws -> EventsPage {
+        // with_deleted=1: удалённая запись приходит надгробием, и приложение
+        // знает, что её надо убрать из своей копии. Сами надгробия на показ
+        // не идут, их отсекает Feed.group.
+        var path = "/api/events?with_deleted=1&page_size=100&pet_id=" + Self.query(petID)
+        if let before {
+            path += "&before=" + Self.query(before)
+        }
+        return try await client.get(path, as: EventsPage.self)
+    }
+
+    private func apply(_ page: EventsPage, appending: Bool) {
+        rawEvents = appending ? rawEvents + page.items : page.items
+        feedNextCursor = page.nextCursor
+        hasMoreEvents = page.nextCursor != nil
+    }
+
+    private func handleFeedError(_ error: Error) {
+        let apiError = error as? APIError
+        if apiError?.isAuthProblem == true {
+            signOut()
+            return
+        }
+        feedErrorText = apiError?.errorDescription ?? error.localizedDescription
+    }
+
+    private static func query(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
     }
 
     func start() async {

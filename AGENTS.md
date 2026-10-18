@@ -153,6 +153,24 @@ Rules that follow from that:
 - Commit on green. A red test in history is fine and useful; a red test that gets
   papered over is not.
 
+**Tests passing is not the same as working.** Unit tests check logic, and they
+passed on a shell whose tabs were invisible. Always run the change on the
+simulator and look at it before calling anything done:
+
+```bash
+make run        # build, install, launch
+make shot       # screenshot, with the right display this time
+```
+
+Screenshots go through `read`, which shows the image: a claim like «экран
+открывается» is not evidence until a picture backs it. `make run` alone proves
+only that the app starts. For flows that need a signed-in session, launch with
+`PETZY_TEST_LOGIN` and `PETZY_TEST_PASSWORD` and tap the button through the
+`ios-simulator` MCP (see "The simulator on this machine").
+
+The bar for "done" on a screen: unit tests green, `make ci` green, and a
+screenshot of the real screen with real data.
+
 ## The simulator on this machine
 
 Xcode 27.1 behaves differently from older versions, and the defaults here cost
