@@ -107,7 +107,9 @@ final class AppModel {
     }
 
     let client: APIClient
-    private let auth: AuthSession
+    /// Сессия открыта наружу: смена пароля возвращает новую пару токенов, и её
+    /// обязан положить в хранилище тот, кто отправил запрос.
+    let auth: AuthSession
     private let defaults: UserDefaults
 
     /// Адрес и сеанс принимаются параметрами, а не берутся из `AppConfig`

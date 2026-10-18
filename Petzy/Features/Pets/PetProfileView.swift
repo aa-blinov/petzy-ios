@@ -85,8 +85,13 @@ struct PetProfileView: View {
             if model.profile?.currentUserIsOwner == true {
                 Section {
                     Button("Удалить питомца", role: .destructive) {
-                        Task { await model.prepareDeletion() }
-                        askingDelete = true
+                        // Вопрос ждёт превью: `alert` читает свой текст в
+                        // момент показа и потом не обновляет его, а «пропадёт
+                        // питомец» вместо «264 записи в ленте» обмануло бы.
+                        Task {
+                            await model.prepareDeletion()
+                            askingDelete = true
+                        }
                     }
                 } footer: {
                     Text("Вместе с питомцем пропадут его записи")

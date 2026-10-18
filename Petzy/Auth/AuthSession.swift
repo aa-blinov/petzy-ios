@@ -48,7 +48,14 @@ actor AuthSession {
         }
 
         let responseTokens = try JSONDecoder().decode(AuthTokensResponse.self, from: data)
-        guard let access = responseTokens.accessToken, let refresh = responseTokens.refreshToken else {
+        try replaceTokens(responseTokens)
+    }
+
+    /// Новая пара токенов. После смены пароля сервер отдаёт её в ответе и
+    /// рвёт старую: оставить старую в хранилище значит через 15 минут выкинуть
+    /// человека на экран входа посреди работы.
+    func replaceTokens(_ response: AuthTokensResponse) throws {
+        guard let access = response.accessToken, let refresh = response.refreshToken else {
             throw APIError.server(code: nil, message: "Сервер не вернул токены для нативного приложения")
         }
         try store(StoredTokens(accessToken: access, refreshToken: refresh))

@@ -95,6 +95,16 @@ private struct SettingsSection: View {
                 // ссылка, а не как пункт настроек рядом с «Историей».
                 .buttonStyle(.plain)
                 NavigationLink {
+                    AccountView(client: model.client, auth: model.auth, app: model)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Аккаунт", systemImage: "person.crop.circle")
+                        Text("Почта, пароль и удаление аккаунта")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                NavigationLink {
                     HistoryView(model: model)
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {

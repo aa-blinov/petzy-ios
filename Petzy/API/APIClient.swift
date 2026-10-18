@@ -38,6 +38,17 @@ struct APIClient: Sendable {
         }
     }
 
+    /// Удаление с телом. Так удаляется аккаунт: пароль подтверждения идёт в
+    /// теле запроса, а без него сервер откажет.
+    func delete<T: Decodable & Sendable>(
+        _ path: String,
+        body: some Encodable & Sendable,
+        as type: T.Type = T.self
+    ) async throws -> T {
+        let encoded = try JSONEncoder().encode(body)
+        return try await send(APIRequest(path: path, method: "DELETE", body: encoded), as: type)
+    }
+
     /// Загрузка файла: тело не JSON, а multipart с полями и файлом.
     func postMultipart<T: Decodable & Sendable>(
         _ path: String,
