@@ -58,6 +58,12 @@ enum TestSupport {
         return object
     }
 
+    /// Тело запроса как есть, без разбора: multipart'ом уходит файл, и
+    /// JSON-разбор тут ни при чём.
+    static func rawBody(of request: URLRequest?) -> Data {
+        bodyData(of: request) ?? Data()
+    }
+
     private static func bodyData(of request: URLRequest?) -> Data? {
         if let body = request?.httpBody {
             return body

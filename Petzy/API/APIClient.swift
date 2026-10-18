@@ -38,6 +38,16 @@ struct APIClient: Sendable {
         }
     }
 
+    /// Загрузка файла: тело не JSON, а multipart с полями и файлом.
+    func postMultipart<T: Decodable & Sendable>(
+        _ path: String,
+        body: Data,
+        contentType: String?,
+        as type: T.Type = T.self
+    ) async throws -> T {
+        try await sendMultipart(APIRequest(path: path, method: "POST"), body: body, contentType: contentType, as: type)
+    }
+
     /// Файл целиком, а не разобранный ответ: выгрузка отдаёт CSV, и разбирать
     /// его нечем. Вместе с телом отдаётся имя файла из заголовка сервера,
     /// иначе в «Поделиться» ушёл бы `записи.csv` вместо «рекс_вес_…».
@@ -85,10 +95,40 @@ struct APIClient: Sendable {
         try await Self.decode(raw(request), as: type)
     }
 
+    /// Загрузка файла повторяется после обновления токена так же, как и
+    /// остальные запросы: тело уже собрано, пересобирать его не нужно.
+    private func sendMultipart<T: Decodable & Sendable>(
+        _ request: APIRequest,
+        body: Data,
+        contentType: String?,
+        as type: T.Type
+    ) async throws -> T {
+        let first = try await performMultipart(request, body: body, contentType: contentType, token: auth.accessToken())
+        if first.1.statusCode == 401, await auth.refreshAccessToken() {
+            return try await Self.decode(
+                performMultipart(request, body: body, contentType: contentType, token: auth.accessToken()),
+                as: type
+            )
+        }
+        return try Self.decode(first, as: type)
+    }
+
     private func perform(_ request: APIRequest, token: String) async throws -> (Data, HTTPURLResponse) {
         try await HTTP.send(
             urlSession: urlSession, baseURL: baseURL, path: request.path,
             method: request.method, jsonBody: request.body, accessToken: token
+        )
+    }
+
+    private func performMultipart(
+        _ request: APIRequest,
+        body: Data,
+        contentType: String?,
+        token: String
+    ) async throws -> (Data, HTTPURLResponse) {
+        try await HTTP.sendMultipart(
+            urlSession: urlSession, baseURL: baseURL, path: request.path,
+            method: request.method, body: body, contentType: contentType, accessToken: token
         )
     }
 

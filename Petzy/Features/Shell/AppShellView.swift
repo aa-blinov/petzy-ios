@@ -9,6 +9,7 @@ struct AppShellView: View {
     /// рисует сам TabView, и содержимое экрана он не видит.
     @State private var medications: MedicationsModel?
     @State private var medicalCard: MedicalCardModel?
+    @State private var documents: DocumentsModel?
 
     var body: some View {
         // Подпись вкладки живёт в `Tab`, а не в самом содержимом. Без неё
@@ -34,8 +35,13 @@ struct AppShellView: View {
             // не заходя внутрь, и он гаснет сам после повторной записи.
             .badge(medicalCard?.overdueCount ?? 0)
             Tab("Документы", systemImage: "doc") {
-                PlaceholderSection(model: model, title: "Документы", systemImage: "doc")
+                if let documents {
+                    DocumentsView(model: documents, app: model)
+                }
             }
+            // Значок считает документы с истёкшим сроком: о них узнают, не
+            // заходя внутрь.
+            .badge(documents?.expired ?? 0)
             Tab("Настройки", systemImage: "gearshape") {
                 SettingsSection(model: model)
             }
@@ -48,6 +54,7 @@ struct AppShellView: View {
             guard let petID = model.selectedPetID else { return }
             medications = MedicationsModel(client: model.client, petID: petID)
             medicalCard = MedicalCardModel(client: model.client, petID: petID)
+            documents = DocumentsModel(client: model.client, petID: petID)
         }
     }
 }

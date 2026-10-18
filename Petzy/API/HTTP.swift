@@ -31,7 +31,35 @@ enum HTTP {
         if let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
+        return try await perform(urlSession: urlSession, request: request)
+    }
 
+    /// Тело с файлом: `multipart/form-data`. Заголовок с границей обязателен,
+    /// иначе сервер не поймёт, где кончается одна часть тела и начинается другая.
+    @discardableResult
+    static func sendMultipart(
+        urlSession: URLSession,
+        baseURL: URL,
+        path: String,
+        method: String = "POST",
+        body: Data,
+        contentType: String?,
+        accessToken: String? = nil
+    ) async throws -> (Data, HTTPURLResponse) {
+        var request = URLRequest(url: Self.resolve(path, baseURL: baseURL))
+        request.httpMethod = method
+        request.httpBody = body
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let contentType {
+            request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        }
+        if let accessToken {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        return try await perform(urlSession: urlSession, request: request)
+    }
+
+    private static func perform(urlSession: URLSession, request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         do {
             let (data, response) = try await urlSession.data(for: request)
             guard let http = response as? HTTPURLResponse else {
