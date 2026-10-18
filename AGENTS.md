@@ -59,6 +59,12 @@ make hooks     # point git at .githooks, once per clone
 rather than a piece of it, unless nothing Swift changed, in which case
 `make lint-strict format-check` is enough.
 
+**A recipe that ends in `| tail` returns tail's code, not xcodebuild's.** That
+made `make ci` exit 0 on failing tests until every such recipe started with
+`set -o pipefail;`. macOS make is 3.81 and does not know `.SHELLFLAGS`, so the
+flag goes into the recipe. Any new `xcodebuild … | tail` needs the same prefix,
+or a red run looks green.
+
 The working simulator is `iPhone 18 Pro` on iOS 27.0, set in the `Makefile` as
 `SIM ?= iPhone 18 Pro`. Override with `make run SIM="..."`. `iPhone Duo` (iOS
 27.1) is still around as a spare.
