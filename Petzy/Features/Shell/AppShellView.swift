@@ -66,10 +66,34 @@ private struct SettingsSection: View {
     let model: AppModel
 
     @State private var exporting = false
+    @State private var addingPet = false
 
     var body: some View {
         NavigationStack {
             List {
+                NavigationLink {
+                    PetProfileView(client: model.client, petID: model.selectedPetID, app: model)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("О питомце", systemImage: "pawprint")
+                        Text(model.selectedPet?.name ?? "Имя, фото, порода и заметки")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Button {
+                    addingPet = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Добавить питомца", systemImage: "plus.circle")
+                        Text("Второй питомец для того же аккаунта")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                // Без `.plain` вся строка красится в акцент и читается как
+                // ссылка, а не как пункт настроек рядом с «Историей».
+                .buttonStyle(.plain)
                 NavigationLink {
                     HistoryView(model: model)
                 } label: {
@@ -101,6 +125,14 @@ private struct SettingsSection: View {
             }
             .sheet(isPresented: $exporting) {
                 ExportSheet(model: model)
+            }
+            .sheet(isPresented: $addingPet) {
+                // Свой NavigationStack: лист открывается без оболочки, а панель
+                // с «Отмена» и «Сохранить» рисует именно она. Из «Настроек» тот
+                // же экран открывается ссылкой внутри их стека.
+                NavigationStack {
+                    PetProfileView(client: model.client, petID: nil, app: model)
+                }
             }
         }
     }

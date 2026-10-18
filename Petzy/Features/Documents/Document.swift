@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 
 /// Категория документа. Сервер зовёт её ключом, человек читает словом, и без
 /// перевода список был бы списком ключей.
@@ -114,4 +115,11 @@ struct UploadFile: Sendable {
     let name: String
     let contentType: String
     let data: Data
+
+    /// Тип по расширению: без него сервер получает файл без заголовка
+    /// `Content-Type` и сам не разберётся, картинка это или pdf.
+    static func contentType(of url: URL) -> String {
+        let type = UTType(filenameExtension: url.pathExtension)
+        return type?.preferredMIMEType ?? "application/octet-stream"
+    }
 }

@@ -12,10 +12,11 @@ struct MultipartBody {
         self.boundary = boundary
     }
 
-    /// Поле формы. Пустое значение не отправляется: сервер понимает
-    /// отсутствие поля как «не прислали», а пустую строку — как «убери».
-    mutating func addField(name: String, value: String) {
-        guard !value.isEmpty else { return }
+    /// Поле формы. Пустое значение по умолчанию не отправляется: у документов
+    /// его отсутствие значит «не прислали». Карточка питомца наоборот шлёт
+    /// пустые поля явно — для неё пустая строка значит «убери значение».
+    mutating func addField(name: String, value: String, includeEmpty: Bool = false) {
+        guard includeEmpty || !value.isEmpty else { return }
         parts.append(Self.textPart(name: name, value: value))
     }
 

@@ -117,7 +117,7 @@ struct DocumentFormView: View {
             let data = try Data(contentsOf: url)
             picked = UploadFile(
                 name: url.lastPathComponent,
-                contentType: Self.contentType(of: url),
+                contentType: UploadFile.contentType(of: url),
                 data: data
             )
             if title.isEmpty {
@@ -140,11 +140,6 @@ struct DocumentFormView: View {
         } catch {
             model.errorText = "Фотография не загрузилась"
         }
-    }
-
-    static func contentType(of url: URL) -> String {
-        let type = UTType(filenameExtension: url.pathExtension)
-        return type?.preferredMIMEType ?? "application/octet-stream"
     }
 
     private func save() {

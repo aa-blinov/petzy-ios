@@ -48,6 +48,16 @@ struct APIClient: Sendable {
         try await sendMultipart(APIRequest(path: path, method: "POST"), body: body, contentType: contentType, as: type)
     }
 
+    /// То же для правки: карточка питомца едет файлом в PUT.
+    func putMultipart<T: Decodable & Sendable>(
+        _ path: String,
+        body: Data,
+        contentType: String?,
+        as type: T.Type = T.self
+    ) async throws -> T {
+        try await sendMultipart(APIRequest(path: path, method: "PUT"), body: body, contentType: contentType, as: type)
+    }
+
     /// Файл целиком, а не разобранный ответ: выгрузка отдаёт CSV, и разбирать
     /// его нечем. Вместе с телом отдаётся имя файла из заголовка сервера,
     /// иначе в «Поделиться» ушёл бы `записи.csv` вместо «рекс_вес_…».

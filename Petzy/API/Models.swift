@@ -272,6 +272,14 @@ enum MomentText {
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
+    /// `2021-08-01` в Date, для ползунка даты. Обратный ход к `isoDay`; в
+    /// приложении разбор даты больше не размазан по экранам.
+    static func date(from iso: String) -> Date? {
+        let parts = iso.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return Calendar.current.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    }
+
     static func time(of text: String) -> String {
         // Отрезаем секунды и смещение: «14:13:00+05:00» это «14:13».
         let tail = text.contains("T")
