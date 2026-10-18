@@ -8,7 +8,7 @@ import XCTest
 /// Само нажатие «Войти» при этом настоящее, проверяется весь путь целиком:
 /// вход, разбор ответа, токены в Keychain, запрос списка питомцев.
 @MainActor
-final class LoginAndPetsUITests: XCTestCase {
+final class LoginAndShellUITests: XCTestCase {
     private let demoLogin = "demo"
     /// Тот же пароль, что в `scripts/seed_demo.py` репозитория petzy (строка с
     /// `DEMO_PASSWORD`). Держим здесь копию: раннер UI-теста не видит файловую
@@ -20,7 +20,7 @@ final class LoginAndPetsUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testLoginOpensPetsList() {
+    func testLoginOpensShell() {
         let app = launchSignedOut()
         XCTAssertTrue(
             app.buttons["Войти"].waitForExistence(timeout: 30),
@@ -29,12 +29,15 @@ final class LoginAndPetsUITests: XCTestCase {
         app.buttons["Войти"].tap()
 
         XCTAssertTrue(
-            app.navigationBars["Мои питомцы"].waitForExistence(timeout: 30),
-            "После входа список питомцев не открылся: \(app.debugDescription)"
+            app.tabBars.buttons["Лента"].waitForExistence(timeout: 30),
+            "После входа оболочка не открылась: \(app.debugDescription)"
         )
+        for tab in ["Лекарства", "Медкарта", "Документы", "Настройки"] {
+            XCTAssertTrue(app.tabBars.buttons[tab].exists, "Вкладка «\(tab)» пропала")
+        }
         XCTAssertTrue(
-            app.staticTexts["Рекс"].waitForExistence(timeout: 15),
-            "Питомец «Рекс» из демо-данных не показан"
+            app.buttons["Рекс"].waitForExistence(timeout: 15),
+            "Выбранный питомец из демо-данных не показан"
         )
     }
 
@@ -45,7 +48,7 @@ final class LoginAndPetsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Войти"].waitForExistence(timeout: 30))
         app.buttons["Войти"].tap()
         XCTAssertTrue(
-            app.navigationBars["Мои питомцы"].waitForExistence(timeout: 30),
+            app.tabBars.buttons["Лента"].waitForExistence(timeout: 30),
             "Первый вход не прошёл: \(app.debugDescription)"
         )
 
@@ -56,7 +59,7 @@ final class LoginAndPetsUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(
-            app.navigationBars["Мои питомцы"].waitForExistence(timeout: 30),
+            app.tabBars.buttons["Лента"].waitForExistence(timeout: 30),
             "После перезапуска снова спросили пароль"
         )
     }
@@ -78,7 +81,7 @@ final class LoginAndPetsUITests: XCTestCase {
             app.staticTexts["Неверный логин или пароль"].waitForExistence(timeout: 30),
             "Текст ошибки от бэкенда не показан"
         )
-        XCTAssertFalse(app.navigationBars["Мои питомцы"].exists, "Список питомцев открылся с чужим паролем")
+        XCTAssertFalse(app.tabBars.buttons["Лента"].exists, "Оболочка открылась с чужим паролем")
     }
 
     private func launchSignedOut() -> XCUIApplication {

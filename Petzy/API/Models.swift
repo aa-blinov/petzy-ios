@@ -46,7 +46,7 @@ struct PetsResponse: Decodable, Sendable {
 
 /// Питомец. Набор полей пока неполный: `/api/pets` отдаёт ещё `look`,
 /// `tiles_settings`, `health_notes` и другие. Добавляем поле по мере надобности.
-struct Pet: Decodable, Sendable, Identifiable {
+struct Pet: Decodable, Sendable, Identifiable, Equatable {
     let id: String
     let name: String
     let species: String?

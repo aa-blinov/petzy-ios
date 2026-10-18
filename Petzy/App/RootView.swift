@@ -15,7 +15,7 @@ struct RootView: View {
                     onSignIn: model.signIn
                 )
             case .signedIn:
-                PetListView(client: model.client, onSignOut: model.signOut)
+                AppShellView(model: model)
             }
         }
         .task { await model.start() }
