@@ -15,12 +15,18 @@ final class FeedUITests: XCTestCase {
         let app = TestLaunch.signedOut()
         XCTAssertTrue(TestLaunch.logIn(app), "не удалось войти и открыть оболочку")
 
+        // Ищем строку записи по времени в ней, а не по названию типа: стенд
+        // копится от прогонов, конкретный тип наверху ленты не держится, а
+        // проверять тут надо то, что лента вообще показывает записи питомца.
         XCTAssertTrue(
-            app.staticTexts["Вес"].waitForExistence(timeout: 30),
+            recordRow(app).waitForExistence(timeout: 30),
             "записи ленты не показаны: \(app.debugDescription)"
         )
+        // Заголовок дня это «Сегодня», «Вчера» или дата: на первом экране
+        // сегодняшняя дата не обязана стоять, и требование только числовой
+        // даты ломалось о число сегодняшних записей.
         XCTAssertTrue(
-            dateHeaders(app).isEmpty == false,
+            dayHeader(app).waitForExistence(timeout: 30),
             "дни в ленте без заголовков: \(app.debugDescription)"
         )
     }
@@ -108,21 +114,22 @@ final class FeedUITests: XCTestCase {
         let app = TestLaunch.signedOut()
         XCTAssertTrue(TestLaunch.logIn(app), "не удалось войти и открыть оболочку")
 
-        // Записей типа «Вес» в ленте несколько, берём верхнюю.
-        let weight = app.staticTexts["Вес"].firstMatch
-        XCTAssertTrue(weight.waitForExistence(timeout: 30), "записи ленты не показаны: \(app.debugDescription)")
-        weight.tap()
+        // Берём любую строку записи: запись с полем у всех типов своё, а
+        // конкретный тип наверху ленты от прогонов не удерживается.
+        let row = recordRow(app)
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "записи ленты не показаны: \(app.debugDescription)")
+        row.tap()
 
         XCTAssertTrue(
             app.navigationBars["Правка"].waitForExistence(timeout: 20),
             "правка не открылась: \(app.debugDescription)"
         )
-        let value = app.textFields.firstMatch.value as? String ?? ""
-        XCTAssertFalse(value.isEmpty, "поле правки пустое, запись при переходе потерялась")
-        XCTAssertTrue(
-            app.staticTexts["Вес (кг)"].exists || app.textFields.firstMatch.placeholderValue == "Вес (кг)",
-            "в форме нет названия поля: \(app.debugDescription)"
-        )
+        // У поля записи есть подпись и значение: без подписи человек не поймёт,
+        // что правит, а без значения правка стёрла бы запись.
+        let field = app.textFields.firstMatch
+        XCTAssertFalse(field.value as? String ?? "" == "", "поле правки пустое, запись при переходе потерялась")
+        let placeholder = field.placeholderValue ?? ""
+        XCTAssertFalse(placeholder.isEmpty, "у поля правки нет подписи: \(app.debugDescription)")
     }
 
     /// Снимок экрана в отчёт прогона. Жест свайпа через `idb` строку не
@@ -133,6 +140,21 @@ final class FeedUITests: XCTestCase {
         shot.name = name
         shot.lifetime = .keepAlways
         add(shot)
+    }
+
+    /// Заголовок дня: «Сегодня», «Вчера» или дата.
+    private func dayHeader(_ app: XCUIApplication) -> XCUIElement {
+        let day = NSPredicate(format: "label MATCHES %@", "^(Сегодня|Вчера|\\d{2}\\.\\d{2}\\.\\d{4})$")
+        return app.staticTexts.matching(day).firstMatch
+    }
+
+    /// Строка записи ленты. Отбор по времени внутри ячейки, а не по названию
+    /// типа: заголовок дня с одним текстом под это не попадает, а любая запись
+    /// время в себе содержит. Типовой состав ленты меняется от прогона к
+    /// прогону, и проверка на конкретном типе ломалась о чужие записи сверху.
+    private func recordRow(_ app: XCUIApplication) -> XCUIElement {
+        let time = NSPredicate(format: "label MATCHES %@", "^\\d{2}:\\d{2}$")
+        return app.staticTexts.matching(time).firstMatch
     }
 
     /// Листает до конца ленты, попутно собирая заголовки дней.
