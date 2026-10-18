@@ -43,8 +43,10 @@ jobs:
         run: |
           # Имя устройства на раннере каждый раз другое, а конкретное знать нельзя.
           # Берём первый доступный iPhone, чтобы не ловить «Unable to find a destination».
-          SIM_NAME=$(xcrun simctl list devices available | grep -oE 'iPhone [^(]+' | head -1)
-          echo "Симулятор: $SIM_NAME"
+          # xargs обязателен: grep даёт имя с концевым пробелом, destination с ним
+          # не совпадает и xcodebuild молча подставляет «My Mac».
+          SIM_NAME=$(xcrun simctl list devices available | grep -oE 'iPhone [^(]+' | head -1 | xargs)
+          echo "Симулятор: [$SIM_NAME]"
           echo "SIM_NAME=$SIM_NAME" >> "$GITHUB_ENV"
 
       - name: Проверить стиль
