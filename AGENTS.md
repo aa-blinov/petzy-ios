@@ -291,6 +291,27 @@ The rules come from the web app (`AGENTS.md` in the backend repo):
   sentences inside it keep theirs.
 - Touch targets at least 44 pt.
 
+## Interface decisions
+
+Settled with the owner and verified against Apple's own guidance. They are
+decisions, not preferences: do not re-litigate them screen by screen. The
+reasoning and the sources are in `docs/PORT-PLAN.md`.
+
+- **Create is a system button in the toolbar**, `ToolbarItem(placement:
+  .topBarTrailing)` with a `plus` label. No hand-drawn circular button. Apple
+  gives the leading edge to back and title, common actions to the trailing one
+  ([HIG Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)),
+  and in iOS 26 the button gets Liquid Glass on its own.
+- **Row actions are `swipeActions`**, not web-style swipe-left-to-delete. Destructive
+  button uses `Button(role: .destructive)` with `allowsFullSwipe` **off**, and the
+  delete goes through a `confirmationDialog`. A server-side delete is hard and
+  unrecoverable, and silently losing a medication dose is worse than one extra tap.
+  This is the exact pattern in [What's new in SwiftUI, WWDC26](https://developer.apple.com/videos/play/wwdc2026/269/).
+- **Pets carry a photo and a name.** No photo frames, no coloured card background,
+  no handwritten font. Those were web decoration.
+- **Native components, no glass of our own.** Use the system control, strip its
+  background and shadow, keep the accent (`#C46A3F` light, `#E8946A` dark).
+
 ## Swift conventions
 
 - Swift 6, strict concurrency on. Anything crossing an actor boundary or escaping
