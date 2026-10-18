@@ -114,7 +114,7 @@ final class FeedUITests: XCTestCase {
         weight.tap()
 
         XCTAssertTrue(
-            app.navigationBars["Правка записи"].waitForExistence(timeout: 20),
+            app.navigationBars["Правка"].waitForExistence(timeout: 20),
             "правка не открылась: \(app.debugDescription)"
         )
         let value = app.textFields.firstMatch.value as? String ?? ""
@@ -150,11 +150,15 @@ final class FeedUITests: XCTestCase {
         return days
     }
 
-    /// Заголовки дней в виде «04.10.2026».
+    /// Заголовки дней в виде «04.10.2026». Отбор идёт предикатом, а не
+    /// фильтром по всем подписям: список пересобирается на каждом жесте, и
+    /// элемент под индексом успевает исчезнуть, и прогон падает на «No matches
+    /// found for Element at index» без всякой связи с приложением.
     private func dateHeaders(_ app: XCUIApplication) -> [String] {
         let pattern = #"^\d{2}\.\d{2}\.\d{4}$"#
-        return app.staticTexts.allElementsBoundByIndex
+        return app.staticTexts
+            .matching(NSPredicate(format: "label MATCHES %@", pattern))
+            .allElementsBoundByIndex
             .map(\.label)
-            .filter { $0.range(of: pattern, options: .regularExpression) != nil }
     }
 }

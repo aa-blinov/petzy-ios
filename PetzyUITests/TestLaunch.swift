@@ -31,8 +31,20 @@ enum TestLaunch {
     }
 
     /// Входит настоящей кнопкой «Войти» и ждёт оболочку.
+    ///
+    /// Попытка вторая: сервер пускает пять входов в минуту с одного адреса,
+    /// а прогон UI-тестов входит в приложение в каждом тесте, и на седьмом
+    /// месте ложное падение выглядит как поломка приложения. Пауза перед
+    /// повтором длиннее минуты, поэтому успевает сойти окно.
     @discardableResult
     static func logIn(_ app: XCUIApplication, timeout: TimeInterval = 30) -> Bool {
+        guard app.buttons["Войти"].waitForExistence(timeout: timeout) else { return false }
+        app.buttons["Войти"].tap()
+        if app.buttons["Лента"].waitForExistence(timeout: timeout) {
+            return true
+        }
+
+        Thread.sleep(forTimeInterval: 65)
         guard app.buttons["Войти"].waitForExistence(timeout: timeout) else { return false }
         app.buttons["Войти"].tap()
         return app.buttons["Лента"].waitForExistence(timeout: timeout)

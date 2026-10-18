@@ -307,6 +307,13 @@ commits that sit on `master` locally but not on `origin`:
   same `local_id` does not create a second record.
 - `updated_at`, set by the server in UTC with milliseconds, compare as text.
   There is no `?since=` filter on purpose: read the whole feed.
+- **`date_time` comes back in two formats, and which one depends on whether
+  the record carries a `tz`.** A record written by the app sends `tz` and comes
+  back as ISO with an offset, `2026-10-18T14:13:00+05:00`; an older one is
+  `2026-10-04 11:00`. Parsing only the second one showed `Сегодня` as
+  `18T13:01:00+05:00.10.2026` and broke three UI tests at once. Both go through
+  `MomentText`, which also keeps the offset out of the shown time: the person
+  entered it on their own clock.
 - Cursor paging: `before` carries the previous `next_cursor`, and new records
   never shift a page. `page`/`page_size` is the web app's own path.
 - Soft delete: `with_deleted=1` returns tombstones with `is_deleted` and
@@ -449,3 +456,19 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
   "Style and hooks" above.
 - Swift Testing, not XCTest, for unit tests. XCTest only where the framework
   requires it, which today means XCUITest.
+
+Three things that cost real time and are now fixed:
+
+- **`simctl install` does not restart the app.** It swaps the bundle, and a
+  running process keeps serving the old code, so a fix looks like it «did
+  nothing». Always `simctl terminate` between install and launch when checking
+  a change on the simulator.
+- **`idb`'s tap does not choose an item in a SwiftUI `Picker` popup.** The menu
+  opens, the tap closes it, and the value silently stays as it was. A `List`
+  with rows is fine, a `Picker` menu is not. Verify anything that goes through
+  a `Picker` with a UI test, and look it up with
+  `app.descendants(matching: .any).matching(identifier: label)`:
+  `app.buttons[label]` does not find it.
+- **A tap on a `StaticText` inside a `Button` with `.plain` does nothing.**
+  The text has no hit area of its own. Use
+  `app.buttons.containing(.staticText, identifier: title).firstMatch`.
