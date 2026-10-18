@@ -61,6 +61,16 @@ final class AppModel {
     var statsType: String?
     /// Выбранный период графика в днях.
     var statsPeriodDays = 30
+    /// Выбор в выгрузке живёт в модели, а не во `@State` вида: вкладка
+    /// пересоздаётся, когда меняется состояние модели, и выбранный тип
+    /// возвращался бы к «Все» прямо на глазах у человека.
+    var exportType = "all"
+    var exportFormat = "csv"
+    var isExporting = false
+    var exportErrorText: String?
+    /// Последний выгруженный файл: из него открывается системный лист
+    /// «Поделиться».
+    var exportedFile: URL?
 
     /// Готовая лента по дням. Пусто, пока грузится или грузить нечего.
     var days: [EventDay] {

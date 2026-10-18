@@ -77,6 +77,26 @@ extension AppModel {
         }
     }
 
+    /// Типы питомца для фильтра и выгрузки. Из «Настроек» история могла и не
+    /// открываться, а список типов нужен и там: без него в выгрузке остаётся
+    /// только «Все», и выбрать конкретный тип нечем.
+    func loadUsedTypes() async {
+        guard let petID = selectedPetID, usedTypes.isEmpty else { return }
+        do {
+            let used = try await client.get(
+                "/api/events/used-types?pet_id=" + Self.query(petID),
+                as: UsedTypesResponse.self
+            )
+            usedTypes = used.types
+            if eventTypes.isEmpty {
+                let types = try await client.get("/api/event-types", as: EventTypesResponse.self)
+                eventTypes = Self.index(types.eventTypes)
+            }
+        } catch {
+            handleHistoryError(error)
+        }
+    }
+
     /// Смена фильтра: список и график относятся к разным типам, и старые
     /// точки графика остались бы от предыдущего фильтра.
     func selectHistoryType(_ type: String?) {
@@ -142,5 +162,36 @@ extension AppModel {
 
     private static func index(_ types: [EventTypeInfo]) -> [String: EventTypeInfo] {
         Dictionary(types.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Скачивает записи файлом и возвращает путь к нему. Файл кладётся во
+    /// временную папку приложения и оттуда уходит в системный лист
+    /// «Поделиться»: там «Сохранить в файлы», «Отправить себе» и почта врачу.
+    func export(type: String, format: String) async -> URL? {
+        guard let petID = selectedPetID else { return nil }
+        isExporting = true
+        exportErrorText = nil
+        defer { isExporting = false }
+        do {
+            let file = try await client.download(
+                "/api/export/" + Self.query(type) + "/" + Self.query(format)
+                    + "?pet_id=" + Self.query(petID)
+                    + "&tz=" + Self.query(TimeZone.current.identifier)
+            )
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+                file.fileName ?? "записи." + format
+            )
+            try file.data.write(to: url, options: .atomic)
+            exportedFile = url
+            return url
+        } catch {
+            let apiError = error as? APIError
+            if apiError?.isAuthProblem == true {
+                signOut()
+                return nil
+            }
+            exportErrorText = apiError?.errorDescription ?? error.localizedDescription
+            return nil
+        }
     }
 }

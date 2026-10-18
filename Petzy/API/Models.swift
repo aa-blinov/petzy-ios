@@ -153,8 +153,11 @@ struct EventSavedResponse: Decodable, Sendable {
     let id: String?
 }
 
-/// Запись дневника. `date_time` приходит как «2026-10-04 11:00»: время человека,
-/// а не сервера, поэтому разбираем его строкой и не переводим в Date.
+/// Запись дневника. `date_time` приходит двумя форматами: у записей, у
+/// которых приложение отправило часовой пояс, это ISO с ним
+/// («2026-10-18T14:13:00+05:00»), у старых — без пояса («2026-10-04 11:00»).
+/// Оба разбираются, и время остаётся тем, что человек ввёл у себя: смещение
+/// не переводится в часовой пояс телефона.
 struct PetEvent: Decodable, Sendable, Identifiable {
     let id: String
     let type: String
@@ -216,11 +219,31 @@ struct PetEvent: Decodable, Sendable, Identifiable {
     }
 
     var day: String {
-        String(dateTime.prefix { $0 != " " })
+        MomentText.day(of: dateTime)
     }
 
     var time: String {
-        dateTime.split(separator: " ").last.map(String.init) ?? ""
+        MomentText.time(of: dateTime)
+    }
+}
+
+/// Разбор `date_time` в двух форматах, которые отдаёт сервер: «2026-10-04
+/// 11:00» и «2026-10-18T14:13:00+05:00». Время остаётся тем, что человек ввёл
+/// у себя: перевод в часовой пояс телефона увёл бы кормление с 11 утра на 6.
+///
+/// Вынесено отдельно, потому что тот же разбор нужен и записи ленты, и
+/// точке графика, а расходиться они не должны.
+enum MomentText {
+    static func day(of text: String) -> String {
+        String(text.prefix { $0 != " " && $0 != "T" })
+    }
+
+    static func time(of text: String) -> String {
+        // Отрезаем секунды и смещение: «14:13:00+05:00» это «14:13».
+        let tail = text.contains("T")
+            ? String(text.split(separator: "T").last ?? "")
+            : String(text.split(separator: " ").last ?? "")
+        return String(tail.prefix(5))
     }
 }
 

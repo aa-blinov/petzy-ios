@@ -34,6 +34,45 @@ struct HistoryTests {
         #expect(event.type == "weight")
     }
 
+    /// Записи, у которых приложение само отправило часовой пояс, приходят в
+    /// ISO с ним: «2026-10-18T14:13:00+05:00». Старые лежат без часового
+    /// пояса, «2026-10-04 11:00». Разбор обязан брать оба.
+    @Test("Запись с часовым поясом разбирается и показывает время человека")
+    func isoDateTimeParses() throws {
+        let json = """
+        {"_id": "e1", "type": "weight", "date_time": "2026-10-18T14:13:00+05:00"}
+        """
+
+        let event = try JSONDecoder().decode(PetEvent.self, from: Data(json.utf8))
+
+        #expect(event.day == "2026-10-18")
+        #expect(event.time == "14:13", "время переехало в часовой пояс телефона: \(event.time)")
+    }
+
+    @Test("Старый формат даты разбирается так же")
+    func plainDateTimeParses() throws {
+        let json = """
+        {"_id": "e1", "type": "weight", "date_time": "2026-10-04 11:00"}
+        """
+
+        let event = try JSONDecoder().decode(PetEvent.self, from: Data(json.utf8))
+
+        #expect(event.day == "2026-10-04")
+        #expect(event.time == "11:00")
+    }
+
+    /// То же для точек графика: они приходят с тем же форматом.
+    @Test("Точка графика разбирается в обоих форматах")
+    func statsPointParsesBothFormats() {
+        let iso = EventStatsPoint(date: "2026-10-18T14:13:00+05:00", value: 29.3)
+        let plain = EventStatsPoint(date: "2026-10-04 11:00", value: 29.1)
+
+        #expect(iso.day == "2026-10-18")
+        #expect(iso.time == "14:13")
+        #expect(plain.day == "2026-10-04")
+        #expect(plain.time == "11:00")
+    }
+
     private func point(_ date: String, _ value: Double) -> EventStatsPoint {
         EventStatsPoint(date: date, value: value)
     }

@@ -38,6 +38,34 @@ struct APIClient: Sendable {
         }
     }
 
+    /// Файл целиком, а не разобранный ответ: выгрузка отдаёт CSV, и разбирать
+    /// его нечем. Вместе с телом отдаётся имя файла из заголовка сервера,
+    /// иначе в «Поделиться» ушёл бы `записи.csv` вместо «рекс_вес_…».
+    func download(_ path: String) async throws -> (data: Data, fileName: String?) {
+        let result = try await raw(APIRequest(path: path))
+        guard (200 ..< 300).contains(result.1.statusCode) else {
+            throw HTTP.apiError(data: result.0, response: result.1)
+        }
+        return (result.0, Self.fileName(from: result.1))
+    }
+
+    /// `Content-Disposition: attachment; filename*=UTF-8''рекс_вес.csv`.
+    /// Без `filename*` сервер может прислать только `filename="..."` с
+    /// ASCII-именем, и тогда берём его.
+    static func fileName(from response: HTTPURLResponse) -> String? {
+        guard let value = response.value(forHTTPHeaderField: "Content-Disposition") else { return nil }
+        // Условие в одну строку: многострочный `if let` swiftformat раскрывает
+        // скобкой на новой строке, а swiftlint это запрещает.
+        let parts = value.components(separatedBy: "UTF-8''")
+        if parts.count > 1, let name = parts[1].removingPercentEncoding, !name.isEmpty {
+            return name
+        }
+        guard let quoted = value.components(separatedBy: "filename=").dropFirst().first else {
+            return nil
+        }
+        return quoted.trimmingCharacters(in: CharacterSet(charactersIn: "\"; "))
+    }
+
     private struct APIRequest: Sendable {
         var path: String
         var method = "GET"

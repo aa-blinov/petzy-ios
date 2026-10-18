@@ -35,6 +35,8 @@ struct AppShellView: View {
 private struct SettingsSection: View {
     let model: AppModel
 
+    @State private var exporting = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -48,11 +50,27 @@ private struct SettingsSection: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                Button {
+                    exporting = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Экспорт записей", systemImage: "arrow.down.doc")
+                        Text("Скачать записи питомца таблицей")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                // Без `.plain` вся строка красится в акцент и читается как
+                // ссылка, а не как пункт настроек рядом с «Историей».
+                .buttonStyle(.plain)
                 Button("Выйти", role: .destructive, action: model.signOut)
             }
             .navigationTitle("Настройки")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { PetSwitcher(model: model) }
+            }
+            .sheet(isPresented: $exporting) {
+                ExportSheet(model: model)
             }
         }
     }

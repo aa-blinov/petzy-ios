@@ -1,19 +1,18 @@
 import Foundation
 
-/// Одна точка графика: когда и сколько. Дата приходит строкой «2026-10-04
-/// 11:00» — это время человека, а не сервера, поэтому оно и разбирается
-/// строкой.
+/// Одна точка графика: когда и сколько. Дата приходит тем же форматом, что и
+/// в ленте: у записей с часовым поясом ISO с ним, у старых без него.
 struct EventStatsPoint: Decodable, Sendable, Equatable {
     let date: String
     let value: Double
 
     /// Дата без времени, как её присылает сервер: `yyyy-MM-dd`.
     var day: String {
-        String(date.prefix(while: { $0 != " " }))
+        MomentText.day(of: date)
     }
 
     var time: String {
-        date.split(separator: " ").last.map(String.init) ?? ""
+        MomentText.time(of: date)
     }
 }
 

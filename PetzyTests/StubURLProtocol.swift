@@ -16,12 +16,22 @@ final class StubURLProtocol: URLProtocol {
     static func reset() {
         stubs = []
         requests = []
+        headerFields = [:]
     }
 
     static func stub(status: Int, json: [String: Any]) {
         let data = (try? JSONSerialization.data(withJSONObject: json)) ?? Data()
         stubs.append(Stub(statusCode: status, body: data))
     }
+
+    /// Ответ с телом как есть и своими заголовками: выгрузка приходит не
+    /// JSON, а файлом, и имя файла лежит в заголовке.
+    static func stub(status: Int, data: Data, headers: [String: String]) {
+        headerFields = headers
+        stubs.append(Stub(statusCode: status, body: data))
+    }
+
+    private nonisolated(unsafe) static var headerFields: [String: String] = [:]
 
     static func makeSession() -> URLSession {
         let config = URLSessionConfiguration.ephemeral
@@ -67,7 +77,7 @@ final class StubURLProtocol: URLProtocol {
 
         guard let url = request.url,
               let response = HTTPURLResponse(url: url, statusCode: stub.statusCode,
-                                             httpVersion: "HTTP/1.1", headerFields: nil)
+                                             httpVersion: "HTTP/1.1", headerFields: Self.headerFields)
         else {
             client?.urlProtocol(self, didFailWithError: APIError.transport("стаб не собрал ответ"))
             return
