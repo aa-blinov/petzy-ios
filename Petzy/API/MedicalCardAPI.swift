@@ -26,6 +26,66 @@ enum MedicalCardAPI {
         return response.records.map { $0.domain(fallback: kind) }
     }
 
+    /// Профиль для врача. `base_version` уходит вместе с полями: сервер
+    /// сверяет его с сохранённым и отвечает 409, если правка была устаревшей.
+    static func saveProfile(_ client: APIClient, petID: String, profile: MedicalProfileDraft) async throws {
+        let ack: MedicalWriteAck = try await client.put(
+            "/api/pets/\(AppModel.query(petID))/medical-profile",
+            body: ProfileBody(profile: profile)
+        )
+        _ = ack
+    }
+
+    /// «К приёму»: жалоба и отметки по семи пунктам.
+    static func saveVisitPrep(
+        _ client: APIClient,
+        petID: String,
+        baseVersion: String?,
+        complaint: String?,
+        checks: [String: String]
+    ) async throws {
+        let ack: MedicalWriteAck = try await client.put(
+            "/api/pets/\(AppModel.query(petID))/visit-prep",
+            body: VisitPrepBody(baseVersion: baseVersion, complaint: complaint, checks: checks)
+        )
+        _ = ack
+    }
+
+    /// Создать ссылку для врача. Секрет приходит один раз и больше не
+    /// хранится, поэтому адрес показывается сразу и его надо сохранить.
+    static func createShare(_ client: APIClient, petID: String, days: Int) async throws -> MedicalShare {
+        let response: ShareResponse = try await client.post(
+            "/api/pets/\(AppModel.query(petID))/medical-card/shares",
+            body: ShareBody(days: days)
+        )
+        let path = response.path ?? "/share/medical/\(response.token)"
+        return MedicalShare(
+            id: response.share.id,
+            token: response.token,
+            // Ссылка открывается без входа, поэтому это адрес, а не путь
+            // внутри приложения: поделиться ею можно прямо из системного меню.
+            url: URL(string: path, relativeTo: client.baseURL)?.absoluteURL,
+            expiresAt: response.share.expiresAt
+        )
+    }
+
+    static func shares(_ client: APIClient, petID: String) async throws -> [LiveShare] {
+        let response: SharesResponse = try await client.get("/api/pets/\(AppModel.query(petID))/medical-card/shares")
+        return response.shares.map(\.domain)
+    }
+
+    static func revokeShare(_ client: APIClient, petID: String, shareID: String) async throws {
+        try await client.delete(
+            "/api/pets/\(AppModel.query(petID))/medical-card/shares/\(AppModel.query(shareID))"
+        )
+    }
+
+    /// Справочник прививок. Пустой ответ не ошибка: прививки заводят и без него.
+    static func vaccineCatalog(_ client: APIClient) async throws -> [VaccineGroup] {
+        let response: CatalogResponse = try await client.get("/api/vaccines/catalog")
+        return response.groups.map(\.domain)
+    }
+
     static func create(_ client: APIClient, draft: MedicalRecordDraft) async throws {
         let ack: MedicalWriteAck = try await client.post("/api/medical-records", body: RecordBody(draft: draft))
         _ = ack
@@ -93,131 +153,66 @@ private struct MedicalWriteAck: Decodable {
     let id: String?
 }
 
-// MARK: - Разобранный ответ
-
-private struct CardResponse: Decodable {
-    let card: CardDTO
-}
-
-private struct RecordsResponse: Decodable {
-    let records: [RecordDTO]
-}
-
-private struct CardDTO: Decodable {
-    let pet: CardPetDTO
-    let records: [String: [RecordDTO]]
-    let recordCounts: [String: Int]
-    let overdueRecords: [RecordDTO]
-    let weight: WeightDTO?
-    let medications: [CardMedicationDTO]
-    let documents: [CardDocumentDTO]
-    let pastCourses: [CardCourseDTO]
-    let profile: ProfileDTO?
-    let visitPrep: VisitPrepDTO?
-    let generatedAt: String
-    let canEdit: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case pet, records, medications, documents, profile
-        case recordCounts = "record_counts"
-        case overdueRecords = "overdue_records"
-        case weight
-        case pastCourses = "past_courses"
-        case visitPrep = "visit_prep"
-        case generatedAt = "generated_at"
-        case canEdit = "can_edit"
-    }
-}
-
-private struct CardPetDTO: Decodable {
-    let name: String
-    let breed: String?
-    let species: String?
-    let ageText: String?
-    let neuteredText: String?
-
-    enum CodingKeys: String, CodingKey {
-        case name, breed, species
-        case ageText = "age_text"
-        case neuteredText = "neutered_text"
-    }
-}
-
-private struct RecordDTO: Decodable {
-    let id: String
-    let kind: String?
-    let title: String
-    let date: String
-    let nextDue: String?
-    let status: String?
-    let daysLeft: Int?
-    let clinic: String?
-    let vet: String?
-    let note: String?
-    let target: String?
-    let protects: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id = "_id"
-        case kind, title, date
-        case nextDue = "next_due"
-        case status
-        case daysLeft = "days_left"
-        case clinic, vet, note, target, protects
-    }
-}
-
-private struct WeightDTO: Decodable {
-    let latest: PointDTO?
-}
-
-private struct PointDTO: Decodable {
-    let date: String
-    let value: Double
-}
-
-private struct CardMedicationDTO: Decodable {
-    let id: String
-    let name: String
-    let doseText: String?
-    let purpose: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id, name, purpose
-        case doseText = "dose_text"
-    }
-}
-
-private struct CardDocumentDTO: Decodable {
-    let id: String
-    let title: String
-}
-
-private struct CardCourseDTO: Decodable {
-    let id: String
-    let name: String
-}
-
-private struct ProfileDTO: Decodable {
-    let allergies: [AllergyDTO]?
-    let allergiesNoneKnown: Bool?
+private struct ProfileBody: Encodable {
+    let baseVersion: String?
+    let allergies: [AllergyBody]
+    let allergiesNoneKnown: Bool
     let bloodType: String?
     let chipNumber: String?
-    let clinic: ClinicDTO?
-    let conditions: [ConditionDTO]?
+    let clinic: ClinicBody?
+    let conditions: [ConditionBody]
     let diet: String?
     let living: String?
     let reproduction: String?
 
+    init(profile: MedicalProfileDraft) {
+        baseVersion = profile.baseVersion
+        // Отметка «аллергий нет» и список рядом сервер отклоняет 422: это два
+        // разных утверждения об одном и том же. Отметка заменяет список, и
+        // набранное остаётся в форме на случай, если человек передумает.
+        allergies = profile.allergiesNoneKnown ? [] : profile.allergies.map { AllergyBody(
+            substance: $0.substance,
+            reaction: $0.reaction.isEmpty ? nil : $0.reaction
+        ) }
+        allergiesNoneKnown = profile.allergiesNoneKnown
+        bloodType = profile.bloodType
+        chipNumber = profile.chipNumber
+        // Клиника без телефона или врача — это не клиника, и сервер такой
+        // объект не примет: отправляем только когда есть имя.
+        clinic = profile.clinicName.flatMap { name in
+            name.isEmpty ? nil : ClinicBody(
+                name: name,
+                phone: profile.clinicPhone?.isEmpty == false ? profile.clinicPhone : nil,
+                vet: profile.vetName?.isEmpty == false ? profile.vetName : nil
+            )
+        }
+        conditions = profile.conditions.map { ConditionBody(name: $0.name, note: $0.note, sinceYear: $0.sinceYear) }
+        diet = profile.diet
+        living = profile.living
+        reproduction = profile.reproduction
+    }
+
     enum CodingKeys: String, CodingKey {
         case allergies, clinic, conditions, diet, living, reproduction
+        case baseVersion = "base_version"
         case allergiesNoneKnown = "allergies_none_known"
         case bloodType = "blood_type"
         case chipNumber = "chip_number"
     }
 }
 
-private struct ConditionDTO: Decodable {
+private struct AllergyBody: Encodable {
+    let substance: String
+    let reaction: String?
+}
+
+private struct ClinicBody: Encodable {
+    let name: String
+    let phone: String?
+    let vet: String?
+}
+
+private struct ConditionBody: Encodable {
     let name: String
     let note: String?
     let sinceYear: Int?
@@ -228,111 +223,56 @@ private struct ConditionDTO: Decodable {
     }
 }
 
-private struct AllergyDTO: Decodable {
-    let substance: String?
-    let reaction: String?
-}
-
-private struct ClinicDTO: Decodable {
-    let name: String?
-    let phone: String?
-    let vet: String?
-}
-
-private struct VisitPrepDTO: Decodable {
+private struct VisitPrepBody: Encodable {
+    let baseVersion: String?
     let complaint: String?
-    let checks: [String: String]?
-}
+    let checks: [String: String]
 
-// MARK: - Разбор в домен
-
-private extension CardDTO {
-    var domain: MedicalCard {
-        var records: [MedicalKind: [MedicalRecord]] = [:]
-        for kind in MedicalKind.allCases {
-            // Вид может прийти ключом словаря или полем в самой записи: у
-            // просроченных вид задан явно, у лежащих в разделе — ключом.
-            records[kind] = (self.records[kind.rawValue] ?? []).map { $0.domain(fallback: kind) }
-        }
-        // Счётчики приходят ключами-строками, а плитки ходят по видам: без
-        // переноса плитка всегда показывала бы ноль.
-        var counts: [MedicalKind: Int] = [:]
-        for kind in MedicalKind.allCases {
-            counts[kind] = recordCounts[kind.rawValue] ?? 0
-        }
-        return MedicalCard(
-            pet: CardPet(
-                name: pet.name,
-                breed: pet.breed ?? "",
-                species: pet.species ?? "",
-                ageText: pet.ageText ?? "",
-                neuteredText: pet.neuteredText ?? ""
-            ),
-            records: records,
-            counts: counts,
-            overdueCount: overdueRecords.count,
-            weight: weight?.latest.map { WeightPoint(date: $0.date, value: $0.value) },
-            medications: medications.map { CardMedication(
-                id: $0.id,
-                name: $0.name,
-                doseText: $0.doseText,
-                purpose: $0.purpose
-            ) },
-            documents: documents.map { CardDocument(id: $0.id, title: $0.title) },
-            pastCourses: pastCourses.map { CardCourse(id: $0.id, name: $0.name) },
-            profile: profile?.domain,
-            visitPrep: visitPrep.map {
-                VisitPrep(
-                    complaint: $0.complaint,
-                    checks: ($0.checks ?? [:]).sorted { $0.key < $1.key }.map { VisitCheck(
-                        id: $0.key,
-                        title: $0.key,
-                        value: $0.value
-                    ) }
-                )
-            },
-            generatedAt: generatedAt,
-            canEdit: canEdit
-        )
+    enum CodingKeys: String, CodingKey {
+        case complaint, checks
+        case baseVersion = "base_version"
     }
 }
 
-private extension RecordDTO {
-    /// Запись без ключа раздела: в просроченных вид задан полем `kind`.
-    func domain(fallback: MedicalKind) -> MedicalRecord {
-        MedicalRecord(
-            id: id,
-            kind: kind.flatMap(MedicalKind.init(rawValue:)) ?? fallback,
-            title: title,
-            date: date,
-            nextDue: nextDue,
-            status: status.flatMap(MedicalStatus.init(rawValue:)) ?? .none,
-            daysLeft: daysLeft,
-            clinic: clinic,
-            vet: vet,
-            note: note
-        )
+private struct ShareBody: Encodable {
+    let days: Int
+}
+
+private struct ShareResponse: Decodable {
+    let share: LiveShareDTO
+    let token: String
+    let path: String?
+}
+
+private struct SharesResponse: Decodable {
+    let shares: [LiveShareDTO]
+}
+
+private struct LiveShareDTO: Decodable {
+    let id: String
+    let expiresAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case expiresAt = "expires_at"
+    }
+
+    var domain: LiveShare {
+        LiveShare(id: id, expiresAt: expiresAt)
     }
 }
 
-private extension ProfileDTO {
-    var domain: MedicalProfile {
-        MedicalProfile(
-            allergies: (allergies ?? []).compactMap {
-                guard let substance = $0.substance, !substance.isEmpty else { return nil }
-                return Allergy(substance: substance, reaction: $0.reaction ?? "")
-            },
-            allergiesNoneKnown: allergiesNoneKnown ?? false,
-            bloodType: bloodType,
-            chipNumber: chipNumber,
-            clinicName: clinic?.name,
-            clinicPhone: clinic?.phone,
-            vetName: clinic?.vet,
-            conditions: (conditions ?? [])
-                .map { MedicalCondition(name: $0.name, note: $0.note, sinceYear: $0.sinceYear) },
-            diet: diet,
-            living: living,
-            reproduction: reproduction
-        )
+private struct CatalogResponse: Decodable {
+    let groups: [VaccineGroupDTO]
+}
+
+private struct VaccineGroupDTO: Decodable {
+    let key: String
+    let label: String
+    let detail: String?
+    let species: [String]
+
+    var domain: VaccineGroup {
+        VaccineGroup(key: key, label: label, detail: detail, species: species)
     }
 }

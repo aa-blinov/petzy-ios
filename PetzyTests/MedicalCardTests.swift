@@ -61,6 +61,16 @@ struct MedicalCardTests {
         #expect(card.weightText == "29,3 кг, последний 04.10.2026")
     }
 
+    @Test("«К приёму» читается словами: что изменилось и что как обычно")
+    func visitPrepReadsInWords() {
+        let checks = ["cough": "changed", "appetite": "changed", "thirst": "normal"]
+
+        // Ключи `cough` и `normal` врачу ничего не говорят.
+        #expect(VisitChecks.changed(checks) == ["аппетит", "кашель"])
+        #expect(VisitChecks.normal(checks) == ["жажда"])
+        #expect(VisitChecks.title("activity") == "Активность")
+    }
+
     @Test("Пустой ответ даёт пустую карту, а не ошибку")
     func emptyCardIsNotAnError() async throws {
         StubURLProtocol.reset()

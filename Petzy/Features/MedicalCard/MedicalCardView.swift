@@ -8,6 +8,9 @@ struct MedicalCardView: View {
 
     @State private var form: MedicalFormTarget?
     @State private var pendingDelete: MedicalRecord?
+    @State private var profile = false
+    @State private var prep = false
+    @State private var sharing = false
 
     var body: some View {
         NavigationStack {
@@ -30,6 +33,15 @@ struct MedicalCardView: View {
         }
         .sheet(item: $form) { target in
             MedicalRecordFormView(app: app, model: model, target: target)
+        }
+        .sheet(isPresented: $profile) {
+            MedicalProfileFormView(model: model, card: model.card)
+        }
+        .sheet(isPresented: $prep) {
+            VisitPrepFormView(model: model, card: model.card)
+        }
+        .sheet(isPresented: $sharing) {
+            MedicalShareSheet(model: model)
         }
         .confirmationDialog(
             "Удалить запись?",
@@ -66,7 +78,7 @@ struct MedicalCardView: View {
         } message: {
             Text(model.errorText ?? "")
         }
-        .alert("Записано", isPresented: Binding(get: { model.notice != nil }, set: {
+        .alert("Готово", isPresented: Binding(get: { model.notice != nil }, set: {
             if !$0 {
                 model.notice = nil
             }
@@ -118,6 +130,8 @@ struct MedicalCardView: View {
 
     private func header(_ card: MedicalCard) -> some View {
         Section {
+            Button("Профиль для врача") { profile = true }
+                .font(.subheadline)
             VStack(alignment: .leading, spacing: 4) {
                 Text(card.pet.name).font(.title2.weight(.semibold))
                 Text(subtitle(card.pet)).font(.subheadline).foregroundStyle(.secondary)
@@ -140,30 +154,43 @@ struct MedicalCardView: View {
     }
 
     private func visitPrep(_ card: MedicalCard) -> some View {
-        Section("К приёму") {
+        Section {
             if let prep = card.visitPrep {
                 if let complaint = prep.complaint, !complaint.isEmpty {
                     Text(complaint).font(.subheadline)
                 }
-                ForEach(prep.checks) { check in
-                    HStack {
-                        Text(check.title)
-                        Spacer()
-                        Text(check.value).foregroundStyle(.secondary)
-                    }
-                    .font(.subheadline)
+                // Сначала что изменилось, потом «как обычно»: в этом порядке
+                // врач это читает, и словами, а не ключами `changed`.
+                let values = Dictionary(uniqueKeysWithValues: prep.checks.map { ($0.id, $0.value) })
+                let changed = VisitChecks.changed(values)
+                if !changed.isEmpty {
+                    Text("Изменилось: \(changed.joined(separator: ", "))")
+                        .font(.subheadline)
+                        .foregroundStyle(.orange)
+                }
+                let normal = VisitChecks.normal(values)
+                if !normal.isEmpty {
+                    Text("Как обычно: \(normal.joined(separator: ", "))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             } else {
                 Text("Что беспокоит и что изменилось: врач увидит это первой строкой")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+            // Правка внутри своей секции: отдельной строкой над «К приёму» она
+            // читалась как заголовок соседнего раздела.
+            Button("Изменить") { prep = true }
+                .font(.subheadline)
+        } header: {
+            Text("К приёму")
         }
     }
 
     /// Файл для врача. PDF серверный: приложение его готовит и отдаёт
     /// системному меню, а не собирает документ само.
-    private func vet(_: MedicalCard) -> some View {
+    private func vet(_ card: MedicalCard) -> some View {
         Section("Для врача") {
             Button {
                 Task { await model.downloadPDF() }
@@ -176,6 +203,12 @@ struct MedicalCardView: View {
                     Label("Поделиться файлом", systemImage: "square.and.arrow.up")
                 }
             }
+            Button {
+                sharing = true
+            } label: {
+                Label("Ссылка для врача", systemImage: "link")
+            }
+            .disabled(card.canEdit != true)
         }
     }
 }

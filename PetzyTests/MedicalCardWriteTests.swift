@@ -103,9 +103,8 @@ struct MedicalCardWriteTests {
     }
 
     @Test("Обработка без цели не уходит на сервер: сервер всё равно её не примет")
-    func parasiteWithoutTargetIsRejectedLocally() async {
+    func parasiteWithoutTargetIsRejectedLocally() {
         StubURLProtocol.reset()
-        let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
         let draft = Self.draft(.parasite, target: nil)
 
         let problem = MedicalRecordDraft.problem(draft)

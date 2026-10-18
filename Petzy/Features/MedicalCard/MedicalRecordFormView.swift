@@ -175,6 +175,13 @@ struct MedicalRecordFormView: View {
             }
             .navigationTitle(isEditing ? "Правка записи" : "Новая запись")
             .navigationBarTitleDisplayMode(.inline)
+            .task {
+                // Справочник нужен только выбору защиты, а форму открывают в том
+                // числе для обработки от паразитов: лишний запрос там не нужен.
+                if draft.kind == .vaccination {
+                    await model.loadCatalog()
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Отмена") { dismiss() }
@@ -210,8 +217,8 @@ struct MedicalRecordFormView: View {
                         set: { draft.protects = $0.isEmpty ? nil : $0 }
                     )) {
                         Text("Не выбрано").tag("")
-                        ForEach(MedicalKind.protects.sorted(by: { $0.key < $1.key }), id: \.key) { key, title in
-                            Text(title).tag(key)
+                        ForEach(groups) { group in
+                            Text(group.text).tag(group.key)
                         }
                     }
                     TextField("Номер партии", text: Binding(
@@ -248,6 +255,13 @@ struct MedicalRecordFormView: View {
                     .lineLimit(2 ... 5)
             }
         }
+    }
+
+    /// Группы прививок, которые можно выбрать этому питомцу. Справочник приходит
+    /// с сервера: он же решает, что считается повтором одной и той же
+    /// прививки, и своя копия списка в приложении с ним разошлась бы.
+    private var groups: [VaccineGroup] {
+        VaccineCatalog.forSpecies(model.card?.pet.species ?? "", in: model.catalog, keeping: draft.protects)
     }
 
     /// Черновик с подставленными датами: кнопка «Сохранить» проверяет именно

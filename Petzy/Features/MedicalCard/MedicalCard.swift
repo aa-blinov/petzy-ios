@@ -27,17 +27,6 @@ enum MedicalKind: String, CaseIterable, Sendable {
         }
     }
 
-    /// От чего прививка защищает. Есть только у прививок.
-    static let protects: [String: String] = [
-        "rabies": "Бешенство",
-        "dhpp": "Комплексная (DHPP)",
-        "lepto": "Лептоспироз",
-        "kennel": "Парагрипп",
-        "fvrcp": "Комплексная для кошек",
-        "felv": "Кошачий лейкоз",
-        "myxo_rhd": "Миксоматоз и геморрагическая болезнь"
-    ]
-
     /// Кого обработка закрывает. Есть только у обработок.
     static let targets: [String: String] = [
         "fleas_ticks": "Блохи и клещи",
@@ -177,131 +166,37 @@ struct CardCourse: Identifiable, Sendable {
     let name: String
 }
 
-/// Профиль для врача: аллергии, условия, питание.
-struct MedicalProfile: Sendable {
-    let allergies: [Allergy]
-    let allergiesNoneKnown: Bool
-    let bloodType: String?
-    let chipNumber: String?
-    let clinicName: String?
-    let clinicPhone: String?
-    let vetName: String?
-    let conditions: [MedicalCondition]
-    let diet: String?
-    let living: String?
-    let reproduction: String?
-}
+/// Отметки «К приёму». Значения сервер шлёт как `normal` и `changed`, а на
+/// экране человек читает «Как обычно» и «Изменилось»: ключ и слово не то же
+/// самое, и врачу список ключей не нужен.
+enum VisitChecks {
+    static let order = ["appetite", "thirst", "stool", "urine", "vomiting", "cough", "activity"]
 
-struct Allergy: Sendable, Equatable {
-    let substance: String
-    let reaction: String
-}
+    static let titles: [String: String] = [
+        "appetite": "Аппетит",
+        "thirst": "Жажда",
+        "stool": "Стул",
+        "urine": "Моча",
+        "vomiting": "Рвота",
+        "cough": "Кашель",
+        "activity": "Активность"
+    ]
 
-/// Хроническое заболевание: название, чем обостряется и с какого года.
-struct MedicalCondition: Sendable, Equatable, Identifiable {
-    let name: String
-    let note: String?
-    let sinceYear: Int?
-
-    var id: String {
-        name
+    static func title(_ key: String) -> String {
+        titles[key] ?? key
     }
 
-    /// «Дисплазия тазобедренных суставов, с 2023, обострения после нагрузки».
-    var text: String {
-        var parts = [name]
-        if let sinceYear {
-            parts.append("с \(sinceYear)")
-        }
-        if let note, !note.isEmpty {
-            parts.append(note)
-        }
-        return parts.joined(separator: ", ")
+    /// «Изменилось» и «Как обычно» в том порядке, в котором врач это читает:
+    /// сначала что нового, потом подтверждение, что остальное в порядке.
+    static func changed(_ checks: [String: String]) -> [String] {
+        words(checks, value: "changed")
     }
-}
 
-/// «К приёму»: что беспокоит и что изменилось.
-struct VisitPrep: Sendable {
-    let complaint: String?
-    let checks: [VisitCheck]
-}
-
-struct VisitCheck: Identifiable, Sendable {
-    let id: String
-    let title: String
-    let value: String
-}
-
-/// Запись медкарты в том виде, как её заполняет форма. Экран отдаёт
-/// черновик, а названия полей сервера здесь не встречаются.
-struct MedicalRecordDraft: Sendable {
-    var petID: String
-    var kind: MedicalKind
-    var date: String
-    var title: String
-    /// Дата повтора. Пустая строка на сервере значит «убери», `nil` — «не трогай».
-    var nextDue: String?
-    var clinic: String?
-    var vet: String?
-    var note: String?
-    /// Номер партии прививки.
-    var batch: String?
-    /// Кого закрывает обработка: обязателен для `parasite`.
-    var target: String?
-    /// От чего защищает прививка.
-    var protects: String?
-    var complaint: String?
-    var diagnosis: String?
-    var recommendations: String?
-
-    init(
-        petID: String,
-        kind: MedicalKind,
-        date: String,
-        title: String,
-        nextDue: String? = nil,
-        clinic: String? = nil,
-        vet: String? = nil,
-        note: String? = nil,
-        batch: String? = nil,
-        target: String? = nil,
-        protects: String? = nil,
-        complaint: String? = nil,
-        diagnosis: String? = nil,
-        recommendations: String? = nil
-    ) {
-        self.petID = petID
-        self.kind = kind
-        self.date = date
-        self.title = title
-        self.nextDue = nextDue
-        self.clinic = clinic
-        self.vet = vet
-        self.note = note
-        self.batch = batch
-        self.target = target
-        self.protects = protects
-        self.complaint = complaint
-        self.diagnosis = diagnosis
-        self.recommendations = recommendations
+    static func normal(_ checks: [String: String]) -> [String] {
+        words(checks, value: "normal")
     }
-}
 
-extension MedicalRecordDraft {
-    /// Что человек должен поправить до запроса, своими словами. `nil` — можно
-    /// отправлять. Проверка здесь, а не только на сервере: человек видит
-    /// подсказку у поля, а не ошибку после похода туда и обратно.
-    static func problem(_ draft: MedicalRecordDraft) -> String? {
-        if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Введите название"
-        }
-        if draft.date.isEmpty {
-            return "Укажите дату"
-        }
-        // Обработка без цели сервер не примет: «от кого» здесь обязателен.
-        if draft.kind == .parasite, (draft.target ?? "").isEmpty {
-            return "Выберите, от кого обработка"
-        }
-        return nil
+    private static func words(_ checks: [String: String], value: String) -> [String] {
+        order.compactMap { checks[$0] == value ? title($0).lowercased() : nil }
     }
 }

@@ -7,7 +7,7 @@ import Foundation
 ///
 /// Строка лежит на уровне файла, а не внутри типа: тело типа не должно расти
 /// на четыреста строк из-за данных.
-private nonisolated(unsafe) let medicalCardJSON = #"""
+private let medicalCardJSON = #"""
     {
      "card": {
       "can_edit": true,

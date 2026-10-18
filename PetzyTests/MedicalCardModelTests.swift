@@ -169,6 +169,95 @@ struct MedicalCardModelTests {
         #expect(model.pdfFile == nil)
     }
 
+    @Test("Сохранённый профиль перечитывает карту")
+    func saveProfileReloads() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        let model = try await makeModel()
+        await model.load()
+
+        let saved = await model.saveProfile(MedicalProfileTests.profile)
+
+        #expect(saved)
+        #expect(StubURLProtocol.requestedPaths == [
+            "/api/pets/p1/medical-card",
+            "/api/pets/p1/medical-profile",
+            "/api/pets/p1/medical-card"
+        ])
+    }
+
+    @Test("Чужая правка профиля не затирается молча")
+    func profileConflictIsShown() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        StubURLProtocol.stub(status: 409, json: [
+            "success": false,
+            "error": "Профиль изменили, пока форма была открыта",
+            "code": "version_conflict"
+        ])
+        let model = try await makeModel()
+        await model.load()
+
+        let saved = await model.saveProfile(MedicalProfileTests.profile)
+
+        #expect(saved == false)
+        #expect(model.errorText == "Профиль изменили, пока форма была открыта")
+    }
+
+    @Test("Сохранённое «К приёму» перечитывает карту")
+    func saveVisitPrepReloads() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        let model = try await makeModel()
+        await model.load()
+
+        let saved = await model.saveVisitPrep(baseVersion: "v1", complaint: "Кашель", checks: ["cough": "Есть"])
+
+        #expect(saved)
+        #expect(StubURLProtocol.requestedPaths == [
+            "/api/pets/p1/medical-card",
+            "/api/pets/p1/visit-prep",
+            "/api/pets/p1/medical-card"
+        ])
+    }
+
+    @Test("Созданная ссылка попадает в модель, чтобы её можно было отдать сразу")
+    func shareIsKept() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        StubURLProtocol.stub(status: 201, json: [
+            "share": ["id": "s1", "username": "demo", "expires_at": "2026-10-25T07:52:00Z"],
+            "token": "abc123",
+            "path": "/share/medical/abc123"
+        ])
+        let model = try await makeModel()
+        await model.load()
+
+        await model.createShare(days: 7)
+
+        #expect(model.share?.token == "abc123")
+        #expect(model.share?.url != nil)
+    }
+
+    @Test("Сервер дал ссылку, а телефон её не смог превратить в адрес")
+    func shareWithoutURLIsStillKept() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        StubURLProtocol.stub(status: 201, json: [
+            "share": ["id": "s1"], "token": "abc123", "path": NSNull()
+        ])
+        let model = try await makeModel()
+        await model.load()
+
+        await model.createShare(days: 7)
+
+        #expect(model.share?.token == "abc123")
+    }
+
     private func makeModel() async throws -> MedicalCardModel {
         // swiftlint:disable:next force_unwrapping
         let baseURL = URL(string: "http://localhost:5002")!

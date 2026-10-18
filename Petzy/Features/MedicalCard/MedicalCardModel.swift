@@ -17,6 +17,12 @@ final class MedicalCardModel {
     var allRecords: [MedicalKind: [MedicalRecord]] = [:]
     /// Готовый файл для врача: его открывает системное меню «Поделиться».
     private(set) var pdfFile: URL?
+    /// Только что выданная ссылка на медкарту.
+    private(set) var share: MedicalShare?
+    /// Ссылки, которые сейчас открывают карту.
+    private(set) var shares: [LiveShare] = []
+    /// Справочник прививок: один и тот же для всех, поэтому читается один раз.
+    private(set) var catalog: [VaccineGroup] = []
     private(set) var isPreparingPDF = false
 
     private let client: APIClient
@@ -115,6 +121,84 @@ final class MedicalCardModel {
         } catch {
             errorText = Self.text(of: error)
         }
+    }
+
+    /// Профиль для врача. Ответ 409 (правку изменили, пока форма была
+    /// открыта) показывается текстом сервера: молча переписать чужое нельзя.
+    @discardableResult
+    func saveProfile(_ draft: MedicalProfileDraft) async -> Bool {
+        errorText = nil
+        do {
+            try await MedicalCardAPI.saveProfile(client, petID: petID, profile: draft)
+            notice = "Профиль сохранён"
+            await load()
+            return true
+        } catch {
+            errorText = Self.text(of: error)
+            return false
+        }
+    }
+
+    /// «К приёму»: жалоба и семь отметок. Версия та же, что у профиля:
+    /// форму открыли из карты, и карта с тех пор могла измениться.
+    @discardableResult
+    func saveVisitPrep(baseVersion: String?, complaint: String?, checks: [String: String]) async -> Bool {
+        errorText = nil
+        do {
+            try await MedicalCardAPI.saveVisitPrep(
+                client, petID: petID, baseVersion: baseVersion, complaint: complaint, checks: checks
+            )
+            notice = "Записано"
+            await load()
+            return true
+        } catch {
+            errorText = Self.text(of: error)
+            return false
+        }
+    }
+
+    /// Ссылка для врача. Секрет приходит один раз и больше не хранится,
+    /// поэтому адрес держится в модели, пока человек его не отправит.
+    /// Уведомления тут нет намеренно: оно висит на экране медкарты и закрыло
+    /// бы лист, а секрет из ссылки показывают один раз.
+    func createShare(days: Int) async {
+        errorText = nil
+        do {
+            share = try await MedicalCardAPI.createShare(client, petID: petID, days: days)
+            // Без перечитывания список врал бы: ссылка есть, а в нём пусто.
+            await loadShares()
+        } catch {
+            errorText = Self.text(of: error)
+        }
+    }
+
+    /// Какие ссылки сейчас работают. Отозванные и истёкшие сервер сам не
+    /// присылает, поэтому список всегда про то, что ещё открывает карту.
+    func loadShares() async {
+        do {
+            shares = try await MedicalCardAPI.shares(client, petID: petID)
+        } catch {
+            errorText = Self.text(of: error)
+        }
+    }
+
+    /// Отзыв ссылки: адрес перестаёт открывать карту сразу, а сам список
+    /// перечитывается, чтобы у человека не осталось мысли, что он работает.
+    func revoke(_ share: LiveShare) async {
+        errorText = nil
+        do {
+            try await MedicalCardAPI.revokeShare(client, petID: petID, shareID: share.id)
+            await loadShares()
+        } catch {
+            errorText = Self.text(of: error)
+        }
+    }
+
+    /// Справочник прививок. Пустой ответ не ошибка: прививку заводят и без него,
+    /// а вот второй запрос того же списка — лишний.
+    func loadCatalog() async {
+        guard catalog.isEmpty, let found = try? await MedicalCardAPI.vaccineCatalog(client) else { return }
+        catalog = found
     }
 
     /// Файл для врача. Кладётся во временную папку: телефон не умеет
