@@ -61,7 +61,9 @@ struct EventFormView: View {
                     }
                 }
             }
-            .navigationTitle(isNew ? "Новая запись" : "Правка записи")
+            // На экране шириной 466 pt заголовок не влезает между «Отмена» и
+            // «Сохранить» и обрезается, поэтому у правки он короткий.
+            .navigationTitle(isNew ? "Новая запись" : "Правка")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
