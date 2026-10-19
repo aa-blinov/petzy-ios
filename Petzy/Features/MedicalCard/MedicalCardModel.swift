@@ -102,9 +102,57 @@ final class MedicalCardModel {
             await load()
             return true
         } catch {
+            // Без связи запись встаёт в очередь под своим именем: сервер на
+            // повтор ответит той же записью, а не создаст вторую.
+            if (error as? APIError)?.isTransport == true {
+                queueRecord(draft)
+                notice = "Запись сохранена в телефоне, уйдёт на сервер, когда появится связь"
+                return true
+            }
             errorText = Self.text(of: error)
             return false
         }
+    }
+
+    /// Неотправленные записи раздела: человек сделал их без связи.
+    var pending: [PendingWrite] {
+        offline.pendingWrites(kind: .medicalRecord, petID: petID)
+    }
+
+    /// Убирает неотправленное: человек передумал, и запись не должна уйти.
+    func removePending(_ write: PendingWrite) {
+        offline.removePending(write.localID)
+    }
+
+    /// Ставит правку записи в очередь. Запись на сервере уже есть, поэтому идёт
+    /// запрос на её адрес, но с версией, которую человек видел.
+    private func queueUpdate(id: String, draft: MedicalRecordDraft) {
+        let version = allRecords.values.flatMap(\.self).first { $0.id == id }?.updatedAt
+        guard let payload = MedicalCardAPI.updatePayload(draft, baseVersion: version) else { return }
+        offline.enqueue(PendingWrite(
+            localID: id,
+            petID: petID,
+            kind: .medicalRecord,
+            title: draft.title,
+            method: "PUT",
+            path: "/api/medical-records/\(id)",
+            payload: payload
+        ))
+    }
+
+    /// Ставит запись в очередь под своим именем.
+    private func queueRecord(_ draft: MedicalRecordDraft) {
+        let localID = "local-" + UUID().uuidString
+        guard let payload = MedicalCardAPI.payload(draft, localID: localID) else { return }
+        offline.enqueue(PendingWrite(
+            localID: localID,
+            petID: petID,
+            kind: .medicalRecord,
+            title: draft.title,
+            method: "POST",
+            path: "/api/medical-records",
+            payload: payload
+        ))
     }
 
     func update(_ id: String, draft: MedicalRecordDraft) async -> Bool {
@@ -114,12 +162,29 @@ final class MedicalCardModel {
         }
         errorText = nil
         do {
-            try await MedicalCardAPI.update(client, id: id, draft: draft)
+            try await MedicalCardAPI.update(
+                client,
+                id: id,
+                draft: draft,
+                baseVersion: allRecords.values.flatMap(\.self).first { $0.id == id }?.updatedAt
+            )
             notice = "Запись сохранена"
             allRecords = [:]
             await load()
             return true
         } catch {
+            // Правка без сети не теряется: она ждёт в очереди и уходит сама.
+            if (error as? APIError)?.isTransport == true {
+                queueUpdate(id: id, draft: draft)
+                notice = "Правка сохранена в телефон, уйдёт на сервер, когда появится связь"
+                return true
+            }
+            // Запись поменяли, пока человек её правил. Остаётся версия
+            // сервера, и её надо показать, а не держать на экране старую.
+            if (error as? APIError)?.code == "conflict" {
+                allRecords = [:]
+                await load()
+            }
             errorText = Self.text(of: error)
             return false
         }
@@ -264,7 +329,7 @@ final class MedicalCardModel {
 
     /// Карточка из копии, если она есть и разбирается.
     private func cardFromCopy() -> MedicalCard? {
-        guard card == nil, let copy = offline.cardCopy(petID: petID) else { return nil }
+        guard let copy = offline.cardCopy(petID: petID) else { return nil }
         return try? MedicalCardAPI.decode(copy)
     }
 }

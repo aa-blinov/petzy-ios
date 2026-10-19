@@ -149,7 +149,8 @@ struct MedicalCardTests {
             complaint: nil,
             diagnosis: nil,
             recommendations: nil,
-            documentIDs: []
+            documentIDs: [],
+            updatedAt: nil
         )
     }
 

@@ -28,9 +28,17 @@ struct MedicationBody: Encodable {
     /// правке выключенный выключатель даты обязан убирать её, иначе человек
     /// не смог бы снять дату с курса, а пустая форма сохранила бы прежнюю.
     let isNew: Bool
+    /// Имя, которым устройство назвало курс, если его создавали без сети. По
+    /// нему же сервер узнаёт повтор и не создаёт второй курс.
+    let localID: String?
+    /// Версия курса, которую человек правил. Сервер отвечает отказом, если
+    /// курс поменяли с тех пор: остаётся версия сервера.
+    let baseVersion: String?
 
-    init(draft: MedicationDraft, isNew: Bool) {
+    init(draft: MedicationDraft, isNew: Bool, localID: String? = nil, baseVersion: String? = nil) {
         self.isNew = isNew
+        self.localID = localID
+        self.baseVersion = baseVersion
         petID = isNew ? draft.petID : nil
         name = draft.name
         type = draft.kind
@@ -67,6 +75,8 @@ struct MedicationBody: Encodable {
         case endedOn = "ended_on"
         case purpose
         case prescribedBy = "prescribed_by"
+        case localID = "local_id"
+        case baseVersion = "base_version"
     }
 }
 
@@ -80,8 +90,11 @@ struct IntakeBody: Encodable {
     let skipped: Bool
     let slotDate: String?
     let slotTime: String?
+    /// Имя, которым устройство назвало отметку, если её делали без сети. По
+    /// нему же сервер узнаёт повтор и не списывает дозу второй раз.
+    let localID: String?
 
-    init(mark: IntakeMark) {
+    init(mark: IntakeMark, localID: String? = nil) {
         date = mark.moment.day
         time = mark.moment.time
         zone = mark.zone
@@ -89,6 +102,7 @@ struct IntakeBody: Encodable {
         skipped = mark.skipped
         slotDate = mark.slot?.date
         slotTime = mark.slot?.time
+        self.localID = localID
     }
 
     enum CodingKeys: String, CodingKey {
@@ -98,6 +112,7 @@ struct IntakeBody: Encodable {
         case skipped
         case slotDate = "slot_date"
         case slotTime = "slot_time"
+        case localID = "local_id"
     }
 }
 

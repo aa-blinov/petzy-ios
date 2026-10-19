@@ -35,9 +35,32 @@ enum MedicationsAPI {
         return ack.id
     }
 
-    static func update(_ client: APIClient, medicationID: String, draft: MedicationDraft) async throws {
+    /// Тела запросов как байты: очередь офлайн-записей хранит их, чтобы
+    /// отправить ровно то же, что ушло бы в сеть.
+    static func coursePayload(_ draft: MedicationDraft, localID: String) -> Data? {
+        try? JSONEncoder().encode(MedicationBody(draft: draft, isNew: true, localID: localID))
+    }
+
+    static func intakePayload(_ mark: IntakeMark, localID: String) -> Data? {
+        try? JSONEncoder().encode(IntakeBody(mark: mark, localID: localID))
+    }
+
+    /// Тело правки как байты: очередь офлайн-правок хранит его вместе с
+    /// версией, которую человек видел, иначе сервер не заметил бы, что курс
+    /// поменяли.
+    static func updatePayload(_ draft: MedicationDraft, baseVersion: String?) -> Data? {
+        try? JSONEncoder().encode(MedicationBody(draft: draft, isNew: false, baseVersion: baseVersion))
+    }
+
+    static func update(
+        _ client: APIClient,
+        medicationID: String,
+        draft: MedicationDraft,
+        baseVersion: String? = nil
+    ) async throws {
         let ack: WriteAck = try await client.put(
-            "/api/medications/\(medicationID)", body: MedicationBody(draft: draft, isNew: false)
+            "/api/medications/\(medicationID)",
+            body: MedicationBody(draft: draft, isNew: false, baseVersion: baseVersion)
         )
         _ = ack
     }
@@ -154,6 +177,10 @@ private struct MedicationDTO: Decodable {
     let comment: String?
     let purpose: String?
     let prescribedBy: String?
+    /// Версия курса: когда его меняли в последний раз. Её приложение
+    /// отправляет при правке, и сервер отвечает отказом, если курс поменяли
+    /// с тех пор.
+    let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -179,6 +206,7 @@ private struct MedicationDTO: Decodable {
         case scheduledToday = "scheduled_today"
         case lastTakenAt = "last_taken_at"
         case lastTakenBy = "last_taken_by"
+        case updatedAt = "updated_at"
     }
 
     /// Курсы, заведённые до признака «по необходимости», хранили этот
@@ -214,7 +242,8 @@ private struct MedicationDTO: Decodable {
             lastTakenBy: lastTakenBy,
             comment: comment,
             purpose: purpose,
-            prescribedBy: prescribedBy
+            prescribedBy: prescribedBy,
+            updatedAt: updatedAt
         )
     }
 }

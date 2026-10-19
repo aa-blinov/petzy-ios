@@ -160,7 +160,7 @@ final class DocumentsModel {
 
     /// Документы из копии, если она есть и разбирается.
     private func documentsFromCopy() -> [PetDocument]? {
-        guard documents.isEmpty, let copy = offline.documentsCopy(petID: petID),
+        guard let copy = offline.documentsCopy(petID: petID),
               let decoded = try? DocumentsAPI.decode(copy), !decoded.isEmpty else { return nil }
         return decoded
     }

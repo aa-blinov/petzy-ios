@@ -72,14 +72,11 @@ struct LocalStoreTests {
         snapshot.queue = [PendingWrite(
             localID: "abc-123",
             petID: "p1",
-            body: PendingBody(
-                date: "2026-10-19",
-                time: "08:00",
-                zone: "Asia/Almaty",
-                type: "weight",
-                comment: "В метро",
-                fields: ["weight": .number(29.3)]
-            )
+            kind: .event,
+            title: "Вес",
+            method: "POST",
+            path: "/api/events",
+            payload: Self.payload()
         )]
         LocalStore(url: url).save(snapshot)
 
@@ -87,7 +84,23 @@ struct LocalStoreTests {
 
         #expect(loaded.queue.count == 1)
         #expect(loaded.queue.first?.localID == "abc-123")
-        #expect(loaded.queue.first?.body.comment == "В метро")
+        #expect(loaded.queue.first?.title == "Вес")
+        #expect(loaded.queue.first?.path == "/api/events")
+        let body = try? JSONDecoder().decode(PendingBody.self, from: loaded.queue.first?.payload ?? Data())
+        #expect(body?.comment == "В метро", "тело запроса должно пережить перезапуск как есть")
+    }
+
+    /// Тело запроса, каким его кладёт в очередь.
+    static func payload() -> Data {
+        let body = PendingBody(
+            date: "2026-10-19",
+            time: "08:00",
+            zone: "Asia/Almaty",
+            type: "weight",
+            comment: "В метро",
+            fields: ["weight": .number(29.3)]
+        )
+        return (try? JSONEncoder().encode(body)) ?? Data()
     }
 
     // MARK: - Образцы
@@ -95,7 +108,15 @@ struct LocalStoreTests {
     static var sample: OfflineSnapshot {
         var snapshot = OfflineSnapshot()
         snapshot.syncAt = "2026-10-19T08:12:40Z"
-        snapshot.pets = [Pet(id: "p1", name: "Рекс", species: "dog", breed: nil, birthDate: nil, gender: nil)]
+        snapshot.pets = [Pet(
+            id: "p1",
+            name: "Рекс",
+            species: "dog",
+            breed: nil,
+            birthDate: nil,
+            gender: nil,
+            updatedAt: nil
+        )]
         snapshot.eventTypes = ["weight": EventTypeInfo(
             key: "weight",
             label: "Вес",

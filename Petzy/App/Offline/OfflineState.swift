@@ -85,28 +85,30 @@ final class OfflineState {
     /// её назвало, делает отправку повторяемой: сервер на повтор ответит той же
     /// записью, а не создаст вторую.
     @discardableResult
-    func enqueue(_ draft: EventDraft, petID: String) -> PetEvent {
-        let pending = PendingWrite(
-            localID: "local-" + UUID().uuidString,
-            petID: petID,
-            body: PendingBody(
-                date: draft.date,
-                time: draft.time,
-                zone: TimeZone.current.identifier,
-                type: draft.type.key,
-                comment: draft.comment,
-                fields: draft.encodedFields
-            )
-        )
-        snapshot.queue.append(pending)
+    func enqueue(_ write: PendingWrite) -> PendingWrite {
+        snapshot.queue.append(write)
         store.save(snapshot)
-        pendingIDs.insert(pending.localID)
-        return Self.event(from: pending)
+        pendingIDs.insert(write.localID)
+        return write
     }
 
-    /// Записи очереди выбранного питомца, готовые к показу.
+    /// Неотправленное выбранного питомца по виду записи: раздел показывает
+    /// своё, а чужое ему видеть незачем.
+    func pendingWrites(kind: PendingKind, petID: String) -> [PendingWrite] {
+        snapshot.queue.filter { $0.kind == kind && $0.petID == petID }
+    }
+
+    /// Всё неотправленное, для списка в настройках.
+    var pending: [PendingWrite] {
+        snapshot.queue
+    }
+
+    /// Записи очереди выбранного питомца, готовые к показу. Только создания:
+    /// правка меняет запись, которая уже на экране, и своей строкой не нужна.
     func pendingEvents(petID: String) -> [PetEvent] {
-        snapshot.queue.filter { $0.petID == petID }.map(Self.event(from:))
+        pendingWrites(kind: .event, petID: petID)
+            .filter { $0.method == "POST" }
+            .compactMap(Self.event(from:))
     }
 
     func removePending(_ localID: String) {
@@ -119,67 +121,68 @@ final class OfflineState {
     /// исправления опечатки связи незачем. Отдаёт обновлённую запись для
     /// показа, `nil` — запись не наша, тогда правка идёт на сервер.
     @discardableResult
-    func updatePending(_ localID: String, draft: EventDraft) -> PetEvent? {
+    func updatePending(_ localID: String, payload: Data, title: String) -> PendingWrite? {
         guard let index = snapshot.queue.firstIndex(where: { $0.localID == localID }) else { return nil }
-        let petID = snapshot.queue[index].petID
+        let old = snapshot.queue[index]
         snapshot.queue[index] = PendingWrite(
-            localID: localID,
-            petID: petID,
-            body: PendingBody(
-                date: draft.date,
-                time: draft.time,
-                zone: TimeZone.current.identifier,
-                type: draft.type.key,
-                comment: draft.comment,
-                fields: draft.encodedFields
-            )
+            localID: old.localID,
+            petID: old.petID,
+            kind: old.kind,
+            title: title,
+            method: old.method,
+            path: old.path,
+            payload: payload
         )
         store.save(snapshot)
-        return Self.event(from: snapshot.queue[index])
+        return snapshot.queue[index]
     }
 
     /// Отправляет очередь. Останавливается на первой неудаче: следующая запись
     /// может зависеть от предыдущей, и человек должен видеть, сколько ещё ждать.
-    func flush(using client: APIClient) async {
+    /// Возвращает то, что сервер отказал отправить: такие записи из очереди
+    /// уходят, и человек должен узнать почему.
+    @discardableResult
+    func flush(using client: APIClient) async -> [String] {
+        var refused: [String] = []
         while let pending = snapshot.queue.first {
             do {
-                let body = EventRequest(
-                    petID: pending.petID,
-                    date: pending.body.date,
-                    time: pending.body.time,
-                    comment: pending.body.comment,
-                    fields: pending.body.fields,
-                    type: pending.body.type,
-                    timeZone: pending.body.zone,
-                    localID: pending.localID
-                )
-                _ = try await client.post("/api/events", body: body, as: EventSavedResponse.self)
+                try await client.sendRaw(pending.path, method: pending.method, body: pending.payload)
                 removePending(pending.localID)
             } catch {
                 // Запись на сервере уже удалили. Повторять её незачем: она вернёт
                 // тот же отказ, и человек так и не увидит, что она исчезла.
-                guard droppedByServer(error) else { return }
+                guard let apiError = error as? APIError, let code = apiError.code,
+                      refusedByServer(code) else { return refused }
+                if code != "record_deleted" {
+                    refused.append(apiError.errorDescription ?? "Запись не отправлена")
+                }
                 removePending(pending.localID)
             }
         }
+        return refused
     }
 
-    /// Сервер сказал, что записи больше нет. Ответы означают одно и то же: её
-    /// нельзя ни отправить, ни показать.
-    private func droppedByServer(_ error: Error) -> Bool {
-        let code = (error as? APIError)?.code
-        return code == "record_deleted" || code == "not_found" || code == "record_not_found"
+    /// Отказы, после которых запись из очереди уходит: её больше некуда
+    /// отправлять, и повтор вернёт тот же отказ.
+    private func refusedByServer(_ code: String) -> Bool {
+        switch code {
+        case "record_deleted", "not_found", "record_not_found", "local_id_taken", "conflict", "duplicate_intake":
+            true
+        default:
+            false
+        }
     }
 
     /// Запись очереди в виде строки ленты. Время без пояса: человек вводил его
     /// на своих часах, а выдуманное смещение сдвинуло бы его в ленте.
-    private static func event(from pending: PendingWrite) -> PetEvent {
-        PetEvent(
+    static func event(from pending: PendingWrite) -> PetEvent? {
+        guard let body = try? JSONDecoder().decode(PendingBody.self, from: pending.payload) else { return nil }
+        return PetEvent(
             id: pending.localID,
-            type: pending.body.type,
-            dateTime: "\(pending.body.date) \(pending.body.time)",
-            comment: pending.body.comment,
-            fields: pending.body.fields,
+            type: body.type,
+            dateTime: "\(body.date) \(body.time)",
+            comment: body.comment,
+            fields: body.fields,
             isDeleted: false
         )
     }

@@ -241,6 +241,7 @@ struct MedicationsTests {
             "inventory_warning_days": 3,
             "is_active": true,
             "course_status": "active",
+            "updated_at": "2026-10-19T13:03:38Z",
             "started_on": "2026-10-01",
             "ended_on": NSNull(),
             "purpose": "От глистов",
@@ -297,7 +298,8 @@ struct MedicationsTests {
             lastTakenBy: nil,
             comment: comment,
             purpose: purpose,
-            prescribedBy: prescribedBy
+            prescribedBy: prescribedBy,
+            updatedAt: nil
         )
     }
 }

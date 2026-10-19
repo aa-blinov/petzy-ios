@@ -31,12 +31,160 @@ extension AppModel {
         guard !flushingPending else { return }
         let before = offline.pendingCount
         flushingPending = true
-        await offline.flush(using: client)
+        queueRefusals = await offline.flush(using: client)
         flushingPending = false
         // Лента перечитывается, когда очередь изменилась: ушедшая запись
         // приходит с серверным именем, а отброшенная сервером должна исчезнуть.
         guard before > 0, offline.pendingCount != before else { return }
+        queueFlushCount += 1
         await loadFeed()
+    }
+
+    // MARK: - Записи
+
+    /// Сохраняет новую запись и, если получилось, перечитывает ленту: запись
+    /// должна появиться сразу, а не после ручного обновления.
+    func createEvent(_ draft: EventDraft) async {
+        guard let petID = selectedPetID else { return }
+        feedErrorText = nil
+        do {
+            let request = EventRequest.create(draft, petID: petID)
+            let saved = try await client.post("/api/events", body: request, as: EventSavedResponse.self)
+            await loadFeed()
+            await reloadHistory()
+            showSaved(saved.id, date: draft.date)
+        } catch {
+            // Запись без сети это не ошибка, а очередь: человек сделал её в
+            // метро, и она должна дождаться связи вместе с остальными.
+            if (error as? APIError)?.isTransport == true {
+                if let event = queueEvent(draft, petID: petID) {
+                    rawEvents.append(event)
+                }
+                feedNotice = "Записано в телефон, уйдёт на сервер, когда появится связь"
+                return
+            }
+            handleFeedError(error)
+        }
+    }
+
+    /// Ставит запись ленты в очередь под своим именем. Имя это то, по которому
+    /// сервер узнает повтор: он отдаст ту же запись, а не создаст вторую.
+    func queueEvent(_ draft: EventDraft, petID: String) -> PetEvent? {
+        let localID = "local-" + UUID().uuidString
+        guard let payload = EventRequest.payload(draft, petID: petID, localID: localID) else { return nil }
+        let write = PendingWrite(
+            localID: localID,
+            petID: petID,
+            kind: .event,
+            title: draft.type.label,
+            method: "POST",
+            path: "/api/events",
+            payload: payload
+        )
+        offline.enqueue(write)
+        return OfflineState.event(from: write)
+    }
+
+    /// Правка существующей записи.
+    func updateEvent(id: String, draft: EventDraft) async {
+        // Запись из очереди ещё не на сервере: правка идёт по своему имени и
+        // без сети, иначе опечатку в метро было бы не исправить.
+        if updatePending(id: id, draft: draft) {
+            feedNotice = nil
+            return
+        }
+        feedErrorText = nil
+        do {
+            let request = EventRequest.update(draft, baseVersion: version(of: id))
+            _ = try await client.put("/api/events/\(id)", body: request, as: EventSavedResponse.self)
+            await loadFeed()
+            await reloadHistory()
+        } catch {
+            // Правка без сети не теряется: она ждёт в очереди и уходит сама.
+            if (error as? APIError)?.isTransport == true {
+                queueUpdate(id: id, draft: draft)
+                return
+            }
+            // Запись поменяли, пока человек её правил. Остаётся версия
+            // сервера, и её надо показать, а не держать на экране старую.
+            if (error as? APIError)?.code == "conflict" {
+                await loadFeed()
+            }
+            handleFeedError(error)
+        }
+    }
+
+    /// Правка записи, которая ещё лежит в очереди: на сервере её нет, и
+    /// ждать ради исправления опечатки связи незачем.
+    private func updatePending(id: String, draft: EventDraft) -> Bool {
+        guard offline.pendingIDs.contains(id), let petID = selectedPetID, let payload = EventRequest.payload(
+            draft,
+            petID: petID,
+            localID: id
+        ), let updated = offline.updatePending(id, payload: payload, title: draft.type.label),
+        let event = OfflineState.event(from: updated),
+        let index = rawEvents.firstIndex(where: { $0.id == id }) else { return false }
+        rawEvents[index] = event
+        return true
+    }
+
+    /// Ставит правку в очередь. Запись на сервере уже есть, поэтому идёт
+    /// запрос на её адрес, но с версией, которую человек видел: сервер откажет,
+    /// если запись поменяли с тех пор, и останется версия сервера.
+    private func queueUpdate(id: String, draft: EventDraft) {
+        guard let petID = selectedPetID,
+              let payload = EventRequest.updatePayload(draft, baseVersion: version(of: id))
+        else { return }
+        offline.enqueue(PendingWrite(
+            localID: id,
+            petID: petID,
+            kind: .event,
+            title: draft.type.label,
+            method: "PUT",
+            path: "/api/events/\(id)",
+            payload: payload
+        ))
+        // На экране сразу новое значение с отметкой «не отправлено»: человек
+        // должен видеть, что он изменил, а не то, что было до правки.
+        if let index = rawEvents.firstIndex(where: { $0.id == id }) {
+            let old = rawEvents[index]
+            rawEvents[index] = PetEvent(
+                id: old.id,
+                type: old.type,
+                dateTime: old.dateTime,
+                comment: draft.comment,
+                fields: draft.encodedFields,
+                isDeleted: false,
+                updatedAt: old.updatedAt
+            )
+        }
+        feedNotice = "Правка сохранена в телефон, уйдёт на сервер, когда появится связь"
+    }
+
+    /// Версия записи, которую человек правил. Сервер откажет, если запись
+    /// поменяли с тех пор, как её прочитали.
+    private func version(of id: String) -> String? {
+        rawEvents.first { $0.id == id }?.updatedAt
+    }
+
+    /// Удаление. Убираем из своей копии только после ответа сервера: иначе
+    /// запись исчезла бы с экрана, но осталась бы в базе, и человек бы её
+    /// искал, думая, что неудачно сохранил.
+    func deleteEvent(id: String) async {
+        // Запись из очереди удаляется целиком на устройстве: на сервере её
+        // нет, и запрос только спросил бы о том, чего не существует.
+        if offline.pendingIDs.contains(id) {
+            offline.removePending(id)
+            rawEvents.removeAll { $0.id == id }
+            return
+        }
+        feedErrorText = nil
+        do {
+            try await client.delete("/api/events/\(id)")
+            rawEvents.removeAll { $0.id == id }
+        } catch {
+            handleFeedError(error)
+        }
     }
 
     // MARK: - Страницы ленты

@@ -107,10 +107,10 @@ struct FeedView: View {
                             Label(
                                 Words.text(
                                     model.offline.pendingCount,
-                                    one: "запись",
-                                    few: "записи",
-                                    many: "записей"
-                                ) + " ждут отправки",
+                                    one: "запись ждёт отправки",
+                                    few: "записи ждут отправки",
+                                    many: "записей ждут отправки"
+                                ),
                                 systemImage: "arrow.up.circle"
                             )
                             .font(.subheadline)
@@ -119,6 +119,14 @@ struct FeedView: View {
                                 Task { await model.flushQueue() }
                             }
                             .font(.subheadline)
+                        }
+                    }
+                }
+                if !model.queueRefusals.isEmpty {
+                    Section {
+                        ForEach(model.queueRefusals, id: \.self) { text in
+                            Label(text, systemImage: "exclamationmark.triangle")
+                                .font(.subheadline)
                         }
                     }
                 }

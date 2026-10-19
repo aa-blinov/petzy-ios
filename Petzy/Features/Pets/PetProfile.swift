@@ -79,6 +79,9 @@ struct PetProfile: Sendable, Equatable {
     /// Питомцем, к которому дали доступ, нельзя управлять, и форма без этого
     /// поля обещала бы то, что сервер не даст сделать.
     let currentUserIsOwner: Bool
+    /// Версия питомца, которую человек видел. Её приложение отправляет при
+    /// правке: сервер отвечает отказом, если питомца поменяли с тех пор.
+    let updatedAt: String?
 
     var speciesTitle: String? {
         PetSpecies.label(for: species)

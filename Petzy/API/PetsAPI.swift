@@ -31,9 +31,10 @@ enum PetsAPI {
         id: String,
         draft: PetDraft,
         photo: UploadFile?,
-        removePhoto: Bool
+        removePhoto: Bool,
+        baseVersion: String? = nil
     ) async throws {
-        let body = form(draft: draft, photo: photo, removePhoto: removePhoto)
+        let body = form(draft: draft, photo: photo, removePhoto: removePhoto, baseVersion: baseVersion)
         let ack: PetAck = try await client.putMultipart(
             "/api/pets/\(AppModel.query(id))",
             body: body.data,
@@ -83,7 +84,8 @@ enum PetsAPI {
     private static func form(
         draft: PetDraft,
         photo: UploadFile?,
-        removePhoto: Bool
+        removePhoto: Bool,
+        baseVersion: String? = nil
     ) -> MultipartBody {
         var body = MultipartBody()
         body.addField(name: "name", value: draft.name)
@@ -99,6 +101,9 @@ enum PetsAPI {
         }
         if removePhoto {
             body.addField(name: "remove_photo", value: "true")
+        }
+        if let baseVersion {
+            body.addField(name: "base_version", value: baseVersion)
         }
         if let photo {
             body.addFile(name: "photo_file", fileName: photo.name, contentType: photo.contentType, data: photo.data)
@@ -148,6 +153,7 @@ private struct PetDTO: Decodable {
     let photoURL: String?
     let currentUserIsOwner: Bool?
     let formDefaults: FormDefaults?
+    let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -158,6 +164,7 @@ private struct PetDTO: Decodable {
         case photoURL = "photo_url"
         case currentUserIsOwner = "current_user_is_owner"
         case formDefaults = "form_defaults"
+        case updatedAt = "updated_at"
     }
 
     var domain: PetProfile {
@@ -174,7 +181,8 @@ private struct PetDTO: Decodable {
             neutering: isNeutered.map { $0 ? .done : .notYet } ?? .unknown,
             healthNotes: healthNotes ?? "",
             photoURL: photoURL.flatMap(URL.init(string:)),
-            currentUserIsOwner: currentUserIsOwner ?? false
+            currentUserIsOwner: currentUserIsOwner ?? false,
+            updatedAt: updatedAt
         )
     }
 }

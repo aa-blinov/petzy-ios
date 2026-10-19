@@ -33,11 +33,43 @@ struct PendingWrite: Codable, Sendable, Identifiable {
     /// удалить, пока сервер не дал своей `id`.
     let localID: String
     let petID: String
-    var body: PendingBody
+    /// Что за запись в очереди: запись ленты, курс лекарства, медицинская
+    /// запись или отметка приёма.
+    let kind: PendingKind
+    /// Чем показать её в списке неотправленного.
+    let title: String
+    /// Какой запрос отправить: `POST` создаёт, `PUT` правит.
+    let method: String
+    /// Куда её отправлять. Путь и тело запроса вместо типа записи: очередь
+    /// одна, а разделов много, и каждому разделу свой разбор не нужен.
+    let path: String
+    /// Тело запроса, JSON: ровно то, что уйдёт на сервер.
+    let payload: Data
 }
 
-/// Тело офлайн-записи: ровно то, что уходит в `POST /api/events`, плюс пояс,
-/// без которого сервер записал бы время по своим часам.
+/// Раздел записи в очереди. По нему раздел показывает своё неотправленное, а
+/// список в настройках понимает, что за строку показать.
+enum PendingKind: String, Codable, Sendable {
+    case event
+    case medication
+    case medicalRecord = "medical_record"
+    case intake
+}
+
+extension PendingWrite {
+    /// Что именно ждёт отправки, словами для человека.
+    var waiting: String {
+        switch kind {
+        case .intake:
+            "отметка приёма ждёт отправки"
+        default:
+            method == "PUT" ? "правка ждёт отправки" : "не отправлено"
+        }
+    }
+}
+
+/// Тело офлайн-записи ленты: ровно то, что уходит в `POST /api/events`. Читается
+/// из тела запроса, когда запись показывают в ленте.
 struct PendingBody: Codable, Sendable {
     let date: String
     let time: String

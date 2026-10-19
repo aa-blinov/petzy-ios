@@ -32,6 +32,14 @@ struct MedicalCardView: View {
         // пересоздаёт её на каждого питомца и делает это позже смены питомца.
         // По `selectedPetID` задача перезапускалась бы на старой модели, а на
         // экране уже была бы новая и пустая: раздел врал, что данных нет.
+        .task(id: app.queueFlushCount) {
+            // Раздел перечитывается, когда очередь ушла на сервер. При запуске
+            // счётчик ноль, и второй раз читать незачем: раздел и так открыт
+            // своим task, а вторая загрузка без сети кончилась бы ошибкой
+            // поверх копии.
+            guard app.queueFlushCount > 0 else { return }
+            await model.load()
+        }
         .task(id: ObjectIdentifier(model)) {
             await model.load()
         }
@@ -109,6 +117,15 @@ struct MedicalCardView: View {
             if model.isShowingCached {
                 Section {
                     CachedNotice()
+                }
+            }
+            if !model.pending.isEmpty {
+                Section {
+                    ForEach(model.pending) { write in
+                        PendingRow(write: write) { model.removePending(write) }
+                    }
+                } header: {
+                    Text("Не отправлено")
                 }
             }
             header(card)

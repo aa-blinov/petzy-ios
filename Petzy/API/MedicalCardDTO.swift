@@ -70,6 +70,10 @@ struct RecordDTO: Decodable {
     let diagnosis: String?
     let recommendations: String?
     let documents: [CardDocumentDTO]
+    /// Версия записи: когда её меняли в последний раз. Её приложение
+    /// отправляет при правке, и сервер отвечает отказом, если запись поменяли
+    /// с тех пор.
+    let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -79,6 +83,7 @@ struct RecordDTO: Decodable {
         case daysLeft = "days_left"
         case clinic, vet, note, target, protects, batch
         case complaint, diagnosis, recommendations, documents
+        case updatedAt = "updated_at"
     }
 }
 
@@ -248,7 +253,8 @@ extension RecordDTO {
             complaint: complaint,
             diagnosis: diagnosis,
             recommendations: recommendations,
-            documentIDs: documents.map(\.id)
+            documentIDs: documents.map(\.id),
+            updatedAt: updatedAt
         )
     }
 }

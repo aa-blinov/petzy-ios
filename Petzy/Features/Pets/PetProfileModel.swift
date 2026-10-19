@@ -93,7 +93,8 @@ final class PetProfileModel {
                     id: petID,
                     draft: draft,
                     photo: photo,
-                    removePhoto: removePhoto
+                    removePhoto: removePhoto,
+                    baseVersion: profile?.updatedAt
                 )
                 await load()
             } else {
@@ -102,6 +103,11 @@ final class PetProfileModel {
             }
             return true
         } catch {
+            // Питомца поменяли, пока человек его правил. Остаётся версия
+            // сервера, и её надо показать, а не держать на экране старую.
+            if (error as? APIError)?.code == "conflict" {
+                await load()
+            }
             errorText = Self.text(of: error)
             return false
         }

@@ -29,6 +29,9 @@ struct Medication: Identifiable, Sendable {
     let comment: String?
     let purpose: String?
     let prescribedBy: String?
+    /// Версия курса, которую человек видел. Её приложение отправляет при
+    /// правке: сервер отвечает отказом, если курс поменяли с тех пор.
+    let updatedAt: String?
 
     /// Расписание словами: «Ежедневно в 09:00», «В выбранные дни в 10:00,
     /// 22:00», «По необходимости».

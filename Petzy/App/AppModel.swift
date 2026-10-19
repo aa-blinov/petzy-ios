@@ -150,6 +150,15 @@ final class AppModel {
     let defaults: UserDefaults
     /// Копия, очередь записей и признак «на экране копия».
     let offline: OfflineState
+    /// Что сервер отказал отправить: «Запись изменили, пока вы её правили» и
+    /// подобное. Человек должен узнать, что его правку затёрли, а не гадать.
+    var queueRefusals: [String] = []
+
+    /// Сколько раз очередь уходила на сервер. Разделы перечитываются по этому
+    /// счётчику: отправленный курс должен появиться в списке сам, а не после
+    /// ручного обновления. Пишет сюда `AppModel+Feed.swift`, поэтому без
+    /// `private(set)`, как и `historyRaw` рядом.
+    var queueFlushCount = 0
 
     /// Адрес и сеанс принимаются параметрами, а не берутся из `AppConfig`
     /// внутри: иначе модель нельзя проверить, запросы уходят мимо заглушки.
@@ -267,71 +276,6 @@ final class AppModel {
     /// повторном нажатии на активную вкладку молчит.
     func scrollFeedToTop() {
         feedScrollToTop += 1
-    }
-
-    /// Сохраняет новую запись и, если получилось, перечитывает ленту: запись
-    /// должна появиться сразу, а не после ручного обновления.
-    func createEvent(_ draft: EventDraft) async {
-        guard let petID = selectedPetID else { return }
-        feedErrorText = nil
-        do {
-            let request = EventRequest.create(draft, petID: petID)
-            let saved = try await client.post("/api/events", body: request, as: EventSavedResponse.self)
-            await loadFeed()
-            await reloadHistory()
-            showSaved(saved.id, date: draft.date)
-        } catch {
-            // Запись без сети это не ошибка, а очередь: человек сделал её в
-            // метро, и она должна дождаться связи вместе с остальными.
-            if (error as? APIError)?.isTransport == true {
-                rawEvents.append(offline.enqueue(draft, petID: petID))
-                feedNotice = "Записано в телефон, уйдёт на сервер, когда появится связь"
-                return
-            }
-            handleFeedError(error)
-        }
-    }
-
-    /// Правка существующей записи.
-    func updateEvent(id: String, draft: EventDraft) async {
-        // Запись из очереди ещё не на сервере: правка идёт по своему имени и
-        // без сети, иначе опечатку в метро было бы не исправить.
-        if let updated = offline.updatePending(id, draft: draft) {
-            if let index = rawEvents.firstIndex(where: { $0.id == id }) {
-                rawEvents[index] = updated
-            }
-            feedNotice = nil
-            return
-        }
-        feedErrorText = nil
-        do {
-            let request = EventRequest.update(draft)
-            _ = try await client.put("/api/events/\(id)", body: request, as: EventSavedResponse.self)
-            await loadFeed()
-            await reloadHistory()
-        } catch {
-            handleFeedError(error)
-        }
-    }
-
-    /// Удаление. Убираем из своей копии только после ответа сервера: иначе
-    /// запись исчезла бы с экрана, но осталась бы в базе, и человек бы её
-    /// искал, думая, что неудачно сохранил.
-    func deleteEvent(id: String) async {
-        // Запись из очереди удаляется целиком на устройстве: на сервере её
-        // нет, и запрос только спросил бы о том, чего не существует.
-        if offline.pendingIDs.contains(id) {
-            offline.removePending(id)
-            rawEvents.removeAll { $0.id == id }
-            return
-        }
-        feedErrorText = nil
-        do {
-            try await client.delete("/api/events/\(id)")
-            rawEvents.removeAll { $0.id == id }
-        } catch {
-            handleFeedError(error)
-        }
     }
 
     /// Название типа записи, каким его знает справочник.

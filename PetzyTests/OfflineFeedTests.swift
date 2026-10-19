@@ -143,7 +143,8 @@ struct OfflineFeedTests {
         await model.updateEvent(id: model.rawEvents[0].id, draft: edited)
 
         #expect(StubURLProtocol.requestedPaths == ["/api/events"])
-        #expect(store.load().queue.first?.body.comment == "Опечатка исправлена")
+        let body = try? JSONDecoder().decode(PendingBody.self, from: store.load().queue.first?.payload ?? Data())
+        #expect(body?.comment == "Опечатка исправлена")
         #expect(model.rawEvents.first?.comment == "Опечатка исправлена")
         #expect(model.offline.pendingIDs.count == 1)
     }
@@ -165,12 +166,74 @@ struct OfflineFeedTests {
         #expect(model.offline.pendingIDs.isEmpty)
     }
 
+    /// Правка отправляет версию, которую человек видел. Если запись поменяли с
+    /// тех пор, сервер отвечает отказом, и остаётся версия сервера: человек
+    /// узнаёт о чужом изменении, а не теряет его молча.
+    @Test("Правка отправляет версию, при отказе остаётся версия сервера")
+    func updateSendsVersionAndKeepsServerVersion() async {
+        StubURLProtocol.reset()
+        let store = LocalStore(url: Self.tempURL())
+        let model = await Self.model(store: store)
+        await model.select(petID: "p1")
+        TestSupport.stubTypeReference()
+        StubURLProtocol.stub(status: 200, json: Self.page())
+        await model.loadFeed()
+        StubURLProtocol.stub(
+            status: 409,
+            json: ["success": false, "error": "Запись изменили, пока вы её правили", "code": "conflict"]
+        )
+
+        await model.updateEvent(id: "e1", draft: Self.draft)
+
+        let body = TestSupport.body(of: StubURLProtocol.requests.first { $0.httpMethod == "PUT" })
+        #expect(body["base_version"] as? String == "2026-10-19T08:00:00Z", "без версии правка затрёт чужую")
+        #expect(model.feedErrorText == "Запись изменили, пока вы её правили")
+    }
+
+    /// Правка без сети не теряется: она ждёт в очереди и уходит сама. На
+    /// экране сразу новое значение с отметкой «не отправлено».
+    @Test("Правка без сети встаёт в очередь и уходит сама")
+    func updateWithoutNetworkGoesToQueue() async {
+        StubURLProtocol.reset()
+        let store = LocalStore(url: Self.tempURL())
+        let model = await Self.model(store: store)
+        await model.select(petID: "p1")
+        TestSupport.stubTypeReference()
+        StubURLProtocol.stub(status: 200, json: Self.page())
+        await model.loadFeed()
+        StubURLProtocol.stubOffline()
+        var edited = Self.draft
+        edited.comment = "Опечатка исправлена"
+
+        await model.updateEvent(id: "e1", draft: edited)
+
+        #expect(store.load().queue.count == 1)
+        #expect(store.load().queue.first?.method == "PUT")
+        #expect(store.load().queue.first?.path == "/api/events/e1")
+        #expect(model.rawEvents.first?.comment == "Опечатка исправлена")
+        #expect(model.rawEvents.count == 1, "правка не должна добавлять вторую запись в ленту")
+
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["success": true, "id": "e1"])
+        await model.flushQueue()
+
+        #expect(store.load().queue.isEmpty)
+    }
+
     // MARK: - Образцы
 
     static func storeWithEvent() -> LocalStore {
         let store = LocalStore(url: tempURL())
         var snapshot = OfflineSnapshot()
-        snapshot.pets = [Pet(id: "p1", name: "Рекс", species: nil, breed: nil, birthDate: nil, gender: nil)]
+        snapshot.pets = [Pet(
+            id: "p1",
+            name: "Рекс",
+            species: nil,
+            breed: nil,
+            birthDate: nil,
+            gender: nil,
+            updatedAt: nil
+        )]
         snapshot.events = ["p1": [PetEvent(
             id: "e1",
             type: "weight",
@@ -207,7 +270,8 @@ struct OfflineFeedTests {
     static func page() -> [String: Any] {
         ["items": [[
             "_id": "e1", "type": "weight", "date_time": "2026-10-19T08:00:00+05:00",
-            "comment": "Поел", "fields": [:], "pet_id": "p1", "tz": "Asia/Almaty"
+            "comment": "Поел", "fields": [:], "pet_id": "p1", "tz": "Asia/Almaty",
+            "updated_at": "2026-10-19T08:00:00Z"
         ]], "next_cursor": NSNull(), "page": 1, "page_size": 100, "total": 1]
     }
 

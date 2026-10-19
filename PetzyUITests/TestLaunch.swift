@@ -91,7 +91,10 @@ enum TestLaunch {
     /// данные стенда изменились.
     ///
     /// Курс берётся активный, а не первый: завершённые приложение прячет под
-    /// «Завершённые курсы», и искать их на экране бессмысленно.
+    /// «Завершённые курсы», и искать их на экране бессмысленно. Из активных
+    /// предпочитается курс «по необходимости»: у него кнопка приёма есть
+    /// всегда, а у курса по расписанию к концу дня она превращается в
+    /// «Записать дополнительный приём».
     static func petWithCourse() async -> (pet: String, course: String)? {
         guard let base = URL(string: "http://localhost:5002"),
               let token = await token(),
@@ -106,9 +109,11 @@ enum TestLaunch {
                       base: base,
                       token: token
                   ),
-                  let courses = page["medications"] as? [[String: Any]],
-                  let course = courses.first { $0["is_active"] as? Bool == true }?["name"] as? String
+                  let courses = page["medications"] as? [[String: Any]]
             else { continue }
+            let active = courses.filter { $0["is_active"] as? Bool == true }
+            let chosen = active.first { $0["as_needed"] as? Bool == true } ?? active.first
+            guard let course = chosen?["name"] as? String else { continue }
             return (pet: name, course: course)
         }
         return nil

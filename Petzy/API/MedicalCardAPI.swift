@@ -99,9 +99,30 @@ enum MedicalCardAPI {
         _ = ack
     }
 
-    static func update(_ client: APIClient, id: String, draft: MedicalRecordDraft) async throws {
-        let ack: MedicalWriteAck = try await client.put("/api/medical-records/\(id)", body: RecordBody(draft: draft))
+    static func update(
+        _ client: APIClient,
+        id: String,
+        draft: MedicalRecordDraft,
+        baseVersion: String? = nil
+    ) async throws {
+        let ack: MedicalWriteAck = try await client.put(
+            "/api/medical-records/\(id)",
+            body: RecordBody(draft: draft, baseVersion: baseVersion)
+        )
         _ = ack
+    }
+
+    /// Тело запроса как байты: очередь офлайн-записей хранит его, чтобы
+    /// отправить ровно то же, что ушло бы в сеть.
+    static func payload(_ draft: MedicalRecordDraft, localID: String) -> Data? {
+        try? JSONEncoder().encode(RecordBody(draft: draft, localID: localID))
+    }
+
+    /// Тело правки как байты: очередь офлайн-правок хранит его вместе с
+    /// версией, которую человек видел, иначе сервер не заметил бы, что запись
+    /// поменяли.
+    static func updatePayload(_ draft: MedicalRecordDraft, baseVersion: String?) -> Data? {
+        try? JSONEncoder().encode(RecordBody(draft: draft, baseVersion: baseVersion))
     }
 
     static func delete(_ client: APIClient, id: String) async throws {
@@ -132,8 +153,14 @@ private struct RecordBody: Encodable {
     /// Сервер заменяет запись целиком: без этого поля правка отвязала бы
     /// документы от записи.
     let documentIDs: [String]
+    /// Имя, которым устройство назвало запись, если её создавали без сети. По
+    /// нему же сервер узнаёт повтор и не создаёт вторую запись.
+    let localID: String?
+    /// Версия записи, которую человек правил. Сервер отвечает отказом, если
+    /// запись поменяли с тех пор: остаётся версия сервера.
+    let baseVersion: String?
 
-    init(draft: MedicalRecordDraft) {
+    init(draft: MedicalRecordDraft, localID: String? = nil, baseVersion: String? = nil) {
         petID = draft.petID
         kind = draft.kind.rawValue
         date = draft.date
@@ -150,6 +177,8 @@ private struct RecordBody: Encodable {
         diagnosis = draft.diagnosis
         recommendations = draft.recommendations
         documentIDs = draft.documentIDs
+        self.localID = localID
+        self.baseVersion = baseVersion
     }
 
     enum CodingKeys: String, CodingKey {
@@ -159,6 +188,8 @@ private struct RecordBody: Encodable {
         case clinic, vet, note, batch, target, protects
         case complaint, diagnosis, recommendations
         case documentIDs = "document_ids"
+        case localID = "local_id"
+        case baseVersion = "base_version"
     }
 }
 

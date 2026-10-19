@@ -53,11 +53,16 @@ struct Pet: Codable, Sendable, Identifiable, Equatable {
     let breed: String?
     let birthDate: String?
     let gender: String?
+    /// Версия питомца: когда его меняли в последний раз. Её приложение
+    /// отправляет при правке, и сервер отвечает отказом, если питомца поменяли
+    /// с тех пор.
+    let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
         case name, species, breed, gender
         case birthDate = "birth_date"
+        case updatedAt = "updated_at"
     }
 }
 
@@ -118,12 +123,16 @@ struct EventRequest: Encodable, Sendable {
     /// Имя, которым устройство назвало запись, если её создавали без сети.
     /// С ним повтор запроса не создаёт вторую запись, а обновляет первую.
     let localID: String?
+    /// Версия записи, которую человек правил. Сервер отвечает отказом, если
+    /// запись поменяли с тех пор: версия сервера остаётся, а человек узнаёт.
+    let baseVersion: String?
 
     enum CodingKeys: String, CodingKey {
         case petID = "pet_id"
         case date, time, comment, fields, type
         case timeZone = "tz"
         case localID = "local_id"
+        case baseVersion = "base_version"
     }
 
     init(
@@ -134,7 +143,8 @@ struct EventRequest: Encodable, Sendable {
         fields: [String: FieldValue],
         type: String?,
         timeZone: String,
-        localID: String? = nil
+        localID: String? = nil,
+        baseVersion: String? = nil
     ) {
         self.petID = petID
         self.date = date
@@ -144,9 +154,10 @@ struct EventRequest: Encodable, Sendable {
         self.type = type
         self.timeZone = timeZone
         self.localID = localID
+        self.baseVersion = baseVersion
     }
 
-    static func create(_ draft: EventDraft, petID: String) -> EventRequest {
+    static func create(_ draft: EventDraft, petID: String, localID: String? = nil) -> EventRequest {
         EventRequest(
             petID: petID,
             date: draft.date,
@@ -154,11 +165,26 @@ struct EventRequest: Encodable, Sendable {
             comment: draft.comment,
             fields: draft.encodedFields,
             type: draft.type.key,
-            timeZone: TimeZone.current.identifier
+            timeZone: TimeZone.current.identifier,
+            localID: localID
         )
     }
 
-    static func update(_ draft: EventDraft) -> EventRequest {
+    /// Тело запроса как байты: очередь офлайн-записей хранит его, чтобы
+    /// отправить ровно то же, что ушло бы в сеть.
+    static func payload(_ draft: EventDraft, petID: String, localID: String) -> Data? {
+        let request = EventRequest.create(draft, petID: petID, localID: localID)
+        return try? JSONEncoder().encode(request)
+    }
+
+    /// Тело правки как байты: очередь офлайн-правок хранит его вместе с
+    /// версией, которую человек видел, иначе сервер не заметил бы, что
+    /// запись поменяли.
+    static func updatePayload(_ draft: EventDraft, baseVersion: String?) -> Data? {
+        try? JSONEncoder().encode(EventRequest.update(draft, baseVersion: baseVersion))
+    }
+
+    static func update(_ draft: EventDraft, baseVersion: String? = nil) -> EventRequest {
         EventRequest(
             petID: nil,
             date: draft.date,
@@ -166,7 +192,8 @@ struct EventRequest: Encodable, Sendable {
             comment: draft.comment,
             fields: draft.encodedFields,
             type: nil,
-            timeZone: TimeZone.current.identifier
+            timeZone: TimeZone.current.identifier,
+            baseVersion: baseVersion
         )
     }
 }
@@ -189,6 +216,10 @@ struct PetEvent: Codable, Sendable, Identifiable {
     let comment: String
     let fields: [String: FieldValue]
     let isDeleted: Bool
+    /// Когда запись меняли в последний раз, как отдал сервер. Это версия:
+    /// приложение отправляет её при правке, и сервер отвечает отказом, если
+    /// запись поменяли с тех пор.
+    let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -201,6 +232,7 @@ struct PetEvent: Codable, Sendable, Identifiable {
         case comment, fields
         case dateTime = "date_time"
         case isDeleted = "is_deleted"
+        case updatedAt = "updated_at"
     }
 
     /// `is_deleted` приходит только у надгробий: у живой записи этого поля нет
@@ -212,6 +244,7 @@ struct PetEvent: Codable, Sendable, Identifiable {
         comment = try container.decodeIfPresent(String.self, forKey: .comment) ?? ""
         fields = try container.decodeIfPresent([String: FieldValue].self, forKey: .fields) ?? [:]
         isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
+        updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
         guard let type = try container.decodeIfPresent(String.self, forKey: .type)
             ?? container.decodeIfPresent(String.self, forKey: .recordType)
         else {
@@ -236,6 +269,7 @@ struct PetEvent: Codable, Sendable, Identifiable {
         try container.encode(comment, forKey: .comment)
         try container.encode(fields, forKey: .fields)
         try container.encode(isDeleted, forKey: .isDeleted)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
     }
 
     init(
@@ -244,7 +278,8 @@ struct PetEvent: Codable, Sendable, Identifiable {
         dateTime: String,
         comment: String,
         fields: [String: FieldValue],
-        isDeleted: Bool
+        isDeleted: Bool,
+        updatedAt: String? = nil
     ) {
         self.id = id
         self.type = type
@@ -252,6 +287,7 @@ struct PetEvent: Codable, Sendable, Identifiable {
         self.comment = comment
         self.fields = fields
         self.isDeleted = isDeleted
+        self.updatedAt = updatedAt
     }
 
     var day: String {

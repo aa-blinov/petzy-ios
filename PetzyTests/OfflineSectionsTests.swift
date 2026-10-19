@@ -80,6 +80,26 @@ struct OfflineSectionsTests {
         #expect(offline.errorText == nil)
     }
 
+    /// Раздел перечитывается, когда очередь ушла, и связь может оборваться
+    /// ровно в этот момент. Данные на экране от этого не должны ни пропасть,
+    /// ни превратиться в ошибку: человек видит копию и плашку.
+    @Test("Повторная загрузка без связи не выбивает список")
+    func secondFailedLoadKeepsListAndNoError() async {
+        StubURLProtocol.reset()
+        let store = LocalStore(url: TestSupport.tempStoreURL())
+        let model = await Self.medicationsModel(store: store)
+        StubURLProtocol.stub(status: 200, json: ["medications": [MedicationsTests.drontalJSON]])
+        StubURLProtocol.stub(status: 200, json: ["doses": []])
+        await model.load()
+        StubURLProtocol.stubOffline()
+
+        await model.load()
+
+        #expect(model.medications.map(\.name) == ["Дронтал Плюс"])
+        #expect(model.isShowingCached)
+        #expect(model.errorText == nil, "вторая неудача не должна выбивать список ошибкой")
+    }
+
     // MARK: - Образцы
 
     static func documentsModel(store: LocalStore) async -> DocumentsModel {

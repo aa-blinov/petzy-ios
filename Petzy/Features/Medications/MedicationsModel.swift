@@ -21,8 +21,10 @@ final class MedicationsModel {
     var search = ""
 
     private let client: APIClient
-    private let petID: String
-    private let offline: OfflineState
+    /// Питомец и очередь нужны офлайн-части модели из соседнего файла,
+    /// поэтому без `private`.
+    let petID: String
+    let offline: OfflineState
 
     /// На экране копия, а не сеть. Лекарство дают по часам, и ждать интернета
     /// ради того, чтобы увидеть расписание, нельзя.
@@ -99,21 +101,26 @@ final class MedicationsModel {
     /// поэтому после записи перечитываем и список, и ближайшие приёмы.
     func markDose(_ medication: Medication, dose: Double?, slot: DoseSlot? = nil, skipped: Bool = false) async {
         errorText = nil
+        let mark = IntakeMark(
+            medicationID: medication.id,
+            moment: Self.now,
+            zone: Self.zone,
+            dose: dose,
+            slot: slot,
+            skipped: skipped
+        )
         do {
-            let result = try await MedicationsAPI.logIntake(
-                client,
-                mark: IntakeMark(
-                    medicationID: medication.id,
-                    moment: Self.now,
-                    zone: Self.zone,
-                    dose: dose,
-                    slot: slot,
-                    skipped: skipped
-                )
-            )
+            let result = try await MedicationsAPI.logIntake(client, mark: mark)
             notice = result.ranOut ? "Остаток кончился, пополните его" : nil
             await load()
         } catch {
+            // Отметка без связи не пропадает: она встаёт в очередь под своим
+            // именем, и повтор отправки не спишет дозу второй раз.
+            if (error as? APIError)?.isTransport == true {
+                queueIntake(mark, medication: medication)
+                notice = "Отметка записана в телефон, уйдёт на сервер, когда появится связь"
+                return
+            }
             // Отказ пришёл от сервера: слот мог закрыть кто-то другой, и без
             // перечитывания он остался бы висеть открытым, а следующее нажатие
             // дало бы тот же отказ. Текст ставим после: `load()` его снимает.
@@ -175,6 +182,13 @@ final class MedicationsModel {
             await load()
             return true
         } catch {
+            // Без связи курс встаёт в очередь под своим именем: сервер на
+            // повтор ответит тем же курсом, а не создаст второй.
+            if (error as? APIError)?.isTransport == true {
+                queueCourse(draft)
+                notice = "Лекарство записано в телефон, уйдёт на сервер, когда появится связь"
+                return true
+            }
             errorText = Self.text(of: error)
             return false
         }
@@ -187,11 +201,27 @@ final class MedicationsModel {
             return false
         }
         do {
-            try await MedicationsAPI.update(client, medicationID: medicationID, draft: draft)
+            try await MedicationsAPI.update(
+                client,
+                medicationID: medicationID,
+                draft: draft,
+                baseVersion: medications.first { $0.id == medicationID }?.updatedAt
+            )
             notice = "Лекарство обновлено"
             await load()
             return true
         } catch {
+            // Правка без сети не теряется: она ждёт в очереди и уходит сама.
+            if (error as? APIError)?.isTransport == true {
+                queueUpdate(medicationID: medicationID, draft: draft)
+                notice = "Правка сохранена в телефон, уйдёт на сервер, когда появится связь"
+                return true
+            }
+            // Курс поменяли, пока человек его правил. Остаётся версия сервера,
+            // и её надо показать, а не держать на экране старую.
+            if (error as? APIError)?.code == "conflict" {
+                await load()
+            }
             errorText = Self.text(of: error)
             return false
         }
@@ -235,7 +265,7 @@ final class MedicationsModel {
     /// Курсы из копии, если она есть и разбирается. `nil` — показывать нечего,
     /// и тогда человек должен увидеть ошибку, а не пустоту.
     private func medicationsFromCopy() -> [Medication]? {
-        guard medications.isEmpty, let copy = offline.medicationsCopy(petID: petID),
+        guard let copy = offline.medicationsCopy(petID: petID),
               let decoded = try? MedicationsAPI.decode(copy), !decoded.isEmpty else { return nil }
         return decoded
     }

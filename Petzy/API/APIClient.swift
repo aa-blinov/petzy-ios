@@ -36,6 +36,16 @@ struct APIClient: Sendable {
         return try await send(APIRequest(path: path, method: "POST", body: encoded, anonymous: anonymous), as: type)
     }
 
+    /// Запрос с телом, которое уже собрано: очередь офлайн-записей хранит
+    /// тело как пришло и отправляет его теми же байтами. Разбирать ответ не
+    /// нужно: после отправки раздел перечитывается с сервера.
+    func sendRaw(_ path: String, method: String = "POST", body: Data) async throws {
+        let result = try await raw(APIRequest(path: path, method: method, body: body))
+        guard (200 ..< 300).contains(result.1.statusCode) else {
+            throw HTTP.apiError(data: result.0, response: result.1)
+        }
+    }
+
     func put<T: Decodable & Sendable>(
         _ path: String,
         body: some Encodable & Sendable,

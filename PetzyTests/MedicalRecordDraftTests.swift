@@ -87,7 +87,8 @@ struct MedicalRecordDraftTests {
             complaint: complaint,
             diagnosis: complaint == nil ? nil : "Бронхит",
             recommendations: complaint == nil ? nil : "Антибиотик",
-            documentIDs: ["d1", "d2"]
+            documentIDs: ["d1", "d2"],
+            updatedAt: nil
         )
     }
 }
