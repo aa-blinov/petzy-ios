@@ -82,7 +82,9 @@ struct MedicationsView: View {
                 }
                 pendingDelete = nil
             }
-            Button("Отмена", role: .cancel) { pendingDelete = nil }
+            // Без роли `.cancel`: в iOS 26 такая кнопка выносится из карточки
+            // и в поповере не рисуется, а закрыть диалог становится нечем.
+            Button("Отмена") { pendingDelete = nil }
         } message: {
             Text("Курс и его отметки о приёмах пропадут")
         }

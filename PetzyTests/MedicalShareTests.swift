@@ -67,6 +67,32 @@ struct MedicalShareTests {
         #expect(model.shares.map(\.id) == ["s2"])
     }
 
+    /// Отозванный адрес нельзя оставлять на экране готовым к отправке: человек
+    /// поделился бы ссылкой, которая карту уже не открывает.
+    @Test("Отзыв убирает и готовую ссылку с экрана")
+    func revokeClearsReadyShare() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        StubURLProtocol.stub(status: 201, json: [
+            "share": ["id": "s1", "expires_at": "2026-10-25T07:52:00Z"],
+            "token": "tok123"
+        ])
+        StubURLProtocol.stub(status: 200, json: ["shares": [
+            ["id": "s1", "expires_at": "2026-10-25T07:52:00Z"]
+        ]])
+        StubURLProtocol.stub(status: 200, json: ["revoked": true])
+        StubURLProtocol.stub(status: 200, json: ["shares": []])
+        let model = try await makeModel()
+        await model.load()
+
+        await model.createShare(days: 7)
+        #expect(model.share != nil)
+
+        await model.revoke(LiveShare(id: "s1", expiresAt: "2026-10-25T07:52:00Z"))
+
+        #expect(model.share == nil)
+    }
+
     @Test("Сервер не отозвал ссылку: список остаётся как был")
     func failedRevokeKeepsShare() async throws {
         StubURLProtocol.reset()

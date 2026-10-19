@@ -56,6 +56,30 @@ struct MedicalRecordDraft: Sendable {
 }
 
 extension MedicalRecordDraft {
+    /// Черновик из готовой записи для правки. Все поля переносятся: форма,
+    /// которая подставила бы не всё, стёрла бы остальное при сохранении, а
+    /// человек об этом узнал бы только открыв запись заново.
+    static func from(_ record: MedicalRecord, petID: String) -> MedicalRecordDraft {
+        MedicalRecordDraft(
+            petID: petID,
+            kind: record.kind,
+            date: record.date,
+            title: record.title,
+            nextDue: record.nextDue,
+            clinic: record.clinic,
+            vet: record.vet,
+            note: record.note,
+            batch: record.batch,
+            target: record.target,
+            protects: record.protects,
+            complaint: record.complaint,
+            diagnosis: record.diagnosis,
+            recommendations: record.recommendations
+        )
+    }
+}
+
+extension MedicalRecordDraft {
     /// Что человек должен поправить до запроса, своими словами. `nil` — можно
     /// отправлять. Проверка здесь, а не только на сервере: человек видит
     /// подсказку у поля, а не ошибку после похода туда и обратно.

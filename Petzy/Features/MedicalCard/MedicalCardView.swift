@@ -230,7 +230,9 @@ private struct CardTileView: View {
                 Text(status).font(.caption).foregroundStyle(.red)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // По верху, а не по центру: плитки в ряду выравниваются по высоте самой
+        // высокой, и подпись снизу уезжала бы от заголовка на пол-экрана.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(12)
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
     }

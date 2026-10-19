@@ -65,6 +65,10 @@ struct RecordDTO: Decodable {
     let note: String?
     let target: String?
     let protects: String?
+    let batch: String?
+    let complaint: String?
+    let diagnosis: String?
+    let recommendations: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -72,7 +76,8 @@ struct RecordDTO: Decodable {
         case nextDue = "next_due"
         case status
         case daysLeft = "days_left"
-        case clinic, vet, note, target, protects
+        case clinic, vet, note, target, protects, batch
+        case complaint, diagnosis, recommendations
     }
 }
 
@@ -223,7 +228,13 @@ extension RecordDTO {
             daysLeft: daysLeft,
             clinic: clinic,
             vet: vet,
-            note: note
+            note: note,
+            batch: batch,
+            target: target,
+            protects: protects,
+            complaint: complaint,
+            diagnosis: diagnosis,
+            recommendations: recommendations
         )
     }
 }

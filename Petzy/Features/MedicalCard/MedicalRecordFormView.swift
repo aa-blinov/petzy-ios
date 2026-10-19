@@ -12,6 +12,15 @@ struct MedicalKindSectionView: View {
 
     var body: some View {
         List {
+            if records.isEmpty {
+                // Пустой раздел должен говорить, что здесь нет, и куда
+                // идти: белый экран читается как «не загрузилось».
+                ContentUnavailableView {
+                    Label("\(kind.title) пока нет", systemImage: kind.symbol)
+                } description: {
+                    Text("Запись добавляется кнопкой «+» на медкарте")
+                }
+            }
             ForEach(records) { record in
                 row(record)
             }
@@ -124,16 +133,7 @@ struct MedicalRecordFormView: View {
                 title: ""
             )
         case let .edit(_, record):
-            MedicalRecordDraft(
-                petID: app.selectedPetID ?? "",
-                kind: record.kind,
-                date: record.date,
-                title: record.title,
-                nextDue: record.nextDue,
-                clinic: record.clinic,
-                vet: record.vet,
-                note: record.note
-            )
+            MedicalRecordDraft.from(record, petID: app.selectedPetID ?? "")
         }
         _draft = State(initialValue: base)
         if let parsed = MedicalRecordFormView.date(from: base.date) {

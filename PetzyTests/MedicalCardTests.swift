@@ -142,7 +142,13 @@ struct MedicalCardTests {
             daysLeft: daysLeft,
             clinic: nil,
             vet: nil,
-            note: nil
+            note: nil,
+            batch: nil,
+            target: "fleas_ticks",
+            protects: nil,
+            complaint: nil,
+            diagnosis: nil,
+            recommendations: nil
         )
     }
 

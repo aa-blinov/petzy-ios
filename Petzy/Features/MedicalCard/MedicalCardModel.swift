@@ -188,6 +188,11 @@ final class MedicalCardModel {
         errorText = nil
         do {
             try await MedicalCardAPI.revokeShare(client, petID: petID, shareID: share.id)
+            // Готовый адрес тоже убираем: поделиться отозванной ссылкой
+            // человек может прямо с этого экрана, а она уже ничего не открывает.
+            if self.share?.id == share.id {
+                self.share = nil
+            }
             await loadShares()
         } catch {
             errorText = Self.text(of: error)

@@ -450,7 +450,10 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
   gives the leading edge to back and title, common actions to the trailing one
   ([HIG Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)),
   and in iOS 26 the button gets Liquid Glass on its own.
-- **Row actions are `swipeActions`**, not web-style swipe-left-to-delete. Destructive
+- **Row actions are `swipeActions`**, not web-style swipe-left-to-delete, and the delete
+  goes through a confirm dialog. One exception, made because the list crashed:
+  «Свои типы записей» has a red trash button in the row instead, as the web does.
+  Destructive
   button uses `Button(role: .destructive)`, the delete goes through a
   `confirmationDialog`, and the full swipe is switched off through the
   **parameter of `swipeActions`**, not as a modifier on the button:
@@ -473,15 +476,24 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
 
 ### Three traps of `List` on iOS 26, each found by crashing or by looking
 
-- **A `NavigationLink` row with `swipeActions` cannot be removed.** Deleting that
-  row kills the app with `Invalid update: invalid number of items in section 0`
-  from UIKit: before and after the update the counts are equal, yet the diff
-  says one row was deleted. The feed got away with it because its row is a
-  plain view with `.onTapGesture`. Make the row a `Button` and push with
-  `.navigationDestination(isPresented:)`, like `FeedView.row(_:)` does.
+- **`swipeActions` + removal of that same row crashes the list.** The signature is
+  `UICollectionView Invalid Number Of Items In Section` inside
+  `UICollectionViewListCoordinatorBase.performUpdates`. The crash comes before the
+  delete request reaches the server, so the API is not involved. What does *not*
+  help: making the row a `Button`, `.listStyle(.plain)`,
+  `.animation(nil, value:)`, delaying the confirm dialog, or swapping
+  `confirmationDialog` for `alert` — all four were tried on the simulator and the
+  crash stayed. What does help: **no swipe at all**. The row carries a red trash
+  `Button`, exactly as `frontend/src/pages/EventTypesSettings.tsx` does in the
+  web app. Five removals in a row then ran clean. The feed, documents and
+  medications also use `swipeActions` and delete rows there without falling over,
+  so this is not a blanket ban on swipe: if a list starts crashing on removal,
+  take the swipe off that list first.
 - **In a `confirmationDialog` a `role: .cancel` button is not drawn.** It is
   hoisted out of the popover and never appears, so a dialog offering only a
   cancel action shows text and no way out. Use a plain `Button("Отмена")`.
+  In an `.alert` the same button renders normally, so there `role: .cancel` is
+  fine and is the better choice.
 - **The dialog closes before its own action runs.** A handler that reads state
   the dialog was showing finds it already nil: `isPresented` is set to `false`
   first, and a custom setter wired to `cancelDelete()` wipes it. Pass the id

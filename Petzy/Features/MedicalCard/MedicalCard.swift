@@ -58,6 +58,17 @@ struct MedicalRecord: Identifiable, Sendable {
     let clinic: String?
     let vet: String?
     let note: String?
+    /// Номер партии прививки.
+    let batch: String?
+    /// Кого закрывает обработка.
+    let target: String?
+    /// От чего защищает прививка.
+    let protects: String?
+    /// Жалоба, диагноз и назначения приёма врача. Без них форма правки
+    /// показала бы пустые поля и стёрла бы написанное врачом.
+    let complaint: String?
+    let diagnosis: String?
+    let recommendations: String?
 
     /// «Просрочено 11 дней». Пусто у записи без даты повтора: выдуманный срок
     /// хуже отсутствия срока.
