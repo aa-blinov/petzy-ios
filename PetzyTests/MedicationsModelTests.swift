@@ -168,6 +168,55 @@ struct MedicationsModelTests {
         #expect(model.medications.count == 1)
     }
 
+    /// Сервер отказал, потому что приём уже закрыт другим устройством: 409.
+    /// Если после отказа не перечитать список, слот продолжит висеть открытым
+    /// и следующее нажатие даст тот же отказ. Текст ошибки при этом должен
+    /// остаться: перечитывание не отменяет сказанного.
+    @Test("Отказ отметки перечитывает список и оставляет текст ошибки")
+    func refusedMarkRereadsListAndKeepsMessage() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["medications": [MedicationsTests.drontalJSON]])
+        StubURLProtocol.stub(status: 200, json: ["doses": []])
+        StubURLProtocol.stub(
+            status: 409,
+            json: [
+                "success": false, "error": "Приём на 09:00 уже отмечен",
+                "code": "duplicate_intake", "existing": ["date": "2026-10-19", "time": "09:00"]
+            ]
+        )
+        StubURLProtocol.stub(status: 200, json: ["medications": []])
+        StubURLProtocol.stub(status: 200, json: ["doses": []])
+        let model = try await makeModel()
+        await model.load()
+
+        await model.markDose(MedicationsTests.med(days: [], times: []), dose: 1)
+
+        #expect(model.errorText == "Приём на 09:00 уже отмечен")
+        #expect(model.medications.isEmpty, "список после отказа должен быть перечитан с сервера")
+    }
+
+    /// Пополнение, которое сервер отклонил после трёх попыток, тоже оставляет
+    /// на экране прежний остаток, а не тот, который человек рассчитывал.
+    @Test("Отказ пополнения перечитывает остаток и оставляет текст ошибки")
+    func refusedRestockRereadsAndKeepsMessage() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["medications": [MedicationsTests.drontalJSON]])
+        StubURLProtocol.stub(status: 200, json: ["doses": []])
+        StubURLProtocol.stub(
+            status: 409,
+            json: ["success": false, "error": "Остаток менялся три попытки подряд", "code": "conflict"]
+        )
+        StubURLProtocol.stub(status: 200, json: ["medications": []])
+        StubURLProtocol.stub(status: 200, json: ["doses": []])
+        let model = try await makeModel()
+        await model.load()
+
+        await model.restock(MedicationsTests.med(days: [], times: []), amount: 5)
+
+        #expect(model.errorText == "Остаток менялся три попытки подряд")
+        #expect(model.medications.isEmpty, "остаток после отказа должен быть перечитан с сервера")
+    }
+
     @Test("Завершённые курсы спрятаны, пока их не попросили")
     func endedCoursesHiddenByDefault() async throws {
         StubURLProtocol.reset()

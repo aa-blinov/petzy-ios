@@ -98,7 +98,14 @@ final class MedicationsModel {
             notice = result.ranOut ? "Остаток кончился, пополните его" : nil
             await load()
         } catch {
-            errorText = Self.text(of: error)
+            // Отказ пришёл от сервера: слот мог закрыть кто-то другой, и без
+            // перечитывания он остался бы висеть открытым, а следующее нажатие
+            // дало бы тот же отказ. Текст ставим после: `load()` его снимает.
+            let message = Self.text(of: error)
+            if Self.answered(error) {
+                await load()
+            }
+            errorText = message
         }
     }
 
@@ -129,7 +136,14 @@ final class MedicationsModel {
             try await MedicationsAPI.restock(client, medicationID: medication.id, amount: amount)
             await load()
         } catch {
-            errorText = Self.text(of: error)
+            // Сервер сказал «упаковка не записана, остаток как был»: на экране
+            // должен остаться тот остаток, который он посчитал, а не тот,
+            // который человек собирался получить.
+            let message = Self.text(of: error)
+            if Self.answered(error) {
+                await load()
+            }
+            errorText = message
         }
     }
 
@@ -200,6 +214,16 @@ final class MedicationsModel {
 
     private static func text(of error: Error) -> String {
         (error as? APIError)?.errorDescription ?? error.localizedDescription
+    }
+
+    /// Отказ пришёл от сервера, а не от сети. Разница важна: на ответе сервера
+    /// состояние могло уехать вперёд и пора перечитать, а при обрыве связи
+    /// перечитывать нечего и незачем ждать второго таймаута.
+    private static func answered(_ error: Error) -> Bool {
+        if case .server = error as? APIError {
+            return true
+        }
+        return false
     }
 
     /// То, что человек ещё не заполнил, но сервер пропустит. Включённый учёт
