@@ -189,6 +189,18 @@ private struct SettingsSection: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                if model.isAdmin {
+                    NavigationLink {
+                        UsersView(model: UsersModel(client: model.client))
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Пользователи", systemImage: "person.2.badge.gearshape")
+                            Text("Список людей, отключение и сброс пароля")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
                 NavigationLink {
                     HistoryView(model: model)
                 } label: {

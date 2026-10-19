@@ -18,6 +18,13 @@ enum AccountAPI {
         return response.privacyConsentNeeded
     }
 
+    /// Администратор ли человек. Отдельный путь `/api/auth/session`: он отдаёт
+    /// одно поле, а весь аккаунт для этого перечитывать незачем.
+    static func isAdmin(_ client: APIClient) async throws -> Bool {
+        let response: SessionDTO = try await client.get("/api/auth/session")
+        return response.isAdmin
+    }
+
     /// Смена почты. Пустая почта убирает адрес, а новая уходит в
     /// `pending_email` и ждёт подтверждения письмом.
     static func changeEmail(_ client: APIClient, email: String, password: String) async throws -> AccountInfo {
@@ -129,5 +136,13 @@ private struct ConsentDTO: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case privacyConsentNeeded = "privacy_consent_needed"
+    }
+}
+
+private struct SessionDTO: Decodable {
+    let isAdmin: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case isAdmin = "is_admin"
     }
 }

@@ -27,8 +27,10 @@ final class AppModel {
     /// это не секрет, Keychain тут не нужен.
     private static let onboardingKey = "seenOnboarding"
 
-    private(set) var state: State = .restoring
+    var state: State = .restoring
     private(set) var isSigningIn = false
+    /// Администратор ли человек: только ему показывается список пользователей.
+    var isAdmin = false
     var errorText: String?
 
     /// Требуется ли согласие с текущей редакцией политики. Сервер поднимает
@@ -340,6 +342,7 @@ final class AppModel {
         state = await auth.isSignedIn ? .signedIn : .signedOut
         if state == .signedIn {
             await loadConsent()
+            await loadAdminRights()
         }
     }
 
@@ -371,25 +374,13 @@ final class AppModel {
         do {
             try await auth.signIn(username: username, password: password)
             state = .signedIn
+            await loadAdminRights()
         } catch {
             // Неверный пароль приходит 401, но текст здесь серверный:
             // «Неверный логин или пароль», а не «сессия закончилась».
             errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
             state = .signedOut
         }
-    }
-
-    /// Вошёл ли человек: после регистрации и смены пароля по ссылке да, хотя
-    /// форма входа их не показывала.
-    var isSignedIn: Bool {
-        state == .signedIn
-    }
-
-    /// Сессия началась не через форму входа: регистрация и смена пароля по
-    /// ссылке отдают токены сразу и заводят человека внутрь приложения.
-    func acceptSession() {
-        state = .signedIn
-        errorText = nil
     }
 
     func signOut() {

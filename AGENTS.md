@@ -334,7 +334,6 @@ commits that sit on `master` locally but not on `origin`:
   `deleted_at`, kept for 30 days.
 
 Own event types (`/api/event-types`, key `custom_…`, `category: null`):
-
 - The key and the colour are the server's to assign; send neither on create.
 - `DELETE …?preview=true` returns `events_count`, and the type is **not**
   deletable while it has records: the real `DELETE` answers 422
@@ -346,6 +345,22 @@ Own event types (`/api/event-types`, key `custom_…`, `category: null`):
 
 All of it is written out in the «Синхронизация с нативным приложением» section
 of `web/openapi_doc.py`. Read that section before designing offline work.
+
+The admin section (`/api/users*`) answers only the administrator; everyone else
+gets `forbidden_admin_only`.
+
+- Who is the administrator is decided by `GET /api/auth/session`
+  (`{"is_admin": true, "username": …}`), and that same name is a single
+  `ADMIN_USERNAME` in the server config. There is no list of roles.
+- **`is_admin` in the user list is not a field of every user**: it is present
+  only in the admin's own record. A non-optional decode of it breaks the whole
+  list, and the screen stays empty with a decoding error.
+- `DELETE /api/users/<login>` is a soft disable: the person stops signing in,
+  their records stay. There is no hard delete, so a probe account stays in the
+  database forever, just disabled.
+- The local stand serves the admin only with the extra compose file
+  `docker-compose.demo-admin.yml` (it restarts `web` with
+  `ADMIN_USERNAME=demo_admin`); the demo password is the public one.
 
 ## Layout
 
