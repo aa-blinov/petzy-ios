@@ -180,6 +180,16 @@ private struct SettingsSection: View {
                     }
                 }
                 NavigationLink {
+                    CustomTypesView(model: CustomTypesModel(client: model.client))
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("Свои типы записей", systemImage: "square.stack.3d.up")
+                        Text("Своё название и свои поля вместо готовых")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                NavigationLink {
                     HistoryView(model: model)
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {

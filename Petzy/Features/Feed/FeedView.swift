@@ -58,7 +58,7 @@ struct FeedView: View {
                 }
                 pendingDelete = nil
             }
-            Button("Отмена", role: .cancel) { pendingDelete = nil }
+            Button("Отмена") { pendingDelete = nil }
         } message: {
             Text("Запись пропадёт из дневника")
         }

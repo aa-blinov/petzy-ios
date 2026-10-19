@@ -34,7 +34,7 @@ struct AccessTokensView: View {
                 }
                 pendingRevoke = nil
             }
-            Button("Отмена", role: .cancel) { pendingRevoke = nil }
+            Button("Отмена") { pendingRevoke = nil }
         } message: {
             Text("Тот, кому он выдан, работать перестанет сразу")
         }

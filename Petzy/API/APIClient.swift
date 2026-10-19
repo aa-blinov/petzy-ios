@@ -46,6 +46,15 @@ struct APIClient: Sendable {
         }
     }
 
+    /// Удаление, у которого ответ важен: сервер сначала считает, сколько
+    /// записей исчезнет вместе с типом, и отдаёт это число в теле.
+    func delete<T: Decodable & Sendable>(
+        _ path: String,
+        as type: T.Type = T.self
+    ) async throws -> T {
+        try await send(APIRequest(path: path, method: "DELETE"), as: type)
+    }
+
     /// Удаление с телом. Так удаляется аккаунт: пароль подтверждения идёт в
     /// теле запроса, а без него сервер откажет.
     func delete<T: Decodable & Sendable>(

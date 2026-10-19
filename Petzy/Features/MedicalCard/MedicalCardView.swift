@@ -58,7 +58,7 @@ struct MedicalCardView: View {
                 }
                 pendingDelete = nil
             }
-            Button("Отмена", role: .cancel) { pendingDelete = nil }
+            Button("Отмена") { pendingDelete = nil }
         } message: {
             Text("Запись пропадёт из медкарты")
         }
@@ -74,7 +74,7 @@ struct MedicalCardView: View {
                 model.errorText = nil
                 Task { await model.load() }
             }
-            Button("Отмена", role: .cancel) { model.errorText = nil }
+            Button("Отмена") { model.errorText = nil }
         } message: {
             Text(model.errorText ?? "")
         }
@@ -83,7 +83,7 @@ struct MedicalCardView: View {
                 model.notice = nil
             }
         })) {
-            Button("Понятно", role: .cancel) { model.notice = nil }
+            Button("Понятно") { model.notice = nil }
         } message: {
             Text(model.notice ?? "")
         }

@@ -333,6 +333,17 @@ commits that sit on `master` locally but not on `origin`:
 - Soft delete: `with_deleted=1` returns tombstones with `is_deleted` and
   `deleted_at`, kept for 30 days.
 
+Own event types (`/api/event-types`, key `custom_…`, `category: null`):
+
+- The key and the colour are the server's to assign; send neither on create.
+- `DELETE …?preview=true` returns `events_count`, and the type is **not**
+  deletable while it has records: the real `DELETE` answers 422
+  `event_type_has_events`. Ask for the count first and say plainly that only an
+  empty type can go; do not promise records will disappear with it.
+- Field names must match `^[a-z][a-z0-9_]{0,49}$` and `pet_id, date, time,
+  comment, type, fields` are reserved. A field the person added but left blank
+  must not be sent at all, or the server refuses the whole type.
+
 All of it is written out in the «Синхронизация с нативным приложением» section
 of `web/openapi_doc.py`. Read that section before designing offline work.
 
@@ -444,6 +455,23 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
   no handwritten font. Those were web decoration.
 - **Native components, no glass of our own.** Use the system control, strip its
   background and shadow, keep the accent (`#C46A3F` light, `#E8946A` dark).
+
+### Three traps of `List` on iOS 26, each found by crashing or by looking
+
+- **A `NavigationLink` row with `swipeActions` cannot be removed.** Deleting that
+  row kills the app with `Invalid update: invalid number of items in section 0`
+  from UIKit: before and after the update the counts are equal, yet the diff
+  says one row was deleted. The feed got away with it because its row is a
+  plain view with `.onTapGesture`. Make the row a `Button` and push with
+  `.navigationDestination(isPresented:)`, like `FeedView.row(_:)` does.
+- **In a `confirmationDialog` a `role: .cancel` button is not drawn.** It is
+  hoisted out of the popover and never appears, so a dialog offering only a
+  cancel action shows text and no way out. Use a plain `Button("Отмена")`.
+- **The dialog closes before its own action runs.** A handler that reads state
+  the dialog was showing finds it already nil: `isPresented` is set to `false`
+  first, and a custom setter wired to `cancelDelete()` wipes it. Pass the id
+  into the action the way `AccessTokensView` does, or keep the key in the model
+  outside the displayed state.
 
 ## Swift conventions
 

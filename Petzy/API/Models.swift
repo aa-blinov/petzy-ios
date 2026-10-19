@@ -302,7 +302,7 @@ struct EventsPage: Decodable, Sendable {
 }
 
 /// Вариант выбора в поле. Появляется у полей вида `choice`.
-struct EventFieldOption: Decodable, Sendable {
+struct EventFieldOption: Decodable, Sendable, Equatable {
     let text: String
     let value: String
 }
@@ -311,7 +311,7 @@ struct EventFieldOption: Decodable, Sendable {
 /// Подпись нужна для показа: ключ `weight` в ленте читаться не должен. Вид,
 /// обязательность и границы нужны форме добавления, чтобы собрать запись из
 /// того, что человек набрал, и не отправить на сервер ерунду.
-struct EventFieldInfo: Decodable, Sendable, Identifiable {
+struct EventFieldInfo: Decodable, Sendable, Identifiable, Equatable {
     let name: String
     let label: String
     /// `number`, `text` или `choice`.
@@ -329,16 +329,39 @@ struct EventFieldInfo: Decodable, Sendable, Identifiable {
 
 /// Тип записи: как она называется, каким значком рисуется и какие у неё поля.
 /// `category` приходит `null` у своих типов, их форма выбора не спрашивает.
+/// `color` есть только у своих: встроенным он не нужен, а правке своего типа
+/// без него цвет молча сбросился бы на первый в списке.
 struct EventTypeInfo: Decodable, Sendable, Identifiable {
     let key: String
     let label: String
     let icon: String?
     let category: String?
+    let color: String?
     let fields: [EventFieldInfo]
     let chart: EventChart?
 
     var id: String {
         key
+    }
+
+    /// Инициализатор написан руками: `color` есть не у всех типов, а
+    /// синтезированный такую подпись не делает.
+    init(
+        key: String,
+        label: String,
+        icon: String?,
+        category: String?,
+        color: String? = nil,
+        fields: [EventFieldInfo],
+        chart: EventChart?
+    ) {
+        self.key = key
+        self.label = label
+        self.icon = icon
+        self.category = category
+        self.color = color
+        self.fields = fields
+        self.chart = chart
     }
 }
 
