@@ -495,7 +495,7 @@ screen looks plausible, so a screenshot of the list taken after the switch
 proves nothing either way — the answer was in the backend access log, where the
 response size for the two pets alternated one step behind the selection.
 
-### Three traps of `List` on iOS 26, each found by crashing or by looking
+### Four traps of `List` on iOS 26, each found by crashing or by looking
 
 - **`swipeActions` + removal of that same row crashes the list.** The signature is
   `UICollectionView Invalid Number Of Items In Section` inside
@@ -520,6 +520,16 @@ response size for the two pets alternated one step behind the selection.
   first, and a custom setter wired to `cancelDelete()` wipes it. Pass the id
   into the action the way `AccessTokensView` does, or keep the key in the model
   outside the displayed state.
+- **Several `NavigationLink`s in one row break the navigation.** A row of a
+  `List` that holds a link becomes a link itself, and with a grid of four links
+  in one row the row took the transition over: a tap on «Прививки» opened
+  «Операции и процедуры», and the back button walked through the sections
+  instead of returning to the card. One link per row is fine — that is what the
+  settings screen does. When one row holds several, the transition goes by
+  path: `NavigationStack(path:)`, a `Button` that appends to it, and
+  `.navigationDestination(for:)`. `CustomTypesView` and `UsersView` already do
+  it that way for the same family of reasons. The link's own chevron disappears
+  with it, so the row draws its own.
 
 ## Swift conventions
 

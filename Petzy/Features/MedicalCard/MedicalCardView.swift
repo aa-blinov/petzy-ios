@@ -11,11 +11,23 @@ struct MedicalCardView: View {
     @State private var profile = false
     @State private var prep = false
     @State private var sharing = false
+    /// Какой раздел открыт. Переход идёт по пути, а не ссылкой: ссылка внутри
+    /// строки списка отдавала переход самой строке, и тап по плитке открывал
+    /// чужой раздел, а «назад» вёл к следующему разделу вместо медкарты.
+    @State private var path: [MedicalKind] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             content
                 .navigationTitle("Медкарта")
+                .navigationDestination(for: MedicalKind.self) { kind in
+                    MedicalKindSectionView(
+                        model: model,
+                        app: app,
+                        kind: kind,
+                        onEdit: { form = .edit(app: app, record: $0) }
+                    )
+                }
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) { PetSwitcher(model: app) }
                     ToolbarItem(placement: .topBarTrailing) {
@@ -132,13 +144,8 @@ struct MedicalCardView: View {
             Section("Разделы") {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(card.tiles) { tile in
-                        NavigationLink {
-                            MedicalKindSectionView(
-                                model: model,
-                                app: app,
-                                kind: tile.kind,
-                                onEdit: { form = .edit(app: app, record: $0) }
-                            )
+                        Button {
+                            path.append(tile.kind)
                         } label: {
                             CardTileView(tile: tile)
                         }
@@ -244,17 +251,25 @@ private struct CardTileView: View {
     let tile: CardTile
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(tile.kind.title, systemImage: tile.kind.symbol)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-            Text(tile
-                .count == 0 ? "Нет записей" :
-                "\(tile.count) \(Words.pick(tile.count, one: "запись", few: "записи", many: "записей"))")
-                .font(.title3.weight(.semibold))
-            if let status = tile.statusText {
-                Text(status).font(.caption).foregroundStyle(.red)
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
+                Label(tile.kind.title, systemImage: tile.kind.symbol)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                Text(tile
+                    .count == 0 ? "Нет записей" :
+                    "\(tile.count) \(Words.pick(tile.count, one: "запись", few: "записи", many: "записей"))")
+                    .font(.title3.weight(.semibold))
+                if let status = tile.statusText {
+                    Text(status).font(.caption).foregroundStyle(.red)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            // Стрелка говорит, что плитка открывается. Раньше её рисовала
+            // система у ссылки, а ссылка внутри строки списка ломала переход.
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
         // По верху, а не по центру: плитки в ряду выравниваются по высоте самой
         // высокой, и подпись снизу уезжала бы от заголовка на пол-экрана.
