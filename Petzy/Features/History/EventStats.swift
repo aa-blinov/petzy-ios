@@ -178,4 +178,31 @@ enum EventStats {
         default: return "записей"
         }
     }
+
+    /// Словами о том, что график вообще говорит: картинка тренда не читается
+    /// как чтение, а «с 28,4 до 29,3, плюс 0,9» читается.
+    static func trendSummary(_ buckets: [EventStatsBucket], isValued: Bool) -> String {
+        guard let first = buckets.first, let last = buckets.last else { return "" }
+        guard isValued else {
+            let total = buckets.reduce(0) { $0 + $1.value }
+            return "За период: \(Int(total)) \(pluralRecords(Int(total)))"
+        }
+        let change = last.value - first.value
+        // Ровно ноль изменений: «плюс 0,00» не говорит ничего, а человек
+        // решил бы, что график сломан.
+        if abs(change) < 0.005 {
+            return "За период: без изменений"
+        }
+        let word = change >= 0 ? "плюс" : "минус"
+        // Знаков столько, сколько в самом изменении: округлённое до одного
+        // «плюс 0» не объясняет ничего.
+        let decimals = max(1, min(3, -Int(floor(log10(max(abs(change), 0.01))))))
+        let changeFormat = "%.\(decimals)f"
+        // Уровни — с одним знаком, как на оси: «250,0» и «250,00» рядом с
+        // подписью читаются как разные числа.
+        return String(
+            format: "За период: с %.1f до %.1f, " + word + " " + changeFormat,
+            first.value, last.value, abs(change)
+        ).replacingOccurrences(of: ".", with: ",")
+    }
 }

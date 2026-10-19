@@ -73,6 +73,9 @@ final class AppModel {
     var historyCursor: String?
     var hasMoreHistory = false
     var isLoadingHistory = false
+    /// Открывали ли историю. После правки записи её перечитываем, но только
+    /// если человек её уже видел: незапрошенная история грузиться не должна.
+    var isHistoryLoaded = false
     var historyErrorText: String?
     /// Выбранный фильтр по типу. `nil` — «Все».
     var historyType: String?
@@ -251,6 +254,7 @@ final class AppModel {
             let request = EventRequest.create(draft, petID: petID)
             let saved = try await client.post("/api/events", body: request, as: EventSavedResponse.self)
             await loadFeed()
+            await reloadHistory()
             showSaved(saved.id, date: draft.date)
         } catch {
             handleFeedError(error)
@@ -264,6 +268,7 @@ final class AppModel {
             let request = EventRequest.update(draft)
             _ = try await client.put("/api/events/\(id)", body: request, as: EventSavedResponse.self)
             await loadFeed()
+            await reloadHistory()
         } catch {
             handleFeedError(error)
         }

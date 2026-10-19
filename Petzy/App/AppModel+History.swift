@@ -55,6 +55,7 @@ extension AppModel {
         statsPoints = []
         statsType = nil
         isLoadingHistory = true
+        isHistoryLoaded = true
         defer { isLoadingHistory = false }
         do {
             let used = try await client.get(
@@ -75,6 +76,14 @@ extension AppModel {
         } catch {
             handleHistoryError(error)
         }
+    }
+
+    /// Перечитывает историю с тем же фильтром, какой был. Нужна после правки
+    /// и создания записи: иначе правка из «Истории» выглядела бы потерянной,
+    /// а в фильтре не появился бы новый тип.
+    func reloadHistory() async {
+        guard isHistoryLoaded else { return }
+        await loadHistory(type: historyType)
     }
 
     /// Типы питомца для фильтра и выгрузки. Из «Настроек» история могла и не
@@ -107,6 +116,7 @@ extension AppModel {
     func loadMoreHistory() async {
         guard hasMoreHistory, let cursor = historyCursor, let petID = selectedPetID else { return }
         isLoadingHistory = true
+        isHistoryLoaded = true
         defer { isLoadingHistory = false }
         do {
             try await applyHistory(fetchHistoryPage(petID: petID, before: cursor), appending: true)

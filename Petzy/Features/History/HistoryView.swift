@@ -30,6 +30,8 @@ struct HistoryView: View {
             }
         }
         // Питомца сменили — история его, а не прежнего.
+        // Потянуть вниз — обновить, как в ленте, лекарствах и медкарте.
+        .refreshable { await model.loadHistory(type: model.historyType) }
         .task(id: model.selectedPetID) {
             await model.loadHistory(type: model.historyType)
         }
@@ -106,22 +108,7 @@ struct HistoryView: View {
     /// Словами о том, что график вообще говорит: картинка тренда не читается
     /// как чтение, а «с 28,4 до 29,3, плюс 0,9» читается.
     private var summary: String {
-        let buckets = model.statsBuckets
-        guard let first = buckets.first, let last = buckets.last, !buckets.isEmpty else { return "" }
-        if model.statsIsValued {
-            let change = last.value - first.value
-            let word = change >= 0 ? "плюс" : "минус"
-            // Знаков столько, сколько в самом изменении: округлённое до
-            // одного «с 29 до 29,3, плюс 0» не объясняет ничего.
-            let decimals = max(1, min(3, -Int(floor(log10(max(abs(change), 0.01))))))
-            let format = "%.\(decimals)f"
-            return String(
-                format: "За период: с " + format + " до " + format + ", " + word + " " + format,
-                first.value, last.value, abs(change)
-            ).replacingOccurrences(of: ".", with: ",")
-        }
-        let total = buckets.reduce(0) { $0 + $1.value }
-        return "За период: \(Int(total)) \(EventStats.pluralRecords(Int(total)))"
+        EventStats.trendSummary(model.statsBuckets, isValued: model.statsIsValued)
     }
 
     @ViewBuilder
@@ -207,9 +194,8 @@ private struct HistoryRow: View {
     }
 
     private var details: String {
-        event.fields
-            .sorted { $0.key < $1.key }
-            .map { "\(model.fieldLabel($0.key, of: event.type)): \($0.value.display)" }
+        model.fieldValues(event.fields, of: event.type)
+            .map { "\($0.label): \($0.value)" }
             .joined(separator: ", ")
     }
 }

@@ -61,9 +61,9 @@ struct EventFormView: View {
                     }
                 }
             }
-            // На экране шириной 466 pt заголовок не влезает между «Отмена» и
-            // «Сохранить» и обрезается, поэтому у правки он короткий.
-            .navigationTitle(isNew ? "Новая запись" : "Правка")
+            // Заголовок — название типа записи: «Правка» не говорит ни о
+            // чём, а человек смотрит на поля и должен понимать, что правит.
+            .navigationTitle(draft.type.label)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -85,11 +85,28 @@ struct EventFormView: View {
                     Text(option.text).tag(option.value)
                 }
             }
+        } else if field.type == "textarea" {
+            // Подпись сверху, а не сбоку: многострочному полю сбоку места не
+            // хватит. Так же и в вебе, там у textarea вертикальная раскладка.
+            VStack(alignment: .leading, spacing: 4) {
+                Text(field.label)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("", text: binding(for: field), axis: .vertical)
+                    .lineLimit(3 ... 6)
+            }
         } else if field.type == "number" {
-            TextField(field.label, text: binding(for: field))
-                .keyboardType(.decimalPad)
+            // Подпись живёт в `LabeledContent`, а не в плейсхолдере поля:
+            // плейсхолдер исчезает, как только человек что-то ввёл, и «150»
+            // без слова «Вес корма (г)» на экране ничего не значит.
+            LabeledContent(field.label) {
+                TextField("", text: binding(for: field))
+                    .keyboardType(.decimalPad)
+            }
         } else {
-            TextField(field.label, text: binding(for: field))
+            LabeledContent(field.label) {
+                TextField("", text: binding(for: field))
+            }
         }
     }
 

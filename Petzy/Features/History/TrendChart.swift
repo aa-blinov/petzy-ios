@@ -27,6 +27,16 @@ struct TrendChart: View {
                     )
                     .foregroundStyle(.tint)
                     .lineStyle(.init(lineWidth: 2))
+                    // Линия из одной точки не рисуется, и график выглядел бы
+                    // пустым: у новичка с одним взвешиванием данных ровно
+                    // одна точка.
+                    if buckets.count == 1 {
+                        PointMark(
+                            x: .value("Период", bucket.label),
+                            y: .value(unitLabel, bucket.value)
+                        )
+                        .foregroundStyle(.tint)
+                    }
                 } else {
                     BarMark(
                         x: .value("Период", bucket.label),

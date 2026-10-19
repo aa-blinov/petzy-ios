@@ -26,6 +26,9 @@ struct FeedView: View {
                 }
         }
         // Питомца сменили — лента должна перечитаться, а не остаться от прежнего.
+        // Потянуть ленту вниз — обновить: без этого запись, созданная на
+        // другом устройстве, появлялась бы только после перезапуска.
+        .refreshable { await model.loadFeed() }
         .task(id: model.selectedPetID) {
             await model.loadFeed()
         }
@@ -188,9 +191,8 @@ private struct FeedRow: View {
     /// Значения полей через запятую: точка-разделитель «·» в интерфейсе не
     /// используем, как в веб-приложении.
     private var details: String {
-        event.fields
-            .sorted { $0.key < $1.key }
-            .map { "\(model.fieldLabel($0.key, of: event.type)): \($0.value.display)" }
+        model.fieldValues(event.fields, of: event.type)
+            .map { "\($0.label): \($0.value)" }
             .joined(separator: ", ")
     }
 }
