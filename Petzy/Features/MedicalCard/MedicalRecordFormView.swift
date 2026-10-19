@@ -6,6 +6,9 @@ struct MedicalKindSectionView: View {
     let app: AppModel
     let kind: MedicalKind
     let onEdit: (MedicalRecord) -> Void
+    /// Запись этого вида создаётся отсюда: в веб-приложении у каждой части
+    /// карты своя кнопка «+», и в разделе она добавляет только его запись.
+    let onAdd: () -> Void
 
     @State private var pendingDelete: MedicalRecord?
     @State private var showsAll = false
@@ -28,7 +31,7 @@ struct MedicalKindSectionView: View {
                 ContentUnavailableView {
                     Label("\(kind.title) пока нет", systemImage: kind.symbol)
                 } description: {
-                    Text("Запись добавляется кнопкой «+» на медкарте")
+                    Text("Запись добавляется кнопкой «+» наверху")
                 }
             }
             ForEach(records) { record in
@@ -46,6 +49,18 @@ struct MedicalKindSectionView: View {
         }
         .navigationTitle(kind.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    onAdd()
+                } label: {
+                    Label("Новая запись", systemImage: "plus")
+                }
+                // Картой, которую нельзя править, добавление записи тоже не
+                // годится: как и кнопка на самой карте.
+                .disabled(model.card?.canEdit != true)
+            }
+        }
         .task { await model.loadAllRecords(of: kind) }
         .confirmationDialog(
             "Удалить запись?",
@@ -135,10 +150,12 @@ struct MedicalRecordFormView: View {
         self.model = model
         self.target = target
         let base = switch target {
-        case .new:
+        case let .new(_, kind):
+            // Вид записи приходит из раздела, откуда её открыли: в «Прививках»
+            // это прививка, и спрашивать вид второй раз незачем.
             MedicalRecordDraft(
                 petID: app.selectedPetID ?? "",
-                kind: .vaccination,
+                kind: kind,
                 date: MedicalRecordFormView.iso(.now),
                 title: ""
             )

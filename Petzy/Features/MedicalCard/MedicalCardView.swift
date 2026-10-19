@@ -25,14 +25,15 @@ struct MedicalCardView: View {
                         model: model,
                         app: app,
                         kind: kind,
-                        onEdit: { form = .edit(app: app, record: $0) }
+                        onEdit: { form = .edit(app: app, record: $0) },
+                        onAdd: { form = .new(app: app, kind: kind) }
                     )
                 }
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) { PetSwitcher(model: app) }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            form = .new(app: app)
+                            form = .new(app: app, kind: .vaccination)
                         } label: {
                             Label("Новая запись", systemImage: "plus")
                         }
@@ -281,19 +282,23 @@ private struct CardTileView: View {
 
 /// Что открыть в форме записи: новую или существующую.
 enum MedicalFormTarget: Identifiable {
-    case new(app: AppModel)
+    case new(app: AppModel, kind: MedicalKind)
     case edit(app: AppModel, record: MedicalRecord)
 
     var id: String {
         switch self {
-        case .new: "new"
-        case let .edit(_, record): record.id
+        case let .new(_, kind):
+            // Вид входит в имя: форма открыта и её вид поменяли, лист должен
+            // показать новый, а не прежний.
+            "new-\(kind.rawValue)"
+        case let .edit(_, record):
+            record.id
         }
     }
 
     var app: AppModel {
         switch self {
-        case let .new(app), let .edit(app, _): app
+        case let .new(app, _), let .edit(app, _): app
         }
     }
 }
