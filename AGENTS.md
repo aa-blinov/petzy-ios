@@ -417,11 +417,15 @@ place for that endpoint, when it is wanted.
 
 ### Test hooks
 
-Two launch-time hooks exist only for tests, and both default to doing nothing:
+Three launch-time hooks exist only for tests, and all of them default to doing
+nothing:
 
 - `-uiTestSignedOut` makes `AppModel.start()` wipe the tokens before restoring,
   so a UI test always starts on the login screen. It does **not** skip the
   Keychain, which is the thing being tested.
+- `-uiTestOnboarding` shows the first-run screen even when the onboarding flag
+  is already set. It is checked **after** `-uiTestSignedOut`, which skips the
+  onboarding, so the two together give a signed-out app on the first screen.
 - `PETZY_TEST_LOGIN` and `PETZY_TEST_PASSWORD` prefill the login form. Needed
   because of the broken software keyboard above. The real button press still
   happens, so login, response parsing, the Keychain and the pets request are all
@@ -430,6 +434,26 @@ Two launch-time hooks exist only for tests, and both default to doing nothing:
 When checking session restore, clear `launchArguments` before the relaunch. Left
 set, `-uiTestSignedOut` wipes the tokens itself and the test silently checks a
 cold start instead.
+
+### A flag in `UserDefaults` does not redraw the screen
+
+State read from `UserDefaults` inside a computed property is invisible to
+SwiftUI: writing the default changes the value, but nothing tells the view to
+redraw, and the screen keeps showing what it showed. The onboarding screen
+stayed on top of the login form until the app was restarted.
+
+Such state belongs in the model as a stored, observable property, set in `init`
+from the default and updated in the same place that writes the default:
+
+```swift
+internal(set) var needsOnboarding: Bool   // set in init, changed in skipOnboarding()
+```
+
+`internal(set)` rather than `private(set)`: the setter lives in another file of
+the same module, and `private(set)` forbids exactly that.
+
+A unit test cannot catch this one — the value was right, only the observation
+was missing. It takes a UI test (`testOnboardingLeadsToLoginForm`) to see it.
 
 ## Interface text
 

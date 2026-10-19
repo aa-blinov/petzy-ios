@@ -59,6 +59,16 @@ enum MedicalCardAPI {
         _ = ack
     }
 
+    /// Очистить заметку «К приёму». Пустая заметка и есть её удаление: сервер
+    /// отвечает `visit_prep: null`.
+    static func clearVisitPrep(_ client: APIClient, petID: String) async throws {
+        let ack: MedicalWriteAck = try await client.put(
+            "/api/pets/\(AppModel.query(petID))/visit-prep",
+            body: VisitPrepBody(baseVersion: nil, complaint: nil, checks: [:])
+        )
+        _ = ack
+    }
+
     /// Создать ссылку для врача. Секрет приходит один раз и больше не
     /// хранится, поэтому адрес показывается сразу и его надо сохранить.
     static func createShare(_ client: APIClient, petID: String, days: Int) async throws -> MedicalShare {

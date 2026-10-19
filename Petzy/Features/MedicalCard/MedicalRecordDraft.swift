@@ -60,6 +60,18 @@ struct MedicalRecordDraft: Sendable {
 }
 
 extension MedicalRecordDraft {
+    /// Новая запись. Визит начинается с жалобы из заметки «К приёму»: человек
+    /// написал её заранее, чтобы не забыть, и переписывать её в форме незачем.
+    static func new(petID: String, kind: MedicalKind, date: String, visitPrep: VisitPrep?) -> MedicalRecordDraft {
+        MedicalRecordDraft(
+            petID: petID,
+            kind: kind,
+            date: date,
+            title: "",
+            complaint: kind == .visit ? visitPrep?.complaint : nil
+        )
+    }
+
     /// Черновик из готовой записи для правки. Все поля переносятся: форма,
     /// которая подставила бы не всё, стёрла бы остальное при сохранении, а
     /// человек об этом узнал бы только открыв запись заново.

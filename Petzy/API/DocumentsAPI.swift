@@ -161,7 +161,9 @@ private struct DocumentDTO: Decodable {
             category: DocumentCategory.known(category ?? ""),
             title: title,
             note: note,
-            expiresAt: expiresAt,
+            // Пустая строка — это «срока нет»: сервер так отдаёт документ, у
+            // которого срок сняли, а читать её как дату нельзя.
+            expiresAt: expiresAt.flatMap { $0.isEmpty ? nil : $0 },
             createdAt: createdAt,
             contentType: contentType,
             fileSize: fileSize,

@@ -214,6 +214,16 @@ struct Moment: Sendable, Equatable {
     let time: String
 }
 
+extension Moment {
+    /// День и время из двух полей формы: дата берёт день, а время — час с
+    /// минутами. Форма спрашивает их отдельно, а момент у один.
+    init(day: Date, time: Date) {
+        let parts = Calendar.current.dateComponents([.hour, .minute], from: time)
+        self.day = MomentText.isoDay(day, calendar: .current)
+        self.time = String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
+    }
+}
+
 /// Слот расписания, который закрывает отметка. Без него сервер закрывает
 /// ближайший открытый слот, а нажатие «09:00» могло бы закрыть «21:00».
 struct DoseSlot: Sendable, Equatable {

@@ -99,11 +99,18 @@ final class MedicationsModel {
     /// Отметка приёма. Списку верить нельзя: сколько осталось, сколько
     /// сегодня отмечено и что просрочено — всё это сервер считает заново,
     /// поэтому после записи перечитываем и список, и ближайшие приёмы.
-    func markDose(_ medication: Medication, dose: Double?, slot: DoseSlot? = nil, skipped: Bool = false) async {
+    /// `moment` — время, которое выбрал человек; без него отметка идёт «сейчас».
+    func markDose(
+        _ medication: Medication,
+        dose: Double?,
+        slot: DoseSlot? = nil,
+        skipped: Bool = false,
+        moment: Moment? = nil
+    ) async {
         errorText = nil
         let mark = IntakeMark(
             medicationID: medication.id,
-            moment: Self.now,
+            moment: moment ?? Self.now,
             zone: Self.zone,
             dose: dose,
             slot: slot,

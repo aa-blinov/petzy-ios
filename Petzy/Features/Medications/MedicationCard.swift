@@ -189,7 +189,8 @@ struct DoseSheet: View {
                                 medication,
                                 dose: parsed,
                                 slot: nil,
-                                skipped: skipped
+                                skipped: skipped,
+                                moment: Moment(day: date, time: time)
                             )
                             dismiss()
                         }

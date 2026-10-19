@@ -43,6 +43,42 @@ enum TestSupport {
         return AppModel(auth: auth, baseURL: baseURL, urlSession: session, defaults: defaults, store: store)
     }
 
+    /// Модель раздела «Лекарства» на заглушке сети.
+    @MainActor
+    static func makeMedicationsModel() async throws -> MedicationsModel {
+        let (client, offline) = try await makeSection()
+        return MedicationsModel(client: client, petID: "p1", offline: offline)
+    }
+
+    /// Модель медкарты на заглушке сети.
+    @MainActor
+    static func makeMedicalCardModel() async throws -> MedicalCardModel {
+        let (client, offline) = try await makeSection()
+        return MedicalCardModel(client: client, petID: "p1", offline: offline)
+    }
+
+    /// Клиент и копия для разделов, у которых своя модель: лекарства, медкарта,
+    /// документы.
+    @MainActor
+    private static func makeSection() async throws -> (APIClient, OfflineState) {
+        let session = StubURLProtocol.makeSession()
+        // swiftlint:disable:next force_unwrapping
+        let baseURL = URL(string: "http://localhost:5002")!
+        // swiftlint:disable:next force_unwrapping
+        let auth = AuthSession(
+            baseURL: baseURL,
+            urlSession: session,
+            storage: InMemoryTokenStorage(
+                tokens: StoredTokens(accessToken: "access-1", refreshToken: "refresh-1")
+            )
+        )
+        await auth.restore()
+        return (
+            APIClient(baseURL: baseURL, urlSession: session, auth: auth),
+            OfflineState(store: LocalStore(url: tempStoreURL()))
+        )
+    }
+
     /// Справочник типов из одного типа записи: истории хватает его, чтобы
     /// показать названия и вид графика.
     static func stubTypeReference() {

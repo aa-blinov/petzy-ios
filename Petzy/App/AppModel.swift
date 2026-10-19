@@ -29,6 +29,10 @@ final class AppModel {
 
     var state: State = .restoring
     private(set) var isSigningIn = false
+    /// Человек ещё не видел первый экран с объяснением. Отдельное поле, а не
+    /// чтение `UserDefaults` на лету: запись в настройки экран не
+    /// перерисовывает, и знакомство оставалось бы до перезапуска.
+    internal(set) var needsOnboarding: Bool
     /// Администратор ли человек: только ему показывается список пользователей.
     var isAdmin = false
     var errorText: String?
@@ -173,14 +177,25 @@ final class AppModel {
         self.defaults = defaults
         offline = OfflineState(store: store)
         selectedPetID = defaults.string(forKey: Self.selectedPetKey)
+        needsOnboarding = !defaults.bool(forKey: Self.onboardingKey)
         client = APIClient(baseURL: baseURL, urlSession: urlSession, auth: auth)
     }
 
     /// Выбор питомца сохраняется сразу: переживать перезапуск должен и тот
     /// выбор, который пользователь ещё не успел увидеть на экране.
     func select(petID: String?) {
+        let changed = selectedPetID != petID
         selectedPetID = petID
         defaults.set(petID, forKey: Self.selectedPetKey)
+        guard changed else { return }
+        // Фильтр истории принадлежит питомцу: оставленный от прежнего, он
+        // показывал новому пустую историю, и человек думал, что записей нет.
+        historyType = nil
+        historyRaw = []
+        historyCursor = nil
+        isHistoryLoaded = false
+        statsType = nil
+        statsPoints = []
     }
 
     func loadPets() async {
@@ -220,7 +235,13 @@ final class AppModel {
 
     /// Первая страница ленты: заново, со справочником типов и выбранным питомцем.
     func loadFeed() async {
-        guard let petID = selectedPetID else { return }
+        guard let petID = selectedPetID else {
+            // Питомца нет: ленты тоже нет, а чужая ошибка на экране («Питомец
+            // не найден») сбивала бы с толку и не уходила по «Повторить».
+            rawEvents = []
+            feedErrorText = nil
+            return
+        }
         if feedPetID != petID {
             feedDepth = 0
             feedPetID = petID
@@ -307,6 +328,12 @@ final class AppModel {
             // UI-тест проверяет вход, а не знакомство: первый экран спросил бы
             // лишний тап и уводил с экрана входа.
             skipOnboarding()
+        }
+        // Обратный случай: тест знакомства хочет увидеть первый экран, а
+        // знакомство на телефоне уже пройдено.
+        if ProcessInfo.processInfo.arguments.contains("-uiTestOnboarding") {
+            defaults.set(false, forKey: Self.onboardingKey)
+            needsOnboarding = true
         }
         await auth.restore()
         state = await auth.isSignedIn ? .signedIn : .signedOut

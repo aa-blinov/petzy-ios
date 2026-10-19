@@ -19,6 +19,13 @@ enum TestLaunch {
         launch(extraArguments: ["-uiTestSignedOut"])
     }
 
+    /// Открывает приложение на первом экране знакомства: сессия сброшена, а
+    /// знакомство показано. Порядок аргументов важен: `-uiTestSignedOut`
+    /// знакомство пропускает, `-uiTestOnboarding` показывает.
+    static func onboarding() -> XCUIApplication {
+        launch(extraArguments: ["-uiTestSignedOut", "-uiTestOnboarding"])
+    }
+
     /// Запуск без сервера. Адрес указывает на порт, где никто не слушает:
     /// приложение получает обрыв связи, а не пустой ответ. Ключи входа не
     /// трогаем намеренно — сессия из Keychain должна восстановиться, иначе

@@ -34,11 +34,8 @@ extension AppModel {
     }
 
     /// Человек ещё не видел первый экран с объяснением.
-    var needsOnboarding: Bool {
-        !defaults.bool(forKey: Self.onboardingKey)
-    }
-
     func skipOnboarding() {
         defaults.set(true, forKey: Self.onboardingKey)
+        needsOnboarding = false
     }
 }

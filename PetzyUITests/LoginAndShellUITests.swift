@@ -76,4 +76,22 @@ final class LoginAndShellUITests: XCTestCase {
         )
         XCTAssertFalse(app.buttons["Лента"].exists, "Оболочка открылась с чужим паролем")
     }
+
+    /// Знакомство спрашивает один раз и уходит в форму входа. Раньше оно
+    /// оставалось на экране до перезапуска: запись в UserDefaults экран не
+    /// перерисовывает.
+    func testOnboardingLeadsToLoginForm() {
+        let app = TestLaunch.onboarding()
+        XCTAssertTrue(
+            app.buttons["У меня уже есть"].waitForExistence(timeout: 30),
+            "Знакомство не показалось: \(app.debugDescription)"
+        )
+
+        app.buttons["У меня уже есть"].tap()
+
+        XCTAssertTrue(
+            app.buttons["Войти"].waitForExistence(timeout: 15),
+            "После знакомства форма входа не открылась: \(app.debugDescription)"
+        )
+    }
 }

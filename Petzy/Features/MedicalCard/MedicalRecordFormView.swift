@@ -153,11 +153,11 @@ struct MedicalRecordFormView: View {
         case let .new(_, kind):
             // Вид записи приходит из раздела, откуда её открыли: в «Прививках»
             // это прививка, и спрашивать вид второй раз незачем.
-            MedicalRecordDraft(
+            MedicalRecordDraft.new(
                 petID: app.selectedPetID ?? "",
                 kind: kind,
                 date: MedicalRecordFormView.iso(.now),
-                title: ""
+                visitPrep: model.card?.visitPrep
             )
         case let .edit(_, record):
             MedicalRecordDraft.from(record, petID: app.selectedPetID ?? "")

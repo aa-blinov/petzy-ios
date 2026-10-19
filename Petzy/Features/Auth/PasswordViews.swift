@@ -74,6 +74,9 @@ struct ResetPasswordView: View {
                 Section {
                     SecureField("Новый пароль", text: $model.password)
                         .textContentType(.newPassword)
+                        // Мёртвая ссылка пароль не спасёт: спросить его и не
+                        // дать сохранить значит обмануть человека.
+                        .disabled(model.isResetLinkDead)
                 } footer: {
                     Text("После смены пароля другие устройства выйдут из аккаунта")
                 }

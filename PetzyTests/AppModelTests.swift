@@ -156,6 +156,36 @@ struct AppModelTests {
         #expect(StubURLProtocol.requests.count == before)
     }
 
+    /// Смена аккаунта, у которого питомцев нет, оставляла на экране чужую
+    /// ошибку «Питомец не найден», а «Повторить» ничего не менял: ленты у
+    /// нового аккаунта нет, и показывать надо пустоту, а не чужую ошибку.
+    @Test("Без питомца лента пуста, а не с чужой ошибкой")
+    func feedWithoutPetHasNoError() async {
+        stubPets([])
+        let model = await TestSupport.makeModel(defaults: TestSupport.makeDefaults())
+        model.feedErrorText = "Питомец не найден"
+
+        await model.loadPets()
+        await model.loadFeed()
+
+        #expect(model.feedErrorText == nil)
+        #expect(model.rawEvents.isEmpty)
+    }
+
+    /// Фильтр истории принадлежит питомцу: оставленный от прежнего, он
+    /// показывал новому питомцу пустую историю, и человек думал, что записей
+    /// нет вовсе.
+    @Test("Смена питомца сбрасывает фильтр истории")
+    func switchingPetResetsHistoryFilter() async {
+        let model = await TestSupport.makeModel(defaults: TestSupport.makeDefaults())
+        model.select(petID: "pet-1")
+        model.historyType = "weight"
+
+        model.select(petID: "pet-2")
+
+        #expect(model.historyType == nil)
+    }
+
     private func weightDraft() -> EventDraft {
         EventDraft(
             type: EventTypeInfo(key: "weight", label: "Вес", icon: "scale", category: "health", fields: [

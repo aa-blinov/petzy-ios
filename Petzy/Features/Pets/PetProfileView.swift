@@ -270,8 +270,8 @@ struct PetProfileView: View {
             if let created = model.createdID {
                 app.select(petID: created)
             }
+            await app.loadPets()
             if wasNew || model.isDeleted {
-                await app.loadPets()
                 dismiss()
             }
         }

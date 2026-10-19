@@ -9,6 +9,25 @@ struct RegistrationStatus: Sendable, Equatable {
     let mailEnabled: Bool
 }
 
+/// Поля формы регистрации. У каждого своя подсказка: она стоит под полем,
+/// и человек видит, что именно надо заполнить.
+enum RegistrationField: Sendable, Equatable {
+    case username
+    case fullName
+    case password
+    case consent
+
+    /// Что сказать под полем.
+    var text: String {
+        switch self {
+        case .username: "Введите логин"
+        case .fullName: "Введите имя"
+        case .password: "Придумайте пароль"
+        case .consent: "Отметьте согласие с политикой"
+        }
+    }
+}
+
 /// Форма регистрации в том виде, как её заполняет человек.
 struct RegistrationDraft: Sendable {
     var username = ""
@@ -20,23 +39,24 @@ struct RegistrationDraft: Sendable {
     /// оставить человека в тупике.
     var consent = false
 
-    /// Что человек должен поправить до запроса, своими словами. `nil` — можно
+    /// Что человек должен поправить до запроса, своими словами. Пусто — можно
     /// отправлять. Правила пароля проверяет сервер: список частых паролей
     /// никогда не должен ехать в приложение.
-    static func problem(_ draft: RegistrationDraft) -> String? {
+    static func problems(_ draft: RegistrationDraft) -> [RegistrationField] {
+        var result: [RegistrationField] = []
         if draft.username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Введите логин"
+            result.append(.username)
         }
         if draft.fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Введите имя"
+            result.append(.fullName)
         }
         if draft.password.isEmpty {
-            return "Придумайте пароль"
+            result.append(.password)
         }
         if !draft.consent {
-            return "Отметьте согласие с политикой"
+            result.append(.consent)
         }
-        return nil
+        return result
     }
 }
 

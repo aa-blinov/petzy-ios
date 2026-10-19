@@ -22,14 +22,23 @@ struct RegisterView: View {
                     }
                 }
                 Section {
-                    TextField("Логин", text: $model.draft.username)
-                        .textContentType(.username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    TextField("Как к вам обращаться", text: $model.draft.fullName)
-                        .textContentType(.name)
-                    SecureField("Пароль", text: $model.draft.password)
-                        .textContentType(.newPassword)
+                    field(
+                        TextField("Логин", text: $model.draft.username)
+                            .textContentType(.username)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(),
+                        problem: .username
+                    )
+                    field(
+                        TextField("Как к вам обращаться", text: $model.draft.fullName)
+                            .textContentType(.name),
+                        problem: .fullName
+                    )
+                    field(
+                        SecureField("Пароль", text: $model.draft.password)
+                            .textContentType(.newPassword),
+                        problem: .password
+                    )
                     TextField("Почта для восстановления пароля", text: $model.draft.email)
                         .textContentType(.emailAddress)
                         .textInputAutocapitalization(.never)
@@ -42,6 +51,11 @@ struct RegisterView: View {
                 }
                 Section {
                     Toggle("Согласен с политикой обработки данных", isOn: $model.draft.consent)
+                    if model.problems.contains(.consent) {
+                        Text(RegistrationField.consent.text)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
                     Button("Прочитать политику", action: onPolicy)
                         .font(.subheadline)
                 }
@@ -57,6 +71,17 @@ struct RegisterView: View {
                         .disabled(isSaving)
                 }
             }
+        }
+    }
+
+    /// Поле и подсказка под ним: человек видит, что именно надо заполнить.
+    @ViewBuilder
+    private func field(_ content: some View, problem which: RegistrationField) -> some View {
+        content
+        if model.problems.contains(which) {
+            Text(which.text)
+                .font(.caption)
+                .foregroundStyle(.red)
         }
     }
 

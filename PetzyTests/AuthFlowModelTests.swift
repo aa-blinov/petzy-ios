@@ -29,6 +29,21 @@ struct AuthFlowModelTests {
         #expect(model.app.state == .signedIn)
     }
 
+    /// Подсказка стоит под полем, а не над формой: человек должен видеть,
+    /// что именно заполнить, и серверу такая форма не идёт.
+    @Test("Пустая форма называет проблему под полем и никуда не идёт")
+    func emptyFormNamesFieldProblems() async {
+        StubURLProtocol.reset()
+        let model = await makeModel()
+
+        let registered = await model.register()
+
+        #expect(registered == false)
+        #expect(model.problems == [.username, .fullName, .password, .consent])
+        #expect(model.errorText == nil)
+        #expect(StubURLProtocol.requests.isEmpty)
+    }
+
     @Test("Отказ регистрации показывает текст сервера и никого не пускает")
     func registerFailureKeepsSignedOut() async {
         StubURLProtocol.reset()

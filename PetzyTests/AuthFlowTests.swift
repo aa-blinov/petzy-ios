@@ -51,16 +51,14 @@ struct AuthFlowTests {
 
     @Test("Пустая форма и несогласие не уходят: сервер всё равно их не примет")
     func emptyFormNeverGoes() {
-        #expect(RegistrationDraft.problem(RegistrationDraft()) == "Введите логин")
+        #expect(RegistrationDraft.problems(RegistrationDraft()) == [.username, .fullName, .password, .consent])
         var draft = RegistrationDraft()
         draft.username = "anna"
-        #expect(RegistrationDraft.problem(draft) == "Введите имя")
         draft.fullName = "Анна"
-        #expect(RegistrationDraft.problem(draft) == "Придумайте пароль")
         draft.password = "Пароль1234"
-        #expect(RegistrationDraft.problem(draft) == "Отметьте согласие с политикой")
+        #expect(RegistrationDraft.problems(draft) == [.consent])
         draft.consent = true
-        #expect(RegistrationDraft.problem(draft) == nil)
+        #expect(RegistrationDraft.problems(draft).isEmpty)
     }
 
     @Test("Просьба о ссылке уходит с тем, что человек назвал")

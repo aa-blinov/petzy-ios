@@ -303,19 +303,6 @@ struct MedicationsModelTests {
     }
 
     private func makeModel() async throws -> MedicationsModel {
-        // swiftlint:disable:next force_unwrapping
-        let baseURL = URL(string: "http://localhost:5002")!
-        let session = StubURLProtocol.makeSession()
-        // swiftlint:disable:next force_unwrapping
-        let tokens = InMemoryTokenStorage(
-            tokens: StoredTokens(accessToken: "access-1", refreshToken: "refresh-1")
-        )
-        let auth = AuthSession(baseURL: baseURL, urlSession: session, storage: tokens)
-        await auth.restore()
-        return MedicationsModel(
-            client: APIClient(baseURL: baseURL, urlSession: session, auth: auth),
-            petID: "p1",
-            offline: OfflineState(store: LocalStore(url: TestSupport.tempStoreURL()))
-        )
+        try await TestSupport.makeMedicationsModel()
     }
 }

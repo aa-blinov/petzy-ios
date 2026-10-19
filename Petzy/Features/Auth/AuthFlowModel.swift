@@ -8,6 +8,9 @@ import Observation
 final class AuthFlowModel {
     /// То, что человек набирает в форме регистрации.
     var draft = RegistrationDraft()
+    /// Подсказки под полями формы: человек должен видеть, что именно
+    /// заполнить, а не читать об этом над формой.
+    private(set) var problems: [RegistrationField] = []
     /// Новая почта по ссылке из письма.
     var password = ""
     var errorText: String?
@@ -50,10 +53,13 @@ final class AuthFlowModel {
     /// оказывается внутри приложения, а не снова на экране входа.
     @discardableResult
     func register() async -> Bool {
-        if let problem = RegistrationDraft.problem(draft) {
-            errorText = problem
+        let found = RegistrationDraft.problems(draft)
+        guard found.isEmpty else {
+            problems = found
+            errorText = nil
             return false
         }
+        problems = []
         errorText = nil
         do {
             let tokens = try await AuthAPI.register(client, draft: draft)

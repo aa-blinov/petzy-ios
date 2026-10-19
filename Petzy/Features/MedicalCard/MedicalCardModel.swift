@@ -25,8 +25,10 @@ final class MedicalCardModel {
     private(set) var catalog: [VaccineGroup] = []
     private(set) var isPreparingPDF = false
 
-    private let client: APIClient
-    private let petID: String
+    // Клиент, питомец и очередь нужны соседнему файлу с заметкой «К приёму»,
+    // поэтому без `private`.
+    let client: APIClient
+    let petID: String
     private let offline: OfflineState
 
     /// На экране копия, а не сеть.
@@ -100,6 +102,9 @@ final class MedicalCardModel {
             try await MedicalCardAPI.create(client, draft: draft)
             notice = "Запись добавлена"
             await load()
+            if draft.kind == .visit {
+                await clearVisitPrep()
+            }
             return true
         } catch {
             // Без связи запись встаёт в очередь под своим именем: сервер на
@@ -219,24 +224,6 @@ final class MedicalCardModel {
         }
     }
 
-    /// «К приёму»: жалоба и семь отметок. Версия та же, что у профиля:
-    /// форму открыли из карты, и карта с тех пор могла измениться.
-    @discardableResult
-    func saveVisitPrep(baseVersion: String?, complaint: String?, checks: [String: String]) async -> Bool {
-        errorText = nil
-        do {
-            try await MedicalCardAPI.saveVisitPrep(
-                client, petID: petID, baseVersion: baseVersion, complaint: complaint, checks: checks
-            )
-            notice = "Записано"
-            await load()
-            return true
-        } catch {
-            errorText = Self.text(of: error)
-            return false
-        }
-    }
-
     /// Ссылка для врача. Секрет приходит один раз и больше не хранится,
     /// поэтому адрес держится в модели, пока человек его не отправит.
     /// Уведомления тут нет намеренно: оно висит на экране медкарты и закрыло
@@ -323,7 +310,7 @@ final class MedicalCardModel {
         TimeZone.current.identifier
     }
 
-    private static func text(of error: Error) -> String {
+    static func text(of error: Error) -> String {
         (error as? APIError)?.errorDescription ?? error.localizedDescription
     }
 

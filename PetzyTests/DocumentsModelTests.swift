@@ -121,6 +121,29 @@ struct DocumentsModelTests {
         #expect(model.expired == 1)
     }
 
+    /// Снятый срок сервер отдаёт пустой строкой. Читать её как дату нельзя:
+    /// документ без срока вдруг оказывался «Срок истёк».
+    @Test("Пустой срок — это отсутствие срока")
+    func emptyExpiryMeansNoExpiry() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["documents": [
+            [
+                "_id": "d1", "category": "insurance", "content_type": "application/pdf",
+                "created_at": "2020-01-01T00:00:00Z", "expires_at": "",
+                "file_size": 100, "file_url": NSNull(), "medical_record_kinds": [],
+                "medical_records": [], "note": "", "original_filename": "a.pdf",
+                "pet_id": "p1", "record_reminds": false, "title": "Страховка"
+            ]
+        ]])
+        let model = try await makeModel()
+        await model.load()
+
+        let document = model.visible.first
+        #expect(document?.expiresAt == nil)
+        #expect(document?.expiryText == nil)
+        #expect(model.expired == 0)
+    }
+
     /// Сведения уходят первыми, файл вторым. Порядок не технический: если
     /// файл не приняли, у документа остаётся прежний, а уже набранные слова
     /// сохранены. Наоборот получилось бы наоборот: файл сменился бы, а

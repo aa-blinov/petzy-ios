@@ -160,26 +160,34 @@ struct DocumentsView: View {
     }
 
     private func row(_ document: PetDocument) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Label(document.title, systemImage: document.category.symbol)
-                    .font(.headline)
-                Spacer()
-            }
-            Text(MomentText.humanDay(MomentText.day(of: document.createdAt)))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            if let expiry = document.expiryText {
-                Text(expiry)
+        // Тап по документу открывает его файл, как в вебе: там тап и свайп
+        // ведут в скачивание. Кнопка, а не жест: так строка остаётся кнопкой
+        // и для голоса, и для подсказки кнопки.
+        Button {
+            Task { await model.download(document) }
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Label(document.title, systemImage: document.category.symbol)
+                        .font(.headline)
+                    Spacer()
+                }
+                Text(MomentText.humanDay(MomentText.day(of: document.createdAt)))
                     .font(.subheadline)
-                    .foregroundStyle(expiry.hasPrefix("Срок истёк") ? .red : .secondary)
+                    .foregroundStyle(.secondary)
+                if let expiry = document.expiryText {
+                    Text(expiry)
+                        .font(.subheadline)
+                        .foregroundStyle(expiry.hasPrefix("Срок истёк") ? .red : .secondary)
+                }
+                if let linked = document.linkedText {
+                    Text(linked).font(.subheadline).foregroundStyle(.secondary)
+                }
+                Text(document.sizeText).font(.caption).foregroundStyle(.secondary)
             }
-            if let linked = document.linkedText {
-                Text(linked).font(.subheadline).foregroundStyle(.secondary)
-            }
-            Text(document.sizeText).font(.caption).foregroundStyle(.secondary)
+            .contentShape(.rect)
         }
-        .contentShape(.rect)
+        .buttonStyle(.plain)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Удалить", role: .destructive) { pendingDelete = document }
                 .tint(.red)
