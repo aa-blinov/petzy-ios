@@ -44,13 +44,21 @@ final class AppModel {
     /// Дни ленты выбранного питомца. Сами записи лежат в `rawEvents`: дни
     /// собираются из них на показ, иначе догруженная страница не срослась бы
     /// с уже показанными днями.
-    private(set) var rawEvents: [PetEvent] = []
-    private(set) var feedNextCursor: String?
-    private(set) var hasMoreEvents = false
+    /// Записи на показ. Пишет сюда и офлайн-слой из `AppModel+Feed.swift`,
+    /// поэтому без `private(set)`, как и `historyRaw` рядом.
+    var rawEvents: [PetEvent] = []
+    /// Пишется из `AppModel+Feed.swift`, поэтому без `private(set)`, как
+    /// и `historyCursor` рядом.
+    var feedNextCursor: String?
+    var hasMoreEvents = false
     /// Значения по умолчанию выбранного питомца: ими открывается новая запись.
     var formDefaults: FormDefaults = [:]
     private(set) var isLoadingFeed = false
-    private(set) var feedErrorText: String?
+    var feedErrorText: String?
+    /// Идёт ли отправка очереди. Отправка перечитывает ленту, а лента после
+    /// успешной загрузки отправляет очередь: без этого флага они бы гоняли
+    /// друг друга по кругу.
+    var flushingPending = false
     /// Счётчик прокрутки ленты наверх. Повторное нажатие на активную вкладку
     /// само по себе ни к чему не приводит, а «В начало» ожидают от любого
     /// приложения. Счётчик, а не флаг: два нажатия подряд это два события.
@@ -139,6 +147,8 @@ final class AppModel {
     /// обязан положить в хранилище тот, кто отправил запрос.
     let auth: AuthSession
     private let defaults: UserDefaults
+    /// Копия, очередь записей и признак «на экране копия».
+    let offline: OfflineState
 
     /// Адрес и сеанс принимаются параметрами, а не берутся из `AppConfig`
     /// внутри: иначе модель нельзя проверить, запросы уходят мимо заглушки.
@@ -146,10 +156,12 @@ final class AppModel {
         auth: AuthSession,
         baseURL: URL = AppConfig.baseURL,
         urlSession: URLSession = AppConfig.urlSession,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        store: LocalStore = LocalStore()
     ) {
         self.auth = auth
         self.defaults = defaults
+        offline = OfflineState(store: store)
         selectedPetID = defaults.string(forKey: Self.selectedPetKey)
         client = APIClient(baseURL: baseURL, urlSession: urlSession, auth: auth)
     }
@@ -166,6 +178,13 @@ final class AppModel {
         do {
             let response = try await client.get("/api/pets", as: PetsResponse.self)
             petsState = .loaded(response.pets)
+            offline.cache(
+                events: rawEvents,
+                types: eventTypes,
+                pets: response.pets,
+                petID: selectedPetID ?? ""
+            )
+
             // Питомца могли удалить или переименовать на другом устройстве, пока
             // телефон лежал в кармане. Молча открываем первого: иначе оболочка
             // осталась бы с выбором, которого в списке нет.
@@ -193,9 +212,9 @@ final class AppModel {
         // читается заново первой страницей, и без этого человек терял место,
         // до которого дочитал, и догружал всё заново.
         let depth = feedDepth
-        rawEvents = []
-        feedNextCursor = nil
-        hasMoreEvents = false
+        // Копия показывается до первого запроса: без связи человек увидит
+        // дневник сразу, а не после ожидания, которое ничем не кончится.
+        restoreFromCache()
         feedErrorText = nil
         isLoadingFeed = true
         defer { isLoadingFeed = false }
@@ -204,7 +223,16 @@ final class AppModel {
             // неизвестного вида пришлось бы выкинуть, а это молчаливая потеря.
             let types = try await client.get("/api/event-types", as: EventTypesResponse.self)
             eventTypes = Dictionary(types.eventTypes.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
+            // Список не чистим заранее: неудачный запрос не должен оставлять
+            // на экране пустоту вместо того, что человек уже видел.
             try await apply(fetchPage(petID: petID, before: nil), appending: false)
+            offline.isShowingCached = false
+            showPending()
+            offline.cache(events: rawEvents, types: eventTypes, pets: pets, petID: petID)
+            // Сеть появилась: накопленное уходит само, без всякой кнопки.
+            if offline.pendingCount > 0 {
+                await flushQueue()
+            }
             for _ in 0 ..< depth {
                 await loadMore()
             }
@@ -233,18 +261,6 @@ final class AppModel {
         feedScrollToTop += 1
     }
 
-    /// Показать сохранённую запись. Если её нет в загруженной части ленты,
-    /// говорим словами, за какой день она: запись с датой в прошлом после
-    /// сохранения иначе просто исчезает, и человек решает, что она не
-    /// записалась. Прокрутить ленту к конкретной записи не выходит:
-    /// `scrollTo` по id строки в `List` с дроблением по дням молча проходит
-    /// мимо, даже когда у строки есть явный id.
-    private func showSaved(_ id: String?, date: String) {
-        feedNotice = nil
-        guard let id, !rawEvents.contains(where: { $0.id == id }) else { return }
-        feedNotice = "Она за " + MomentText.russianDay(date) + ", в ленте до неё надо долистать"
-    }
-
     /// Сохраняет новую запись и, если получилось, перечитывает ленту: запись
     /// должна появиться сразу, а не после ручного обновления.
     func createEvent(_ draft: EventDraft) async {
@@ -257,6 +273,13 @@ final class AppModel {
             await reloadHistory()
             showSaved(saved.id, date: draft.date)
         } catch {
+            // Запись без сети это не ошибка, а очередь: человек сделал её в
+            // метро, и она должна дождаться связи вместе с остальными.
+            if (error as? APIError)?.isTransport == true {
+                rawEvents.append(offline.enqueue(draft, petID: petID))
+                feedNotice = "Записано в телефон, уйдёт на сервер, когда появится связь"
+                return
+            }
             handleFeedError(error)
         }
     }
@@ -300,32 +323,6 @@ final class AppModel {
     /// Подпись поля так, как её назвал человек, а не ключ из записи.
     func fieldLabel(_ name: String, of type: String) -> String {
         eventTypes[type]?.fields.first { $0.name == name }?.label ?? name
-    }
-
-    private func fetchPage(petID: String, before: String?) async throws -> EventsPage {
-        // with_deleted=1: удалённая запись приходит надгробием, и приложение
-        // знает, что её надо убрать из своей копии. Сами надгробия на показ
-        // не идут, их отсекает Feed.group.
-        var path = "/api/events?with_deleted=1&page_size=100&pet_id=" + Self.query(petID)
-        if let before {
-            path += "&before=" + Self.query(before)
-        }
-        return try await client.get(path, as: EventsPage.self)
-    }
-
-    private func apply(_ page: EventsPage, appending: Bool) {
-        rawEvents = appending ? rawEvents + page.items : page.items
-        feedNextCursor = page.nextCursor
-        hasMoreEvents = page.nextCursor != nil
-    }
-
-    private func handleFeedError(_ error: Error) {
-        let apiError = error as? APIError
-        if apiError?.isAuthProblem == true {
-            signOut()
-            return
-        }
-        feedErrorText = apiError?.errorDescription ?? error.localizedDescription
     }
 
     /// Экранирование значения для строки запроса. `nonisolated`, потому что

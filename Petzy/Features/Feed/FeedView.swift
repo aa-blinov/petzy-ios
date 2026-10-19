@@ -94,6 +94,34 @@ struct FeedView: View {
     private var list: some View {
         ScrollViewReader { proxy in
             List {
+                if model.offline.isShowingCached {
+                    Section {
+                        Label("Нет связи, показаны сохранённые записи", systemImage: "wifi.slash")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if model.offline.pendingCount > 0 {
+                    Section {
+                        HStack {
+                            Label(
+                                Words.text(
+                                    model.offline.pendingCount,
+                                    one: "запись",
+                                    few: "записи",
+                                    many: "записей"
+                                ) + " ждут отправки",
+                                systemImage: "arrow.up.circle"
+                            )
+                            .font(.subheadline)
+                            Spacer()
+                            Button("Отправить") {
+                                Task { await model.flushQueue() }
+                            }
+                            .font(.subheadline)
+                        }
+                    }
+                }
                 ForEach(model.days) { day in
                     Section(Feed.dayHeader(day.date, today: .now, calendar: .current)) {
                         ForEach(day.events) { event in
@@ -182,6 +210,13 @@ private struct FeedRow: View {
                 if !event.comment.isEmpty {
                     Text(event.comment)
                         .font(.subheadline)
+                }
+                if model.offline.pendingIDs.contains(event.id) {
+                    // Запись лежит в телефоне и ещё не на сервере. Без этой
+                    // подписи человек решил бы, что она пропала.
+                    Label("не отправлено", systemImage: "clock")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

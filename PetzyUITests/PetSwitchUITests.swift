@@ -71,9 +71,12 @@ final class PetSwitchUITests: XCTestCase {
                     base: base,
                     token: token
                 ), let medications = page["medications"] as? [[String: Any]],
-                let first = medications.compactMap({ $0["name"] as? String }).first
+                // Законченные курсы приложение прячет, и искать их на экране
+                // бессмысленно: берём тот, который человек видит.
+                let shown = medications.first(where: { ($0["is_active"] as? Bool) != false }),
+                let name = shown["name"] as? String
                 else { continue }
-                found = (pet.id, pet.name, first)
+                found = (pet.id, pet.name, name)
                 break
             }
             petWithMedications = found

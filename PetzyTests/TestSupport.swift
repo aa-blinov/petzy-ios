@@ -17,7 +17,9 @@ enum TestSupport {
     /// `.signedOut` и в сеть не ходит вовсе: тест проходил бы, ни разу не
     /// проверив запрос.
     @MainActor
-    static func makeModel(defaults: UserDefaults) async -> AppModel {
+    static func makeModel(defaults: UserDefaults, store: LocalStore = LocalStore(
+        url: FileManager.default.temporaryDirectory.appendingPathComponent("petzy-test-\(UUID().uuidString).json")
+    )) async -> AppModel {
         let session = StubURLProtocol.makeSession()
         // swiftlint:disable:next force_unwrapping
         let auth = AuthSession(
@@ -32,7 +34,7 @@ enum TestSupport {
         // в настоящий стенд, а тест будет зелёным, не проверив ничего.
         // swiftlint:disable:next force_unwrapping
         let baseURL = URL(string: "http://localhost:5002")!
-        return AppModel(auth: auth, baseURL: baseURL, urlSession: session, defaults: defaults)
+        return AppModel(auth: auth, baseURL: baseURL, urlSession: session, defaults: defaults, store: store)
     }
 
     /// Справочник типов из одного типа записи: истории хватает его, чтобы

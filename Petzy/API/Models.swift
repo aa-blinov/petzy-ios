@@ -46,7 +46,7 @@ struct PetsResponse: Decodable, Sendable {
 
 /// Питомец. Набор полей пока неполный: `/api/pets` отдаёт ещё `look`,
 /// `tiles_settings`, `health_notes` и другие. Добавляем поле по мере надобности.
-struct Pet: Decodable, Sendable, Identifiable, Equatable {
+struct Pet: Codable, Sendable, Identifiable, Equatable {
     let id: String
     let name: String
     let species: String?
@@ -115,11 +115,35 @@ struct EventRequest: Encodable, Sendable {
     /// а такое короткое имя swiftlint в Swift не пропускает, поэтому здесь
     /// длиннее, а ключ остаётся серверным.
     let timeZone: String
+    /// Имя, которым устройство назвало запись, если её создавали без сети.
+    /// С ним повтор запроса не создаёт вторую запись, а обновляет первую.
+    let localID: String?
 
     enum CodingKeys: String, CodingKey {
         case petID = "pet_id"
         case date, time, comment, fields, type
         case timeZone = "tz"
+        case localID = "local_id"
+    }
+
+    init(
+        petID: String?,
+        date: String,
+        time: String,
+        comment: String,
+        fields: [String: FieldValue],
+        type: String?,
+        timeZone: String,
+        localID: String? = nil
+    ) {
+        self.petID = petID
+        self.date = date
+        self.time = time
+        self.comment = comment
+        self.fields = fields
+        self.type = type
+        self.timeZone = timeZone
+        self.localID = localID
     }
 
     static func create(_ draft: EventDraft, petID: String) -> EventRequest {
@@ -158,7 +182,7 @@ struct EventSavedResponse: Decodable, Sendable {
 /// («2026-10-18T14:13:00+05:00»), у старых — без пояса («2026-10-04 11:00»).
 /// Оба разбираются, и время остаётся тем, что человек ввёл у себя: смещение
 /// не переводится в часовой пояс телефона.
-struct PetEvent: Decodable, Sendable, Identifiable {
+struct PetEvent: Codable, Sendable, Identifiable {
     let id: String
     let type: String
     let dateTime: String
@@ -200,6 +224,18 @@ struct PetEvent: Decodable, Sendable, Identifiable {
             )
         }
         self.type = type
+    }
+
+    /// Запись пишется в локальную копию под ключом `type`: второго ключа у
+    /// копии нет, а синтезировать запись не выходит из-за `recordType`.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(type, forKey: .type)
+        try container.encode(dateTime, forKey: .dateTime)
+        try container.encode(comment, forKey: .comment)
+        try container.encode(fields, forKey: .fields)
+        try container.encode(isDeleted, forKey: .isDeleted)
     }
 
     init(
@@ -298,99 +334,5 @@ struct EventsPage: Decodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case items
         case nextCursor = "next_cursor"
-    }
-}
-
-/// Вариант выбора в поле. Появляется у полей вида `choice`.
-struct EventFieldOption: Decodable, Sendable, Equatable {
-    let text: String
-    let value: String
-}
-
-/// Поле типа записи: как оно называется в записи и как подписано для человека.
-/// Подпись нужна для показа: ключ `weight` в ленте читаться не должен. Вид,
-/// обязательность и границы нужны форме добавления, чтобы собрать запись из
-/// того, что человек набрал, и не отправить на сервер ерунду.
-struct EventFieldInfo: Decodable, Sendable, Identifiable, Equatable {
-    let name: String
-    let label: String
-    /// `number`, `text` или `choice`.
-    let type: String
-    let required: Bool
-    let min: Double?
-    let max: Double?
-    let options: [EventFieldOption]?
-
-    /// У поля уже есть имя, оно и есть его identity в списке.
-    var id: String {
-        name
-    }
-}
-
-/// Тип записи: как она называется, каким значком рисуется и какие у неё поля.
-/// `category` приходит `null` у своих типов, их форма выбора не спрашивает.
-/// `color` есть только у своих: встроенным он не нужен, а правке своего типа
-/// без него цвет молча сбросился бы на первый в списке.
-struct EventTypeInfo: Decodable, Sendable, Identifiable {
-    let key: String
-    let label: String
-    let icon: String?
-    let category: String?
-    let color: String?
-    let fields: [EventFieldInfo]
-    let chart: EventChart?
-
-    var id: String {
-        key
-    }
-
-    /// Инициализатор написан руками: `color` есть не у всех типов, а
-    /// синтезированный такую подпись не делает.
-    init(
-        key: String,
-        label: String,
-        icon: String?,
-        category: String?,
-        color: String? = nil,
-        fields: [EventFieldInfo],
-        chart: EventChart?
-    ) {
-        self.key = key
-        self.label = label
-        self.icon = icon
-        self.category = category
-        self.color = color
-        self.fields = fields
-        self.chart = chart
-    }
-}
-
-/// Как рисуется график типа: `value` — линия по величине записи, `count` —
-/// столбцы по количеству записей. Без него график показывал бы среднее там,
-/// где нужен счёт.
-struct EventChart: Decodable, Sendable, Equatable {
-    let kind: String
-    let valueField: String?
-    /// Подпись величины с единицами измерения: «Вес (кг)». Без неё на оси
-    /// были бы голые числа.
-    let valueLabel: String?
-
-    enum CodingKeys: String, CodingKey {
-        case kind
-        case valueField = "value_field"
-        case valueLabel = "value_label"
-    }
-}
-
-/// Типы, записи о которых у питомца есть. Ими заполняется фильтр истории.
-struct UsedTypesResponse: Decodable, Sendable {
-    let types: [String]
-}
-
-struct EventTypesResponse: Decodable, Sendable {
-    let eventTypes: [EventTypeInfo]
-
-    enum CodingKeys: String, CodingKey {
-        case eventTypes = "event_types"
     }
 }

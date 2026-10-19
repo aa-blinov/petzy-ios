@@ -24,6 +24,26 @@ enum APIError: Error, LocalizedError, Sendable, Equatable {
         }
     }
 
+    /// Сервера не было: обрыв, нет сети, таймаут. Отличать от отказа важно
+    /// везде, где решение зависит от того, дошёл ли запрос: несуществующую сеть
+    /// стоит переждать, а отказ сервера — показать.
+    var isTransport: Bool {
+        if case .transport = self {
+            return true
+        }
+        return false
+    }
+
+    /// Код, который вернул бэкенд: `record_deleted`, `local_id_taken` и
+    /// подобные. По нему приложение узнаёт, что запись удалили на другом
+    /// устройстве, а не просто что запрос не прошёл.
+    var code: String? {
+        if case let .server(code, _) = self {
+            return code
+        }
+        return nil
+    }
+
     /// Сессию надо пересоздать: экран входа.
     var isAuthProblem: Bool {
         switch self {

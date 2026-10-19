@@ -31,6 +31,12 @@ final class StubURLProtocol: URLProtocol {
         stubs.append(Stub(statusCode: status, body: data))
     }
 
+    /// Обрыв связи, а не ответ сервера. Им проверяется офлайн: отличать «сервер
+    /// сказал нет» от «сервера не было» приложение обязано само.
+    static func stubOffline() {
+        stubs.append(Stub(statusCode: 0, body: Data()))
+    }
+
     private nonisolated(unsafe) static var headerFields: [String: String] = [:]
 
     static func makeSession() -> URLSession {
@@ -74,6 +80,11 @@ final class StubURLProtocol: URLProtocol {
             return
         }
         let stub = Self.stubs.removeFirst()
+        // Нулевой код это заготовка обрыва: отвечать на неё нечем.
+        if stub.statusCode == 0 {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+            return
+        }
 
         guard let url = request.url,
               let response = HTTPURLResponse(url: url, statusCode: stub.statusCode,

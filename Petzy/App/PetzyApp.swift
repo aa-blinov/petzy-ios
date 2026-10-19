@@ -2,6 +2,8 @@ import SwiftUI
 
 @main
 struct PetzyApp: App {
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var model: AppModel
     @State private var flow: AuthFlowModel
 
@@ -22,6 +24,12 @@ struct PetzyApp: App {
                 // задана явно: на английском устройстве дата в форме выходила бы
                 // как «18 Oct 2026», а в ленте «Сегодня» и в числах — как деньги.
                 .environment(\.locale, Locale(identifier: "ru_RU"))
+                // Человек вышел из метро и открыл приложение: связь появилась,
+                // и записи, ждавшие её, должны уйти сами.
+                .onChange(of: scenePhase) { _, phase in
+                    guard phase == .active else { return }
+                    Task { await model.flushQueue() }
+                }
         }
     }
 }
