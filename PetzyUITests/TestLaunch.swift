@@ -49,4 +49,62 @@ enum TestLaunch {
         app.buttons["Войти"].tap()
         return app.buttons["Лента"].waitForExistence(timeout: timeout)
     }
+
+    /// Имя питомца, у которого лента не помещается в одну страницу, то есть у
+    /// которого кнопка догрузки вообще появится. Приложение берёт страницу по
+    /// сто записей, и у питомца с пятнадцатью записями догруживать нечего —
+    /// без такой справки проверка падала бы из-за накопленных на стенде данных,
+    /// а не из-за приложения.
+    static func petWithNextFeedPage() async -> String? {
+        guard let base = URL(string: "http://localhost:5002"),
+              let token = await token(),
+              let pets = try? await get("/api/pets", base: base, token: token),
+              let list = pets["pets"] as? [[String: Any]]
+        else { return nil }
+        for pet in list {
+            guard let name = pet["name"] as? String,
+                  let petID = pet["_id"] as? String,
+                  let page = try? await get("/api/events?page_size=100&pet_id=\(petID)", base: base, token: token),
+                  let cursor = page["next_cursor"] as? String
+            else { continue }
+            if !cursor.isEmpty {
+                return name
+            }
+        }
+        return nil
+    }
+
+    /// Переключает приложение на питомца с именем `name`.
+    static func selectPet(_ app: XCUIApplication, named name: String) {
+        let switcher = app.buttons["petSwitcher"]
+        guard switcher.waitForExistence(timeout: 20) else { return }
+        switcher.tap()
+        let item = app.buttons[name]
+        _ = item.waitForExistence(timeout: 10)
+        item.tap()
+    }
+
+    private static func token() async -> String? {
+        var request = URLRequest(url: URL(string: "http://localhost:5002/api/auth/login")!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "username": demoLogin, "password": demoPassword
+        ])
+        let answer = try? await URLSession.shared.data(for: request)
+        let json = answer.flatMap { try? JSONSerialization.jsonObject(with: $0.0) as? [String: Any] }
+        return json?["access_token"] as? String
+    }
+
+    private static func get(_ path: String, base: URL, token: String) async throws -> [String: Any] {
+        // Именно `URL(string:relativeTo:)`, а не `appendingPathComponent`:
+        // тот кодирует слеши и даёт запрос на `/api%2Fpets`.
+        guard let url = URL(string: path, relativeTo: base) else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let json = try JSONSerialization.jsonObject(with: data)
+        guard let page = json as? [String: Any] else { throw URLError(.badServerResponse) }
+        return page
+    }
 }

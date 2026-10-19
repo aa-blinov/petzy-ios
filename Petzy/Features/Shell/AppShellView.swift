@@ -278,6 +278,9 @@ struct PetSwitcher: View {
                     Text(model.selectedPet?.name ?? "Питомец")
                 }
             }
+            // Имя питомца на стенде меняется, а переключатель всегда один:
+            // UI-тест проверяет, что он есть, а не как зовут конкретного питомца.
+            .accessibilityIdentifier("petSwitcher")
         }
     }
 }

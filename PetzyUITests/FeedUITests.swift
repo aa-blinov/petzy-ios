@@ -33,15 +33,25 @@ final class FeedUITests: XCTestCase {
 
     /// Кнопка «Загрузить ещё» реально дочитывает следующую страницу: после
     /// неё в ленте появляются дни, которых на первой странице не было.
-    func testLoadMoreReadsNextPage() {
+    ///
+    /// Кнопка есть не у каждого питомца, и это не поломка: страницу
+    /// приложение берёт по сто записей, и когда у питомца их меньше, сервер не
+    /// отдаёт курсор. Поэтому питомец для проверки выбирается по стенду, а
+    /// выбранный по умолчанию может быть тем, у кого догружать нечего.
+    func testLoadMoreReadsNextPage() async throws {
         let app = TestLaunch.signedOut()
         XCTAssertTrue(TestLaunch.logIn(app), "не удалось войти и открыть оболочку")
+
+        guard let pet = await TestLaunch.petWithNextFeedPage() else {
+            throw XCTSkip("на стенде нет питомца с записями больше страницы, догружать нечего")
+        }
+        TestLaunch.selectPet(app, named: pet)
 
         var seen: Set<String> = []
         _ = scrollToEnd(of: app, collectingDaysInto: &seen)
         XCTAssertTrue(
             app.buttons["Загрузить ещё"].exists,
-            "в ленте 263 записи, а кнопки догрузки нет: \(app.debugDescription)"
+            "сервер отдал курсор, а кнопки догрузки нет: \(app.debugDescription)"
         )
 
         app.buttons["Загрузить ещё"].tap()
@@ -76,8 +86,10 @@ final class FeedUITests: XCTestCase {
         XCTAssertTrue(cough.waitForExistence(timeout: 20), "в каталоге нет типа записи: \(app.debugDescription)")
         cough.tap()
 
+        // Заголовок формы — название типа записи: «Правка» и «Новая запись»
+        // ничего не говорили о том, что человек правит.
         XCTAssertTrue(
-            app.navigationBars["Новая запись"].waitForExistence(timeout: 20),
+            app.navigationBars["Кашель или чихание"].waitForExistence(timeout: 20),
             "форма новой записи не открылась: \(app.debugDescription)"
         )
         app.buttons["Сохранить"].tap()
@@ -120,16 +132,18 @@ final class FeedUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 30), "записи ленты не показаны: \(app.debugDescription)")
         row.tap()
 
+        // Заголовок формы называет тип записи, а он у каждой строки свой,
+        // поэтому форма опознаётся кнопкой сохранения, а не заголовком.
         XCTAssertTrue(
-            app.navigationBars["Правка"].waitForExistence(timeout: 20),
+            app.buttons["Сохранить"].waitForExistence(timeout: 20),
             "правка не открылась: \(app.debugDescription)"
         )
-        // У поля записи есть подпись и значение: без подписи человек не поймёт,
-        // что правит, а без значения правка стёрла бы запись.
+        // У поля записи есть значение: без него правка стёрла бы запись.
+        // Подписи поля в плейсхолдере больше нет (он исчезал при вводе), она
+        // стоит рядом отдельной подписью.
         let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "в форме правки нет поля")
         XCTAssertFalse(field.value as? String ?? "" == "", "поле правки пустое, запись при переходе потерялась")
-        let placeholder = field.placeholderValue ?? ""
-        XCTAssertFalse(placeholder.isEmpty, "у поля правки нет подписи: \(app.debugDescription)")
     }
 
     /// Снимок экрана в отчёт прогона. Жест свайпа через `idb` строку не

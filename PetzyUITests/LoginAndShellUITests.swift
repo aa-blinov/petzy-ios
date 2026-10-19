@@ -26,10 +26,12 @@ final class LoginAndShellUITests: XCTestCase {
         for tab in ["Лекарства", "Медкарта", "Документы", "Настройки"] {
             XCTAssertTrue(app.buttons[tab].exists, "Вкладка «\(tab)» пропала")
         }
-        XCTAssertTrue(
-            app.buttons["Рекс"].waitForExistence(timeout: 15),
-            "Выбранный питомец из демо-данных не показан"
-        )
+        // Переключатель питомцев по идентификатору, а не по имени: на стенде
+        // выбранный питомец меняется от прогона к прогону, и проверка по имени
+        // падала не из-за приложения.
+        let switcher = app.buttons["petSwitcher"]
+        XCTAssertTrue(switcher.waitForExistence(timeout: 15), "Переключатель питомцев не показан")
+        XCTAssertNotEqual(switcher.label, "Питомец", "питомец не выбран: \(app.debugDescription)")
     }
 
     /// Токен, сохранённый в Keychain, должен переживать перезапуск: без этого
