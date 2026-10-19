@@ -37,10 +37,6 @@ enum MedicationsAPI {
         try await client.delete("/api/medications/\(medicationID)")
     }
 
-    /// Отметка приёма. `slot` говорит, какой приём по расписанию закрывает эта
-    /// отметка: без него сервер закроет ближайший открытый, и нажатие «09:00»
-    /// могло бы закрыть «21:00». Ответ сообщает, кончился ли остаток: об этом
-    /// человек должен узнать сразу, а не путая пустую упаковку.
     /// Отметка приёма. `slot` внутри отметки говорит, какой приём по расписанию
     /// она закрывает: без него сервер закроет ближайший открытый, и нажатие
     /// «09:00» могло бы закрыть «21:00». Ответ сообщает, кончился ли остаток:
@@ -109,7 +105,13 @@ private struct MedicationBody: Encodable {
     let prescribedBy: String?
 
     /// `pet_id` уходит только при создании: у курса питомца не меняют.
+    /// Пустая строка в датах означает «убери», а `nil` — «не трогай». На
+    /// правке выключенный выключатель даты обязан убирать её, иначе человек
+    /// не смог бы снять дату с курса, а пустая форма сохранила бы прежнюю.
+    private let isNew: Bool
+
     init(draft: MedicationDraft, isNew: Bool) {
+        self.isNew = isNew
         petID = isNew ? draft.petID : nil
         name = draft.name
         type = draft.kind
@@ -125,8 +127,8 @@ private struct MedicationBody: Encodable {
         inventoryTotal = draft.inventoryEnabled ? draft.inventoryTotal : nil
         inventoryWarningDays = draft.inventoryEnabled ? draft.inventoryWarningDays : nil
         comment = draft.comment
-        startedOn = draft.startedOn
-        endedOn = draft.endedOn
+        startedOn = draft.startedOn ?? (isNew ? nil : "")
+        endedOn = draft.endedOn ?? (isNew ? nil : "")
         purpose = draft.purpose
         prescribedBy = draft.prescribedBy
     }
@@ -255,6 +257,11 @@ private struct MedicationDTO: Decodable {
     let scheduledToday: Bool?
     let lastTakenAt: String?
     let lastTakenBy: String?
+    /// Комментарий, «от чего» и «кто назначил». Форма правки их показывает,
+    /// а раньше они не читались, и правка затирала их молча.
+    let comment: String?
+    let purpose: String?
+    let prescribedBy: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -268,6 +275,8 @@ private struct MedicationDTO: Decodable {
         case courseStatus = "course_status"
         case startedOn = "started_on"
         case endedOn = "ended_on"
+        case comment, purpose
+        case prescribedBy = "prescribed_by"
         case inventoryEnabled = "inventory_enabled"
         case inventoryCurrent = "inventory_current"
         case inventoryTotal = "inventory_total"
@@ -310,7 +319,10 @@ private struct MedicationDTO: Decodable {
             openSlotsToday: openSlotsToday ?? [],
             scheduledToday: scheduledToday ?? false,
             lastTakenAt: lastTakenAt,
-            lastTakenBy: lastTakenBy
+            lastTakenBy: lastTakenBy,
+            comment: comment,
+            purpose: purpose,
+            prescribedBy: prescribedBy
         )
     }
 }

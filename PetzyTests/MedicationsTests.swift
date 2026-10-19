@@ -271,7 +271,10 @@ struct MedicationsTests {
         unit: String? = nil,
         scheduledToday: Bool = false,
         openSlots: [String] = [],
-        lastTakenAt: String? = nil
+        lastTakenAt: String? = nil,
+        comment: String? = nil,
+        purpose: String? = nil,
+        prescribedBy: String? = nil
     ) -> Medication {
         Medication(
             id: id,
@@ -291,7 +294,10 @@ struct MedicationsTests {
             openSlotsToday: openSlots,
             scheduledToday: scheduledToday,
             lastTakenAt: lastTakenAt,
-            lastTakenBy: nil
+            lastTakenBy: nil,
+            comment: comment,
+            purpose: purpose,
+            prescribedBy: prescribedBy
         )
     }
 }

@@ -19,21 +19,6 @@ struct MedicationFormView: View {
     @State private var hasStart = true
     @State private var hasEnd = false
 
-    /// Типы, которые чаще всего выбирают, как в вебе.
-    static let kinds = [
-        "Таблетка", "Капсула", "Ингаляция", "Капли", "Укол", "Мазь",
-        "Гель", "Сироп", "Суспензия", "Порошок", "Спрей", "Паста"
-    ]
-
-    /// Единица, в которой такую форму обычно считают. Пустая единица показывала
-    /// бы «ед.», а это ничего не говорит.
-    static let unitForKind = [
-        "Таблетка": "таб", "Капсула": "капс", "Капли": "кап",
-        "Укол": "мл", "Сироп": "мл", "Суспензия": "мл"
-    ]
-
-    static let weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-
     init(app: AppModel, model: MedicationsModel, target: MedicationFormTarget) {
         self.app = app
         self.model = model
@@ -61,13 +46,20 @@ struct MedicationFormView: View {
                 inventoryCurrent: med.stock?.current,
                 inventoryTotal: med.stock?.total,
                 inventoryWarningDays: med.stock?.warningDays,
+                comment: med.comment,
                 startedOn: med.startedOn,
-                endedOn: med.endedOn
+                endedOn: med.endedOn,
+                purpose: med.purpose,
+                prescribedBy: med.prescribedBy
             )
         }
         _draft = State(initialValue: source)
         _days = State(initialValue: Set(source.schedule.days))
         _times = State(initialValue: source.schedule.times)
+        // Как у даты окончания: выключатель повторяет то, что пришло с
+        // сервера. Иначе правка курса без даты начала записала бы ему
+        // сегодняшнюю.
+        _hasStart = State(initialValue: source.startedOn != nil)
         if let iso = source.startedOn {
             _startDate = State(initialValue: Self.date(from: iso) ?? .now)
         }
@@ -80,11 +72,18 @@ struct MedicationFormView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // Ошибка сервера внутри формы: без неё «Сохранить» молча
+                // ничего не делает, и человек гадает, что сломалось.
+                if let text = model.errorText {
+                    Section {
+                        Label(text, systemImage: "exclamationmark.triangle")
+                            .font(.subheadline)
+                            .foregroundStyle(.red)
+                    }
+                }
                 basics
                 schedule
-                if draft.inventoryEnabled {
-                    stock
-                }
+                stock
                 dates
                 notes
             }
@@ -190,13 +189,22 @@ struct MedicationFormView: View {
     }
 
     private var stock: some View {
-        Section("Остаток") {
-            TextField("Сколько осталось", text: numberBinding(\.inventoryCurrent))
-                .keyboardType(.decimalPad)
-            TextField("Сколько в упаковке", text: numberBinding(\.inventoryTotal))
-                .keyboardType(.decimalPad)
-            TextField("Предупредить за дней", text: numberBinding(\.inventoryWarningDays))
-                .keyboardType(.numberPad)
+        Section {
+            Toggle("Учитывать остаток", isOn: $draft.inventoryEnabled)
+            if draft.inventoryEnabled {
+                TextField("Сколько осталось", text: numberBinding(\.inventoryCurrent))
+                    .keyboardType(.decimalPad)
+                TextField("Сколько в упаковке", text: numberBinding(\.inventoryTotal))
+                    .keyboardType(.decimalPad)
+                TextField("Предупредить за дней", text: numberBinding(\.inventoryWarningDays))
+                    .keyboardType(.numberPad)
+            }
+        } header: {
+            Text("Остаток")
+        } footer: {
+            if draft.inventoryEnabled {
+                Text("Будем списывать по \(Amount.text(draft.defaultDose ?? 1)) \(draft.doseUnit ?? "шт.") за приём")
+            }
         }
     }
 
@@ -234,22 +242,12 @@ struct MedicationFormView: View {
 
     // MARK: - Разбор и сохранение
 
-    /// Числовое поле, где пустая строка означает «не задано», а не ноль:
-    /// остаток 0 и незаданный остаток — разные вещи.
-    private func numberBinding(_ keyPath: WritableKeyPath<MedicationDraft, Double?>) -> Binding<String> {
-        Binding(
-            get: { draft[keyPath: keyPath].map(Amount.text) ?? "" },
-            set: { draft[keyPath: keyPath] = $0.isEmpty ? nil : Double($0.replacingOccurrences(of: ",", with: ".")) }
-        )
-    }
-
     private func save() {
         draft.schedule = DoseSchedule(
             days: draft.asNeeded ? [] : days.sorted(),
             times: draft.asNeeded ? [] : times.sorted()
         )
         draft.startedOn = hasStart ? Self.iso(from: startDate) : nil
-        // Пустая строка на сервере значит «убери дату», а `nil` — «не трогай».
         // Пустая строка на сервере значит «убери дату», а `nil` — «не трогай».
         draft.endedOn = hasEnd ? Self.iso(from: endDate) : ""
         Task {
@@ -280,4 +278,32 @@ struct MedicationFormView: View {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
         return String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
     }
+}
+
+/// Данные формы и разбор её дат вынесены из тела вида: тело и так близко к
+/// лимиту линтера, а лежат они рядом и живут своей жизнью.
+extension MedicationFormView {
+    /// Числовое поле, где пустая строка означает «не задано», а не ноль:
+    /// остаток 0 и незаданный остаток — разные вещи.
+    func numberBinding(_ keyPath: WritableKeyPath<MedicationDraft, Double?>) -> Binding<String> {
+        Binding(
+            get: { draft[keyPath: keyPath].map(Amount.text) ?? "" },
+            set: { draft[keyPath: keyPath] = $0.isEmpty ? nil : Double($0.replacingOccurrences(of: ",", with: ".")) }
+        )
+    }
+
+    /// Типы, которые чаще всего выбирают, как в вебе.
+    static let kinds = [
+        "Таблетка", "Капсула", "Ингаляция", "Капли", "Укол", "Мазь",
+        "Гель", "Сироп", "Суспензия", "Порошок", "Спрей", "Паста"
+    ]
+
+    /// Единица, в которой такую форму обычно считают. Пустая единица показывала
+    /// бы «ед.», а это ничего не говорит.
+    static let unitForKind = [
+        "Таблетка": "таб", "Капсула": "капс", "Капли": "кап",
+        "Укол": "мл", "Сироп": "мл", "Суспензия": "мл"
+    ]
+
+    static let weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 }

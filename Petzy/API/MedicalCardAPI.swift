@@ -121,6 +121,9 @@ private struct RecordBody: Encodable {
     let complaint: String?
     let diagnosis: String?
     let recommendations: String?
+    /// Сервер заменяет запись целиком: без этого поля правка отвязала бы
+    /// документы от записи.
+    let documentIDs: [String]
 
     init(draft: MedicalRecordDraft) {
         petID = draft.petID
@@ -138,6 +141,7 @@ private struct RecordBody: Encodable {
         complaint = draft.complaint
         diagnosis = draft.diagnosis
         recommendations = draft.recommendations
+        documentIDs = draft.documentIDs
     }
 
     enum CodingKeys: String, CodingKey {
@@ -146,6 +150,7 @@ private struct RecordBody: Encodable {
         case nextDue = "next_due"
         case clinic, vet, note, batch, target, protects
         case complaint, diagnosis, recommendations
+        case documentIDs = "document_ids"
     }
 }
 
@@ -159,7 +164,9 @@ private struct ProfileBody: Encodable {
     let allergiesNoneKnown: Bool
     let bloodType: String?
     let chipNumber: String?
-    let clinic: ClinicBody?
+    /// Список клиник — источник правды на сервере, а `clinic` он собирает сам
+    /// из первой. Отправка только зеркала схлопывала бы список в одну клинику.
+    let clinics: [ClinicEntryBody]
     let conditions: [ConditionBody]
     let diet: String?
     let living: String?
@@ -177,23 +184,31 @@ private struct ProfileBody: Encodable {
         allergiesNoneKnown = profile.allergiesNoneKnown
         bloodType = profile.bloodType
         chipNumber = profile.chipNumber
-        // Клиника без телефона или врача — это не клиника, и сервер такой
-        // объект не примет: отправляем только когда есть имя.
-        clinic = profile.clinicName.flatMap { name in
-            name.isEmpty ? nil : ClinicBody(
-                name: name,
-                phone: profile.clinicPhone?.isEmpty == false ? profile.clinicPhone : nil,
-                vet: profile.vetName?.isEmpty == false ? profile.vetName : nil
-            )
-        }
+        clinics = Self.clinics(of: profile)
         conditions = profile.conditions.map { ConditionBody(name: $0.name, note: $0.note, sinceYear: $0.sinceYear) }
         diet = profile.diet
         living = profile.living
         reproduction = profile.reproduction
     }
 
+    /// Клиника без имени — не клиника, и сервер такой объект не примет.
+    private static func clinics(of profile: MedicalProfileDraft) -> [ClinicEntryBody] {
+        let main = ProfileClinic(
+            name: profile.clinicName,
+            phone: profile.clinicPhone?.isEmpty == false ? profile.clinicPhone : nil,
+            doctors: [ProfileDoctor(
+                name: profile.vetName?.isEmpty == false ? profile.vetName : nil,
+                specialty: profile.clinics.first?.doctors.first?.specialty
+            )]
+        )
+        let all = [main] + profile.clinics.dropFirst()
+        return all
+            .filter { ($0.name?.isEmpty == false) }
+            .map(ClinicEntryBody.init(clinic:))
+    }
+
     enum CodingKeys: String, CodingKey {
-        case allergies, clinic, conditions, diet, living, reproduction
+        case allergies, clinics, conditions, diet, living, reproduction
         case baseVersion = "base_version"
         case allergiesNoneKnown = "allergies_none_known"
         case bloodType = "blood_type"
@@ -210,6 +225,28 @@ private struct ClinicBody: Encodable {
     let name: String
     let phone: String?
     let vet: String?
+}
+
+/// Клиника со списком врачей, как их держит сервер. Враг без имени сервер не
+/// примет, поэтому такие отбрасываются целиком.
+private struct ClinicEntryBody: Encodable {
+    let name: String?
+    let phone: String?
+    let doctors: [DoctorBody]
+
+    init(clinic: ProfileClinic) {
+        name = clinic.name
+        phone = clinic.phone
+        doctors = clinic.doctors.compactMap { doctor in
+            guard let name = doctor.name, !name.isEmpty else { return nil }
+            return DoctorBody(name: name, specialty: doctor.specialty)
+        }
+    }
+}
+
+private struct DoctorBody: Encodable {
+    let name: String
+    let specialty: String?
 }
 
 private struct ConditionBody: Encodable {

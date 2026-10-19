@@ -23,6 +23,26 @@ struct PetProfileModelTests {
         #expect(model.errorText == nil)
     }
 
+    /// Сервер заменяет карточку целиком, а форма при упавшем чтении остаётся
+    /// пустой: сохранив её, человек стёр бы вид, породу, пол и заметки.
+    @Test("Упавшее чтение закрывает сохранение")
+    func failedLoadBlocksSaving() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 500, json: [
+            "success": false, "error": "Сервер недоступен", "code": "server_error"
+        ])
+        let model = await makeModel()
+
+        await model.load()
+        #expect(model.canEdit == false)
+
+        model.draft.name = "Рекс"
+        let saved = await model.save(photo: nil, removePhoto: false)
+
+        #expect(saved == false)
+        #expect(StubURLProtocol.requestedPaths == ["/api/pets/p1"])
+    }
+
     @Test("Новый питомец открывается пустым и запроса не делает")
     func newPetStartsEmpty() async {
         StubURLProtocol.reset()

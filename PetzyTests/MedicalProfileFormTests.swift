@@ -108,6 +108,7 @@ struct MedicalProfileFormTests {
             clinicName: nil,
             clinicPhone: nil,
             vetName: nil,
+            clinics: [],
             conditions: [],
             diet: nil,
             living: nil,

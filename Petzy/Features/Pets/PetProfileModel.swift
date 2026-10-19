@@ -14,6 +14,9 @@ final class PetProfileModel {
     /// Что пропадёт вместе с питомцем. Читается перед вопросом об удалении.
     private(set) var impact: PetDeletionImpact?
     private(set) var isLoading = false
+    /// Чтение упало: карточка не пришла, и форма осталась пустой. Сохранять
+    /// её нельзя, сервер заменяет карточку целиком.
+    private(set) var loadFailed = false
     var errorText: String?
     /// Питомец удалён: список питомцев пора перечитать, а экран закрыть.
     private(set) var isDeleted = false
@@ -36,7 +39,8 @@ final class PetProfileModel {
 
     /// Питомцем поделились: карточку не правят и не удаляют, сервер и не даст.
     var canEdit: Bool {
-        profile?.currentUserIsOwner ?? true
+        guard loadFailed else { return true }
+        return isNew
     }
 
     /// Названия видов для выбора. Порядок как в вебе, человек узнаёт нужный
@@ -62,7 +66,9 @@ final class PetProfileModel {
                 healthNotes: loaded.healthNotes
             )
             errorText = nil
+            loadFailed = false
         } catch {
+            loadFailed = true
             errorText = Self.text(of: error)
         }
     }
@@ -71,6 +77,10 @@ final class PetProfileModel {
     /// правки — только «Данные питомца обновлены», и её приходится перечитывать.
     @discardableResult
     func save(photo: UploadFile?, removePhoto: Bool) async -> Bool {
+        guard canEdit else {
+            errorText = "Карточка не загрузилась, сохранять нечего"
+            return false
+        }
         if let problem = PetDraft.problem(draft) {
             errorText = problem
             return false

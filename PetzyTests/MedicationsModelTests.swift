@@ -204,6 +204,55 @@ struct MedicationsModelTests {
         #expect(model.visibleMedications.map(\.name) == ["Мелоксидил"])
     }
 
+    /// Учёт остатка без самого остатка бессмыслен: сервер примет такой курс,
+    /// но считать ему нечего, и на следующей правке переключатель вышел бы
+    /// выключенным, то есть молча снял бы то, что человек включил.
+    @Test("Учёт остатка без самого остатка не сохраняется")
+    func inventoryWithoutAmountIsRefused() async throws {
+        StubURLProtocol.reset()
+        let model = try await makeModel()
+        var draft = MedicationsWriteTests.draft
+        draft.inventoryEnabled = true
+        draft.inventoryCurrent = nil
+
+        let saved = await model.create(draft)
+
+        #expect(saved == false)
+        #expect(model.errorText == "Укажите остаток: без него учёт не работает")
+        #expect(StubURLProtocol.requestedPaths.isEmpty)
+    }
+
+    @Test("Та же проверка на правке курса")
+    func inventoryWithoutAmountIsRefusedOnEdit() async throws {
+        StubURLProtocol.reset()
+        let model = try await makeModel()
+        var draft = MedicationsWriteTests.draft
+        draft.inventoryEnabled = true
+        draft.inventoryCurrent = nil
+
+        let saved = await model.update("m1", draft: draft)
+
+        #expect(saved == false)
+        #expect(StubURLProtocol.requestedPaths.isEmpty)
+    }
+
+    /// Ноль это настоящий остаток: упаковка кончилась, а не «не задано».
+    @Test("Нулевой остаток с включённым учётом сохраняется")
+    func zeroInventoryIsAllowed() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 201, json: ["success": true, "id": "m9"])
+        StubURLProtocol.stub(status: 200, json: ["medications": []])
+        StubURLProtocol.stub(status: 200, json: ["doses": []])
+        let model = try await makeModel()
+        var draft = MedicationsWriteTests.draft
+        draft.inventoryCurrent = 0
+
+        let saved = await model.create(draft)
+
+        #expect(saved)
+        #expect(TestSupport.body(of: StubURLProtocol.requests.first)["inventory_current"] as? Double == 0)
+    }
+
     private func makeModel() async throws -> MedicationsModel {
         // swiftlint:disable:next force_unwrapping
         let baseURL = URL(string: "http://localhost:5002")!

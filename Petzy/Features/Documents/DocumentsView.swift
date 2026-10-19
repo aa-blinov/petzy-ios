@@ -8,6 +8,7 @@ struct DocumentsView: View {
     let app: AppModel
 
     @State private var adding = false
+    @State private var editing: PetDocument?
     @State private var pendingDelete: PetDocument?
 
     var body: some View {
@@ -25,11 +26,18 @@ struct DocumentsView: View {
                     }
                 }
         }
-        .task(id: app.selectedPetID) {
+        // Ключ здесь — сама модель, а не выбранный питомец: оболочка
+        // пересоздаёт её на каждого питомца и делает это позже смены питомца.
+        // По `selectedPetID` задача перезапускалась бы на старой модели, а на
+        // экране уже была бы новая и пустая: раздел врал, что данных нет.
+        .task(id: ObjectIdentifier(model)) {
             await model.load()
         }
         .sheet(isPresented: $adding) {
             DocumentFormView(model: model, app: app)
+        }
+        .sheet(item: $editing) { document in
+            DocumentFormView(model: model, app: app, document: document)
         }
         .confirmationDialog(
             "Удалить документ?",
@@ -162,6 +170,7 @@ struct DocumentsView: View {
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Удалить", role: .destructive) { pendingDelete = document }
                 .tint(.red)
+            Button("Изменить") { editing = document }
             Button("Открыть") { Task { await model.download(document) } }
         }
     }

@@ -185,6 +185,29 @@ struct MedicalProfileTests {
 
     // MARK: - Заготовки
 
+    /// Список клиник у сервера один, а зеркало `clinic` только для старых
+    /// клиентов. Правка профиля из приложения не должна схлопывать остальные.
+    @Test("Профиль уходит со всеми клиниками, а не только с первой")
+    func profileKeepsEveryClinic() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
+        var draft = Self.profile
+        draft.clinics = [
+            ProfileClinic(name: "Ортовет", phone: "+7 727 555 03 04",
+                          doctors: [ProfileDoctor(name: "Каримов Д.", specialty: "Хирург")]),
+            ProfileClinic(name: "Ветринал", phone: nil, doctors: [])
+        ]
+
+        try await MedicalCardAPI.saveProfile(client, petID: "p1", profile: draft)
+
+        let body = TestSupport.body(of: StubURLProtocol.requests.last)
+        let clinics = body["clinics"] as? [[String: Any]]
+        #expect(clinics?.count == 2)
+        #expect((clinics?[0]["doctors"] as? [[String: Any]])?.first?["specialty"] as? String == "Хирург")
+        #expect(clinics?[1]["name"] as? String == "Ветринал")
+    }
+
     static var profile: MedicalProfileDraft {
         MedicalProfileDraft(
             baseVersion: "v1",

@@ -221,4 +221,39 @@ struct MedicationsWriteTests {
             prescribedBy: "Вет Д."
         )
     }
+
+    /// Правка курса без даты начала не должна получить сегодняшнюю при правке, а
+    /// комментарий, «от чего» и «кто назначил» должны пережить её: форма
+    /// показывает их, значит их и отправляет.
+    @Test("Правка курса без даты начала не ставит её")
+    func editWithoutStartKeepsItUnset() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
+        var draft = MedicationsWriteTests.draft
+        draft.startedOn = nil
+
+        try await MedicationsAPI.update(client, medicationID: "m1", draft: draft)
+
+        let body = TestSupport.body(of: StubURLProtocol.requests.last)
+        #expect(body["started_on"] as? String == "", "дата начала должна убираться пустой строкой")
+    }
+
+    /// Снятый переключатель учёта остатка должен уйти на сервер и выключить
+    /// списание, а не остаться в теле запроса как `true`.
+    @Test("Правка курса гасит учёт остатка, когда переключатель снят")
+    func editTurnsInventoryOff() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
+        var draft = MedicationsWriteTests.draft
+        draft.inventoryEnabled = false
+
+        try await MedicationsAPI.update(client, medicationID: "m1", draft: draft)
+
+        let body = TestSupport.body(of: StubURLProtocol.requests.last)
+        #expect(body["inventory_enabled"] as? Bool == false)
+        #expect(body["inventory_current"] == nil)
+        #expect(body["inventory_total"] == nil)
+    }
 }

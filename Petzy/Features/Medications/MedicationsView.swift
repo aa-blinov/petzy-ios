@@ -31,7 +31,11 @@ struct MedicationsView: View {
                 .searchable(text: $model.search, prompt: "Найти лекарство")
                 .refreshable { await model.load() }
         }
-        .task(id: app.selectedPetID) {
+        // Ключ здесь — сама модель, а не выбранный питомец: оболочка
+        // пересоздаёт её на каждого питомца и делает это позже смены питомца.
+        // По `selectedPetID` задача перезапускалась бы на старой модели, а на
+        // экране уже была бы новая и пустая: раздел врал, что данных нет.
+        .task(id: ObjectIdentifier(model)) {
             await model.load()
         }
         .sheet(item: $editing) { target in

@@ -69,6 +69,9 @@ struct MedicalRecord: Identifiable, Sendable {
     let complaint: String?
     let diagnosis: String?
     let recommendations: String?
+    /// Приложенные к записи документы. Сервер заменяет запись целиком, и без
+    /// этих идентификаторов правка отвязала бы документы от записи.
+    let documentIDs: [String]
 
     /// «Просрочено 11 дней». Пусто у записи без даты повтора: выдуманный срок
     /// хуже отсутствия срока.

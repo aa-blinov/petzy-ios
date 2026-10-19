@@ -148,7 +148,8 @@ struct MedicalCardTests {
             protects: nil,
             complaint: nil,
             diagnosis: nil,
-            recommendations: nil
+            recommendations: nil,
+            documentIDs: []
         )
     }
 

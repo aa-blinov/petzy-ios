@@ -135,6 +135,10 @@ final class MedicationsModel {
 
     func create(_ draft: MedicationDraft) async -> Bool {
         errorText = nil
+        if let problem = Self.problem(in: draft) {
+            errorText = problem
+            return false
+        }
         do {
             _ = try await MedicationsAPI.create(client, draft: draft)
             notice = "Лекарство добавлено"
@@ -148,6 +152,10 @@ final class MedicationsModel {
 
     func update(_ medicationID: String, draft: MedicationDraft) async -> Bool {
         errorText = nil
+        if let problem = Self.problem(in: draft) {
+            errorText = problem
+            return false
+        }
         do {
             try await MedicationsAPI.update(client, medicationID: medicationID, draft: draft)
             notice = "Лекарство обновлено"
@@ -192,5 +200,17 @@ final class MedicationsModel {
 
     private static func text(of error: Error) -> String {
         (error as? APIError)?.errorDescription ?? error.localizedDescription
+    }
+
+    /// То, что человек ещё не заполнил, но сервер пропустит. Включённый учёт
+    /// остатка без самого остатка принимается, а считать ему нечего: на
+    /// следующей правке переключатель вышел бы выключенным, то есть молча
+    /// снял бы то, что человек включил. Ноль при этом настоящий остаток,
+    /// кончившаяся упаковка, и его пропускать нельзя.
+    private static func problem(in draft: MedicationDraft) -> String? {
+        if draft.inventoryEnabled, draft.inventoryCurrent == nil {
+            return "Укажите остаток: без него учёт не работает"
+        }
+        return nil
     }
 }

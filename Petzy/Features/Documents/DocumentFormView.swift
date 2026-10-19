@@ -2,25 +2,40 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Форма нового документа: категория, название, срок и сам файл. Файл
-/// обязателен: сервер без него отвечает 422, и проверять это на телефоне
-/// дешевле, чем ждать ответа.
+/// Форма документа: категория, название, срок и сам файл. Файл обязателен
+/// при создании: сервер без него отвечает 422, и проверять это на телефоне
+/// дешевле, чем ждать ответа. При правке файл можно не трогать, и тогда
+/// остаётся прежний.
 struct DocumentFormView: View {
     let model: DocumentsModel
     let app: AppModel
+    /// Правка существующего документа. `nil` — новый.
+    let document: PetDocument?
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var category: DocumentCategory = .vaccination
-    @State private var title = ""
-    @State private var note = ""
-    @State private var expiresAt = ""
-    @State private var hasExpiry = false
-    @State private var expiryDate = Date.now
+    @State private var category: DocumentCategory
+    @State private var title: String
+    @State private var note: String
+    @State private var hasExpiry: Bool
+    @State private var expiryDate: Date
     @State private var picked: UploadFile?
     @State private var photo: PhotosPickerItem?
     @State private var importing = false
     @State private var isSaving = false
+
+    init(model: DocumentsModel, app: AppModel, document: PetDocument? = nil) {
+        self.model = model
+        self.app = app
+        self.document = document
+        _category = State(initialValue: document?.category ?? .vaccination)
+        _title = State(initialValue: document?.title ?? "")
+        _note = State(initialValue: document?.note ?? "")
+        // Как у даты начала у лекарства: выключатель повторяет то, что пришло
+        // с сервера, иначе правка без срока сохранила бы сегодняшний.
+        _hasExpiry = State(initialValue: document?.expiresAt != nil)
+        _expiryDate = State(initialValue: document?.expiresAt.flatMap(MedicalRecordFormView.date) ?? .now)
+    }
 
     var body: some View {
         NavigationStack {
@@ -32,9 +47,7 @@ struct DocumentFormView: View {
                             .foregroundStyle(.red)
                     }
                 }
-                Section("Файл") {
-                    fileRow
-                }
+                files
                 Section("Документ") {
                     Picker("Категория", selection: $category) {
                         ForEach(DocumentCategory.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -54,7 +67,7 @@ struct DocumentFormView: View {
                     Text("Страховка и прививки заканчиваются, и о сроке лучше знать заранее")
                 }
             }
-            .navigationTitle("Документ")
+            .navigationTitle(document == nil ? "Документ" : "Правка документа")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -78,21 +91,13 @@ struct DocumentFormView: View {
         }
     }
 
-    private var canSave: Bool {
-        picked != nil && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSaving
-    }
-
-    @ViewBuilder
-    private var fileRow: some View {
-        if let picked {
-            HStack {
-                Label(picked.name, systemImage: "doc")
-                    .lineLimit(1)
-                Spacer()
-                Button("Заменить") { importing = true }
-                    .font(.subheadline)
+    private var files: some View {
+        Section("Файл") {
+            if let picked {
+                fileRow(name: picked.name, action: "Заменить")
+            } else if let document {
+                fileRow(name: document.title, size: document.sizeText, action: "Заменить")
             }
-        } else {
             PhotosPicker(selection: $photo, matching: .images) {
                 Label("Выбрать фотографию", systemImage: "photo")
             }
@@ -102,6 +107,27 @@ struct DocumentFormView: View {
                 Label("Выбрать файл", systemImage: "folder")
             }
         }
+    }
+
+    private func fileRow(name: String, size: String? = nil, action: String) -> some View {
+        HStack {
+            Label(name, systemImage: "doc")
+                .lineLimit(1)
+            Spacer()
+            if let size {
+                Text(size)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Button(action) { importing = true }
+                .font(.subheadline)
+        }
+    }
+
+    private var canSave: Bool {
+        // При правке файл не обязателен: не выбран новый — останется прежний.
+        let hasFile = picked != nil || document != nil
+        return hasFile && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSaving
     }
 
     /// Файл из «Файлов»: он лежит в песочнице приложения, и пока не сказано
@@ -143,7 +169,6 @@ struct DocumentFormView: View {
     }
 
     private func save() {
-        guard let picked else { return }
         isSaving = true
         let draft = DocumentDraft(
             petID: app.selectedPetID ?? "",
@@ -153,7 +178,16 @@ struct DocumentFormView: View {
             expiresAt: hasExpiry ? MedicalRecordFormView.iso(expiryDate) : nil
         )
         Task {
-            let saved = await model.upload(draft, file: picked)
+            let saved: Bool
+            if let document {
+                saved = await model.update(document, draft: draft, file: picked)
+            } else {
+                guard let picked else {
+                    isSaving = false
+                    return
+                }
+                saved = await model.upload(draft, file: picked)
+            }
             isSaving = false
             if saved {
                 dismiss()

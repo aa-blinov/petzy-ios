@@ -56,6 +56,22 @@ struct MedicalCardWriteTests {
         #expect(body["kind"] as? String == "parasite")
     }
 
+    /// Сервер заменяет запись целиком: не присланные `document_ids` отвязывают
+    /// документы, и анализ молча исчезает из медкарты.
+    @Test("Правка возвращает на сервер те же документы, что пришли")
+    func updateKeepsDocuments() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
+        var draft = Self.draft(.visit, complaint: "Кашель")
+        draft.documentIDs = ["d1", "d2"]
+
+        try await MedicalCardAPI.update(client, id: "r1", draft: draft)
+
+        let body = TestSupport.body(of: StubURLProtocol.requests.last)
+        #expect(body["document_ids"] as? [String] == ["d1", "d2"])
+    }
+
     @Test("Удаление записи уходит отдельным методом")
     func deleteCallsDelete() async throws {
         StubURLProtocol.reset()
@@ -73,7 +89,8 @@ struct MedicalCardWriteTests {
         StubURLProtocol.stub(status: 200, json: ["records": [
             [
                 "_id": "r1", "kind": "parasite", "title": "Бравекто", "date": "2026-07-12",
-                "next_due": "2026-10-07", "days_left": -11, "status": "overdue", "target": "fleas_ticks"
+                "next_due": "2026-10-07", "days_left": -11, "status": "overdue", "target": "fleas_ticks",
+                "documents": [["id": "d1", "title": "Анализ"]]
             ]
         ]])
         let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())

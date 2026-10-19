@@ -50,11 +50,27 @@ enum DocumentsAPI {
         _ = ack
     }
 
-    /// Правка сведений о документе. Сам файл меняется отдельным запросом.
+    /// Правка сведений о документе. Файл меняется отдельным запросом.
     static func update(_ client: APIClient, id: String, draft: DocumentDraft) async throws {
         let ack: DocumentAck = try await client.put(
             "/api/documents/\(AppModel.query(id))",
             body: DocumentUpdateBody(draft: draft)
+        )
+        _ = ack
+    }
+
+    /// Замена файла за тем же документом. Отдельным запросом, а не полем в
+    /// правке сведений: так же и в веб-приложении, и причина одна — если
+    /// файл не приняли, документ остаётся со своим прежним файлом и с уже
+    /// сохранёнными словами. Старый файл сервер удаляет только после того,
+    /// как новый сохранён.
+    static func replaceFile(_ client: APIClient, id: String, file: UploadFile) async throws {
+        var body = MultipartBody()
+        body.addFile(name: "file", fileName: file.name, contentType: file.contentType, data: file.data)
+        let ack: DocumentAck = try await client.putMultipart(
+            "/api/documents/\(AppModel.query(id))/file",
+            body: body.data,
+            contentType: body.contentType
         )
         _ = ack
     }
@@ -71,19 +87,22 @@ enum DocumentsAPI {
 
 // MARK: - Тела запросов
 
-/// Правка сведений. Пустая строка в `expires_at` означает «убери срок», а
-/// `null` — «не трогай»: это разные вещи, и путать их нельзя.
+/// Правка сведений. Пустая строка в `expires_at` и в `note` означает «убери
+/// значение», а `null` — «не трогай»: это разные вещи, и путать их нельзя.
+/// Именно из-за этой разницы снятый срок обязан уходить пустой строкой: если
+/// поле просто не отправить, сервер оставит прежнюю дату, и человек увидит
+/// срок, который уже снял.
 private struct DocumentUpdateBody: Encodable {
     let category: String?
     let title: String?
-    let note: String?
-    let expiresAt: String?
+    let note: String
+    let expiresAt: String
 
     init(draft: DocumentDraft) {
         category = draft.category.rawValue
         title = draft.title
-        note = draft.note
-        expiresAt = draft.expiresAt
+        note = draft.note ?? ""
+        expiresAt = draft.expiresAt ?? ""
     }
 
     enum CodingKeys: String, CodingKey {

@@ -25,6 +25,10 @@ struct Medication: Identifiable, Sendable {
     let scheduledToday: Bool
     let lastTakenAt: String?
     let lastTakenBy: String?
+    /// Комментарий, «от чего» и «кто назначил»: форма правки их показывает.
+    let comment: String?
+    let purpose: String?
+    let prescribedBy: String?
 
     /// Расписание словами: «Ежедневно в 09:00», «В выбранные дни в 10:00,
     /// 22:00», «По необходимости».

@@ -121,6 +121,96 @@ struct DocumentsModelTests {
         #expect(model.expired == 1)
     }
 
+    /// Сведения уходят первыми, файл вторым. Порядок не технический: если
+    /// файл не приняли, у документа остаётся прежний, а уже набранные слова
+    /// сохранены. Наоборот получилось бы наоборот: файл сменился бы, а
+    /// название осталось старым.
+    @Test("Правка документа: сведения, потом файл")
+    func updateSendsDescriptionThenFile() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: DocumentResponseTests.response())
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        StubURLProtocol.stub(status: 200, json: DocumentResponseTests.response())
+        let model = try await makeModel()
+        await model.load()
+
+        let saved = await model.update(
+            Self.document,
+            draft: DocumentDraft(
+                petID: "p1", category: .insurance, title: "Страховка 2027", note: nil, expiresAt: nil
+            ),
+            file: UploadFile(name: "new.pdf", contentType: "application/pdf", data: Data("%PDF".utf8))
+        )
+
+        #expect(saved)
+        #expect(StubURLProtocol.requestedPaths == [
+            "/api/documents",
+            "/api/documents/d1",
+            "/api/documents/d1/file",
+            "/api/documents"
+        ])
+    }
+
+    @Test("Правка без нового файла не трогает прежний")
+    func updateWithoutFileSkipsFileRoute() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: DocumentResponseTests.response())
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        StubURLProtocol.stub(status: 200, json: DocumentResponseTests.response())
+        let model = try await makeModel()
+        await model.load()
+
+        let saved = await model.update(
+            Self.document,
+            draft: DocumentDraft(petID: "p1", category: .other, title: "Паспорт", note: nil, expiresAt: nil),
+            file: nil
+        )
+
+        #expect(saved)
+        #expect(StubURLProtocol.requestedPaths == [
+            "/api/documents",
+            "/api/documents/d1",
+            "/api/documents"
+        ])
+    }
+
+    @Test("Непринятый файл показывает ошибку и не обещает, что всё сохранилось")
+    func failedFileKeepsError() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: DocumentResponseTests.response())
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        StubURLProtocol.stub(
+            status: 422,
+            json: ["success": false, "error": "Файл не поддерживается", "code": "validation_error"]
+        )
+        let model = try await makeModel()
+        await model.load()
+
+        let saved = await model.update(
+            Self.document,
+            draft: DocumentDraft(petID: "p1", category: .other, title: "Паспорт", note: nil, expiresAt: nil),
+            file: UploadFile(name: "new.exe", contentType: "application/octet-stream", data: Data("MZ".utf8))
+        )
+
+        #expect(saved == false)
+        #expect(model.errorText == "Файл не поддерживается")
+    }
+
+    static let document = PetDocument(
+        id: "d1",
+        category: .insurance,
+        title: "Страховка",
+        note: nil,
+        expiresAt: "2020-04-21",
+        createdAt: "2020-01-01T00:00:00Z",
+        contentType: "application/pdf",
+        fileSize: 100,
+        fileURL: nil,
+        recordKinds: [],
+        recordReminds: false
+    )
+
     private func makeModel() async throws -> DocumentsModel {
         // swiftlint:disable:next force_unwrapping
         let baseURL = URL(string: "http://localhost:5002")!

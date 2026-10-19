@@ -13,10 +13,25 @@ struct MedicalProfile: Sendable {
     let clinicName: String?
     let clinicPhone: String?
     let vetName: String?
+    /// Все клиники, а не только основная: сервер заменяет профиль целиком, и
+    /// одна клиника вместо списка стирала бы остальные.
+    let clinics: [ProfileClinic]
     let conditions: [MedicalCondition]
     let diet: String?
     let living: String?
     let reproduction: String?
+}
+
+/// Клиника и её врачи, как их держит сервер.
+struct ProfileClinic: Sendable {
+    var name: String?
+    var phone: String?
+    var doctors: [ProfileDoctor]
+}
+
+struct ProfileDoctor: Sendable {
+    var name: String?
+    var specialty: String?
 }
 
 struct Allergy: Sendable, Equatable {
@@ -70,12 +85,14 @@ struct MedicalProfileDraft: Sendable {
     var clinicName: String?
     var clinicPhone: String?
     var vetName: String?
+    var clinics: [ProfileClinic] = []
     var conditions: [MedicalCondition]
     var diet: String?
     var living: String?
     var reproduction: String?
 
     init(
+        clinics: [ProfileClinic] = [],
         baseVersion: String?,
         allergies: [Allergy],
         allergiesNoneKnown: Bool,
@@ -89,6 +106,7 @@ struct MedicalProfileDraft: Sendable {
         living: String?,
         reproduction: String?
     ) {
+        self.clinics = clinics
         self.baseVersion = baseVersion
         self.allergies = allergies
         self.allergiesNoneKnown = allergiesNoneKnown

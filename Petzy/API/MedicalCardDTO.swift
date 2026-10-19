@@ -69,6 +69,7 @@ struct RecordDTO: Decodable {
     let complaint: String?
     let diagnosis: String?
     let recommendations: String?
+    let documents: [CardDocumentDTO]
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -77,7 +78,7 @@ struct RecordDTO: Decodable {
         case status
         case daysLeft = "days_left"
         case clinic, vet, note, target, protects, batch
-        case complaint, diagnosis, recommendations
+        case complaint, diagnosis, recommendations, documents
     }
 }
 
@@ -120,17 +121,29 @@ struct ProfileDTO: Decodable {
     let bloodType: String?
     let chipNumber: String?
     let clinic: ClinicDTO?
+    let clinics: [ClinicEntryDTO]?
     let conditions: [ConditionDTO]?
     let diet: String?
     let living: String?
     let reproduction: String?
 
     enum CodingKeys: String, CodingKey {
-        case allergies, clinic, conditions, diet, living, reproduction, version
+        case allergies, clinic, clinics, conditions, diet, living, reproduction, version
         case allergiesNoneKnown = "allergies_none_known"
         case bloodType = "blood_type"
         case chipNumber = "chip_number"
     }
+}
+
+struct ClinicEntryDTO: Decodable {
+    let name: String?
+    let phone: String?
+    let doctors: [DoctorDTO]?
+}
+
+struct DoctorDTO: Decodable {
+    let name: String?
+    let specialty: String?
 }
 
 struct ConditionDTO: Decodable {
@@ -234,12 +247,34 @@ extension RecordDTO {
             protects: protects,
             complaint: complaint,
             diagnosis: diagnosis,
-            recommendations: recommendations
+            recommendations: recommendations,
+            documentIDs: documents.map(\.id)
         )
     }
 }
 
 extension ProfileDTO {
+    /// Клиники в том виде, в котором их держит сервер. У старых записей, где
+    /// есть только зеркало `clinic`, берётся она: список строится из неё сам,
+    /// иначе профиль выглядел бы пустым.
+    private static func domainClinics(_ clinics: [ClinicEntryDTO], mirror: ClinicDTO?) -> [ProfileClinic] {
+        guard clinics.isEmpty else {
+            return clinics.map { entry in
+                ProfileClinic(
+                    name: entry.name,
+                    phone: entry.phone,
+                    doctors: (entry.doctors ?? []).map { ProfileDoctor(name: $0.name, specialty: $0.specialty) }
+                )
+            }
+        }
+        guard let mirror, let name = mirror.name, !name.isEmpty else { return [] }
+        return [ProfileClinic(
+            name: name,
+            phone: mirror.phone,
+            doctors: mirror.vet.map { [ProfileDoctor(name: $0, specialty: nil)] } ?? []
+        )]
+    }
+
     var domain: MedicalProfile {
         MedicalProfile(
             baseVersion: version,
@@ -253,6 +288,7 @@ extension ProfileDTO {
             clinicName: clinic?.name,
             clinicPhone: clinic?.phone,
             vetName: clinic?.vet,
+            clinics: Self.domainClinics(clinics ?? [], mirror: clinic),
             conditions: (conditions ?? [])
                 .map { MedicalCondition(name: $0.name, note: $0.note, sinceYear: $0.sinceYear) },
             diet: diet,

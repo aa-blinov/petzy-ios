@@ -54,6 +54,15 @@ struct MedicalRecordDraftTests {
         #expect(draft.vet == "Каримов Д.")
     }
 
+    /// Приложенные к записи документы переживают правку: сервер заменяет
+    /// запись целиком и то, что не прислали, отвязывает.
+    @Test("Документы записи переносятся в форму и обратно на сервер")
+    func documentsSurviveTheEdit() {
+        let draft = MedicalRecordDraft.from(Self.record(kind: .visit, complaint: "Кашель"), petID: "p1")
+
+        #expect(draft.documentIDs == ["d1", "d2"])
+    }
+
     static func record(
         kind: MedicalKind,
         complaint: String? = nil,
@@ -77,7 +86,8 @@ struct MedicalRecordDraftTests {
             protects: protects,
             complaint: complaint,
             diagnosis: complaint == nil ? nil : "Бронхит",
-            recommendations: complaint == nil ? nil : "Антибиотик"
+            recommendations: complaint == nil ? nil : "Антибиотик",
+            documentIDs: ["d1", "d2"]
         )
     }
 }

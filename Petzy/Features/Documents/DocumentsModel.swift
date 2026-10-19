@@ -82,6 +82,31 @@ final class DocumentsModel {
         }
     }
 
+    /// Правка документа. Файла может не быть: человек правит название или срок
+    /// и не прикасается к файлу, и прежний файл должен остаться.
+    @discardableResult
+    func update(_ document: PetDocument, draft: DocumentDraft, file: UploadFile?) async -> Bool {
+        if let problem = DocumentDraft.problem(draft) {
+            errorText = problem
+            return false
+        }
+        errorText = nil
+        do {
+            // Порядок не технический. Если файл не примут, у документа
+            // останется прежний, а уже набранные слова будут сохранены.
+            try await DocumentsAPI.update(client, id: document.id, draft: draft)
+            if let file {
+                try await DocumentsAPI.replaceFile(client, id: document.id, file: file)
+            }
+            notice = "Документ обновлён"
+            await load()
+            return true
+        } catch {
+            errorText = Self.text(of: error)
+            return false
+        }
+    }
+
     /// Файл документа. Кладётся во временную папку: телефон не умеет
     /// показывать PDF сам, а системное меню умеет его отправить.
     func download(_ document: PetDocument) async {

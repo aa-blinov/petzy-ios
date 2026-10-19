@@ -477,6 +477,24 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
 - **Native components, no glass of our own.** Use the system control, strip its
   background and shadow, keep the accent (`#C46A3F` light, `#E8946A` dark).
 
+### A `task(id:)` keyed on the pet shows the previous pet's model
+
+Sections with their own model (`Лекарства`, `Медкарта`, `Документы`) get it
+recreated by `AppShellView` per pet, and that recreation happens **after**
+`selectedPetID` changes. So `.task(id: app.selectedPetID)` restarts while the
+screen still holds the *old* model: `load()` fills the model nobody renders,
+the new empty one appears instead, and nothing loads it again. The screen then
+says «Лекарств нет» at a pet with courses, and only an app restart fixes it.
+The key is the model itself, `.task(id: ObjectIdentifier(model))`, which
+changes exactly when the rendered model does.
+
+Two things made this expensive. Switching pets *before* opening the section
+loads the right model on the first try, so a UI test written that order passes
+on the broken build; the defect needs the section already on screen. And the
+screen looks plausible, so a screenshot of the list taken after the switch
+proves nothing either way — the answer was in the backend access log, where the
+response size for the two pets alternated one step behind the selection.
+
 ### Three traps of `List` on iOS 26, each found by crashing or by looking
 
 - **`swipeActions` + removal of that same row crashes the list.** The signature is

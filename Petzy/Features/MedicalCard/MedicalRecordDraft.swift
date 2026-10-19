@@ -21,6 +21,8 @@ struct MedicalRecordDraft: Sendable {
     var complaint: String?
     var diagnosis: String?
     var recommendations: String?
+    /// Приложенные документы: правка обязана вернуть их на сервер.
+    var documentIDs: [String] = []
 
     init(
         petID: String,
@@ -36,7 +38,8 @@ struct MedicalRecordDraft: Sendable {
         protects: String? = nil,
         complaint: String? = nil,
         diagnosis: String? = nil,
-        recommendations: String? = nil
+        recommendations: String? = nil,
+        documentIDs: [String] = []
     ) {
         self.petID = petID
         self.kind = kind
@@ -52,6 +55,7 @@ struct MedicalRecordDraft: Sendable {
         self.complaint = complaint
         self.diagnosis = diagnosis
         self.recommendations = recommendations
+        self.documentIDs = documentIDs
     }
 }
 
@@ -74,7 +78,8 @@ extension MedicalRecordDraft {
             protects: record.protects,
             complaint: record.complaint,
             diagnosis: record.diagnosis,
-            recommendations: record.recommendations
+            recommendations: record.recommendations,
+            documentIDs: record.documentIDs
         )
     }
 }

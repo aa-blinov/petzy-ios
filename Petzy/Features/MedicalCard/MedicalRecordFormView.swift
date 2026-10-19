@@ -12,6 +12,16 @@ struct MedicalKindSectionView: View {
 
     var body: some View {
         List {
+            // Ошибка удаления видна здесь: на медкарте её показывают только
+            // когда карта не загрузилась, а при загруженной карте о провале
+            // удаления не говорит никто.
+            if let text = model.errorText, !records.isEmpty {
+                Section {
+                    Label(text, systemImage: "exclamationmark.triangle")
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                }
+            }
             if records.isEmpty {
                 // Пустой раздел должен говорить, что здесь нет, и куда
                 // идти: белый экран читается как «не загрузилось».
@@ -148,6 +158,15 @@ struct MedicalRecordFormView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // Ошибка сервера внутри формы: без неё «Сохранить» молча
+                // ничего не делает, и человек гадает, что сломалось.
+                if let text = model.errorText {
+                    Section {
+                        Label(text, systemImage: "exclamationmark.triangle")
+                            .font(.subheadline)
+                            .foregroundStyle(.red)
+                    }
+                }
                 Section("Вид") {
                     Picker("Вид записи", selection: $draft.kind) {
                         ForEach(MedicalKind.allCases, id: \.self) { Text($0.title).tag($0) }

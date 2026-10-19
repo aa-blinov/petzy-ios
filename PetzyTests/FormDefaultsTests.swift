@@ -121,4 +121,22 @@ struct FormDefaultsTests {
 
         #expect(model.newDraft(for: weight).values.isEmpty)
     }
+
+    /// Набор заменяется сервером целиком, поэтому упавшая загрузка не должна
+    /// оставлять его пустым: человек открыл настройки, вписал одно значение и
+    /// стёр всё остальное одним сохранением.
+    @Test("Неудачная загрузка не обнуляет набор")
+    func failedLoadKeepsPreviousValues() async {
+        let model = await TestSupport.makeModel(defaults: TestSupport.makeDefaults())
+        model.select(petID: "p1")
+        model.formDefaults = ["weight": ["food": "Обычный"]]
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 500, json: [
+            "success": false, "error": "Сервер недоступен", "code": "server_error"
+        ])
+
+        await model.loadFormDefaults()
+
+        #expect(model.formDefaults == ["weight": ["food": "Обычный"]])
+    }
 }
