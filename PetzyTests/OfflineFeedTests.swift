@@ -22,6 +22,25 @@ struct OfflineFeedTests {
         #expect(model.offline.isShowingCached, "приложение обязано сказать, что показывает копию")
     }
 
+    /// Копия питомцев нужна переключателю и названию питомца, а не ленте:
+    /// без неё приложение без связи не знает, чей дневник открыт, и переключатель
+    /// пропадает вместе с именем.
+    @Test("Без сети питомцы берутся из копии")
+    func petsFallBackToCache() async {
+        StubURLProtocol.reset()
+        let store = Self.storeWithEvent()
+        let model = await Self.model(store: store)
+        // Выбор питомца в реальном приложении переживает перезапуск, и без него
+        // дневник просто не открыт: копию смотрят от выбранного питомца.
+        await model.select(petID: "p1")
+        StubURLProtocol.stubOffline()
+
+        await model.loadPets()
+
+        #expect(model.pets.map(\.name) == ["Рекс"])
+        #expect(model.selectedPet?.name == "Рекс")
+    }
+
     @Test("Успешная загрузка обновляет копию")
     func successfulLoadUpdatesCache() async {
         StubURLProtocol.reset()
@@ -104,6 +123,45 @@ struct OfflineFeedTests {
 
         #expect(store.load().queue.isEmpty)
         #expect(!model.rawEvents.map(\.id).contains { $0.hasPrefix("local-") }, "отброшенная запись осталась в ленте")
+        #expect(model.offline.pendingIDs.isEmpty)
+    }
+
+    /// Запись, сделанная без сети, принадлежит телефону: её правка и удаление
+    /// не требуют сервера вообще. Иначе человек не смог бы исправить опечатку,
+    /// не дождавшись связи.
+    @Test("Правка неотправленной записи идёт по своему имени и без запроса")
+    func pendingRecordIsEditedLocally() async {
+        StubURLProtocol.reset()
+        let store = LocalStore(url: Self.tempURL())
+        let model = await Self.model(store: store)
+        await model.select(petID: "p1")
+        StubURLProtocol.stubOffline()
+        await model.createEvent(Self.draft)
+        var edited = Self.draft
+        edited.comment = "Опечатка исправлена"
+
+        await model.updateEvent(id: model.rawEvents[0].id, draft: edited)
+
+        #expect(StubURLProtocol.requestedPaths == ["/api/events"])
+        #expect(store.load().queue.first?.body.comment == "Опечатка исправлена")
+        #expect(model.rawEvents.first?.comment == "Опечатка исправлена")
+        #expect(model.offline.pendingIDs.count == 1)
+    }
+
+    @Test("Удаление неотправленной записи убирает её без запроса")
+    func pendingRecordIsDeletedLocally() async {
+        StubURLProtocol.reset()
+        let store = LocalStore(url: Self.tempURL())
+        let model = await Self.model(store: store)
+        await model.select(petID: "p1")
+        StubURLProtocol.stubOffline()
+        await model.createEvent(Self.draft)
+
+        await model.deleteEvent(id: model.rawEvents[0].id)
+
+        #expect(StubURLProtocol.requestedPaths == ["/api/events"], "удаление не должно ходить на сервер")
+        #expect(store.load().queue.isEmpty)
+        #expect(model.rawEvents.isEmpty)
         #expect(model.offline.pendingIDs.isEmpty)
     }
 

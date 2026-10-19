@@ -134,6 +134,11 @@ struct MedicationsView: View {
 
     private var list: some View {
         List {
+            if model.isShowingCached {
+                Section {
+                    CachedNotice()
+                }
+            }
             ForEach(model.visibleMedications) { med in
                 MedicationCard(
                     med: med,

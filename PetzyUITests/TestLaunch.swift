@@ -19,6 +19,17 @@ enum TestLaunch {
         launch(extraArguments: ["-uiTestSignedOut"])
     }
 
+    /// Запуск без сервера. Адрес указывает на порт, где никто не слушает:
+    /// приложение получает обрыв связи, а не пустой ответ. Ключи входа не
+    /// трогаем намеренно — сессия из Keychain должна восстановиться, иначе
+    /// проверялась бы форма входа, а не копия.
+    static func offline() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-petzyBaseURL", "http://127.0.0.1:5999"]
+        app.launch()
+        return app
+    }
+
     private static func launch(extraArguments: [String]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = extraArguments
@@ -70,6 +81,35 @@ enum TestLaunch {
             if !cursor.isEmpty {
                 return name
             }
+        }
+        return nil
+    }
+
+    /// Питомец с курсом лекарства и название этого курса. Спрашивается у
+    /// стенда, а не зашивается: проверка без сети имеет убедиться, что на
+    /// экране та же запись, что и при связи, и не должна падать от того, что
+    /// данные стенда изменились.
+    ///
+    /// Курс берётся активный, а не первый: завершённые приложение прячет под
+    /// «Завершённые курсы», и искать их на экране бессмысленно.
+    static func petWithCourse() async -> (pet: String, course: String)? {
+        guard let base = URL(string: "http://localhost:5002"),
+              let token = await token(),
+              let pets = try? await get("/api/pets", base: base, token: token),
+              let list = pets["pets"] as? [[String: Any]]
+        else { return nil }
+        for pet in list {
+            guard let name = pet["name"] as? String,
+                  let petID = pet["_id"] as? String,
+                  let page = try? await get(
+                      "/api/medications?pet_id=\(petID)&tz=Asia/Almaty",
+                      base: base,
+                      token: token
+                  ),
+                  let courses = page["medications"] as? [[String: Any]],
+                  let course = courses.first { $0["is_active"] as? Bool == true }?["name"] as? String
+            else { continue }
+            return (pet: name, course: course)
         }
         return nil
     }

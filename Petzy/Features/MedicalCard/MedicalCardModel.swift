@@ -27,10 +27,15 @@ final class MedicalCardModel {
 
     private let client: APIClient
     private let petID: String
+    private let offline: OfflineState
 
-    init(client: APIClient, petID: String) {
+    /// На экране копия, а не сеть.
+    private(set) var isShowingCached = false
+
+    init(client: APIClient, petID: String, offline: OfflineState) {
         self.client = client
         self.petID = petID
+        self.offline = offline
     }
 
     var overdueCount: Int {
@@ -45,9 +50,19 @@ final class MedicalCardModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            card = try await MedicalCardAPI.card(client, petID: petID, zone: Self.zone)
+            let data = try await MedicalCardAPI.raw(client, petID: petID, zone: Self.zone)
+            card = try MedicalCardAPI.decode(data)
+            offline.cacheCard(data, petID: petID)
             errorText = nil
+            isShowingCached = false
         } catch {
+            // Копия, а не ошибка: медкарту открывают без связи чаще, чем
+            // кажется, и пустой раздел в этом месте бесполезен.
+            if let decoded = cardFromCopy() {
+                card = decoded
+                isShowingCached = true
+                return
+            }
             errorText = Self.text(of: error)
         }
     }
@@ -245,5 +260,11 @@ final class MedicalCardModel {
 
     private static func text(of error: Error) -> String {
         (error as? APIError)?.errorDescription ?? error.localizedDescription
+    }
+
+    /// Карточка из копии, если она есть и разбирается.
+    private func cardFromCopy() -> MedicalCard? {
+        guard card == nil, let copy = offline.cardCopy(petID: petID) else { return nil }
+        return try? MedicalCardAPI.decode(copy)
     }
 }

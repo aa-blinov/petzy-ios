@@ -312,6 +312,10 @@ struct MedicationsModelTests {
         )
         let auth = AuthSession(baseURL: baseURL, urlSession: session, storage: tokens)
         await auth.restore()
-        return MedicationsModel(client: APIClient(baseURL: baseURL, urlSession: session, auth: auth), petID: "p1")
+        return MedicationsModel(
+            client: APIClient(baseURL: baseURL, urlSession: session, auth: auth),
+            petID: "p1",
+            offline: OfflineState(store: LocalStore(url: TestSupport.tempStoreURL()))
+        )
     }
 }

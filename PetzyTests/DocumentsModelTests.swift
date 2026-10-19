@@ -221,6 +221,10 @@ struct DocumentsModelTests {
         )
         let auth = AuthSession(baseURL: baseURL, urlSession: session, storage: tokens)
         await auth.restore()
-        return DocumentsModel(client: APIClient(baseURL: baseURL, urlSession: session, auth: auth), petID: "p1")
+        return DocumentsModel(
+            client: APIClient(baseURL: baseURL, urlSession: session, auth: auth),
+            petID: "p1",
+            offline: OfflineState(store: LocalStore(url: TestSupport.tempStoreURL()))
+        )
     }
 }

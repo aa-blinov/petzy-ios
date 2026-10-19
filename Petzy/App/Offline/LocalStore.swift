@@ -11,6 +11,12 @@ struct OfflineSnapshot: Codable, Sendable {
     var eventTypes: [String: EventTypeInfo] = [:]
     /// Записи по питомцам. Ключ — `pet_id`.
     var events: [String: [PetEvent]] = [:]
+    /// Ответы разделов как пришли с сервера, по питомцам. Хранятся байтами, а
+    /// не разобранными объектами: разбор у раздела один, и второй разбор в
+    /// копии разошёлся бы с ним при первой же правке контракта.
+    var medications: [String: Data] = [:]
+    var documents: [String: Data] = [:]
+    var card: [String: Data] = [:]
     /// Записи, которые человек сделал без сети и которые ещё не ушли.
     var queue: [PendingWrite] = []
 

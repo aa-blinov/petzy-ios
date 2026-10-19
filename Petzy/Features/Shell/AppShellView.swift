@@ -69,9 +69,9 @@ struct AppShellView: View {
             // запросы, и подменить его на ходу значило бы ждать ответа по
             // чужому курсу.
             guard let petID = model.selectedPetID else { return }
-            medications = MedicationsModel(client: model.client, petID: petID)
-            medicalCard = MedicalCardModel(client: model.client, petID: petID)
-            documents = DocumentsModel(client: model.client, petID: petID)
+            medications = MedicationsModel(client: model.client, petID: petID, offline: model.offline)
+            medicalCard = MedicalCardModel(client: model.client, petID: petID, offline: model.offline)
+            documents = DocumentsModel(client: model.client, petID: petID, offline: model.offline)
             // Значения по умолчанию тоже питомца, а не аккаунта: у другого
             // питомца свой набор.
             await model.loadFormDefaults()

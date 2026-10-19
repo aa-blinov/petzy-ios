@@ -34,6 +34,37 @@ final class OfflineState {
         snapshot.queue.count
     }
 
+    // MARK: - Копии разделов
+
+    /// Кладёт ответ раздела в копию. Отдел пришёл на телефон, и следующий
+    /// запуск без сети должен показать ровно его.
+    func cacheMedications(_ data: Data, petID: String) {
+        snapshot.medications[petID] = data
+        store.save(snapshot)
+    }
+
+    func medicationsCopy(petID: String) -> Data? {
+        snapshot.medications[petID]
+    }
+
+    func cacheDocuments(_ data: Data, petID: String) {
+        snapshot.documents[petID] = data
+        store.save(snapshot)
+    }
+
+    func documentsCopy(petID: String) -> Data? {
+        snapshot.documents[petID]
+    }
+
+    func cacheCard(_ data: Data, petID: String) {
+        snapshot.card[petID] = data
+        store.save(snapshot)
+    }
+
+    func cardCopy(petID: String) -> Data? {
+        snapshot.card[petID]
+    }
+
     /// Копия записей питомца. `nil` — копии нет, и показывать нечего.
     func cachedEvents(petID: String) -> [PetEvent]? {
         let events = snapshot.events[petID] ?? []
@@ -82,6 +113,29 @@ final class OfflineState {
         snapshot.queue.removeAll { $0.localID == localID }
         store.save(snapshot)
         pendingIDs.remove(localID)
+    }
+
+    /// Правка неотправленной записи: она ещё не на сервере, и ждать ради
+    /// исправления опечатки связи незачем. Отдаёт обновлённую запись для
+    /// показа, `nil` — запись не наша, тогда правка идёт на сервер.
+    @discardableResult
+    func updatePending(_ localID: String, draft: EventDraft) -> PetEvent? {
+        guard let index = snapshot.queue.firstIndex(where: { $0.localID == localID }) else { return nil }
+        let petID = snapshot.queue[index].petID
+        snapshot.queue[index] = PendingWrite(
+            localID: localID,
+            petID: petID,
+            body: PendingBody(
+                date: draft.date,
+                time: draft.time,
+                zone: TimeZone.current.identifier,
+                type: draft.type.key,
+                comment: draft.comment,
+                fields: draft.encodedFields
+            )
+        )
+        store.save(snapshot)
+        return Self.event(from: snapshot.queue[index])
     }
 
     /// Отправляет очередь. Останавливается на первой неудаче: следующая запись

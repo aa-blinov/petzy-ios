@@ -106,6 +106,11 @@ struct MedicalCardView: View {
 
     private func list(_ card: MedicalCard) -> some View {
         List {
+            if model.isShowingCached {
+                Section {
+                    CachedNotice()
+                }
+            }
             header(card)
             Section("Разделы") {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {

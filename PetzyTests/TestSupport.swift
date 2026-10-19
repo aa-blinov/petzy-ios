@@ -7,6 +7,12 @@ import Testing
 /// местах значит через месяц забыть про одно из них.
 enum TestSupport {
     /// Настройки с отдельным именем, чтобы тест не затирал то, что на симуляторе.
+    /// Файл копии на одноразовом пути: тесты не должны делить одну копию.
+    static func tempStoreURL() -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("petzy-store-\(UUID().uuidString).json")
+    }
+
     static func makeDefaults() -> UserDefaults {
         let suite = "TestSupport.\(UUID().uuidString)"
         // swiftlint:disable:next force_unwrapping

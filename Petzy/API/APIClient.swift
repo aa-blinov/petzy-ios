@@ -19,6 +19,13 @@ struct APIClient: Sendable {
         try await send(APIRequest(path: path, anonymous: anonymous), as: type)
     }
 
+    /// Ответ как пришёл, без разбора. Им копируется раздел для работы без
+    /// сети: сохранять проще то, что пришло, а разбирать потом тем же кодом,
+    /// что и сеть, иначе копия и сеть разойдутся.
+    func getRaw(_ path: String) async throws -> Data {
+        try await raw(APIRequest(path: path)).0
+    }
+
     func post<T: Decodable & Sendable>(
         _ path: String,
         body: some Encodable & Sendable,

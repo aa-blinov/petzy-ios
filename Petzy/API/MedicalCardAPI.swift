@@ -8,9 +8,17 @@ enum MedicalCardAPI {
     /// профиль приходят вместе, и собирать их по одному означало бы мигающий
     /// экран при каждом открытии вкладки.
     static func card(_ client: APIClient, petID: String, zone: String) async throws -> MedicalCard {
-        let path = "/api/pets/\(AppModel.query(petID))/medical-card?tz=\(AppModel.query(zone))"
-        let response: CardResponse = try await client.get(path)
-        return response.card.domain
+        try await decode(raw(client, petID: petID, zone: zone))
+    }
+
+    /// Ответ карточки как пришёл: его же кладут в копию для работы без сети.
+    static func raw(_ client: APIClient, petID: String, zone: String) async throws -> Data {
+        try await client.getRaw("/api/pets/\(AppModel.query(petID))/medical-card?tz=\(AppModel.query(zone))")
+    }
+
+    /// Разбор ответа карточки. Один и тот же и для сети, и для копии.
+    static func decode(_ data: Data) throws -> MedicalCard {
+        try JSONDecoder().decode(CardResponse.self, from: data).card.domain
     }
 
     /// PDF для врача приходит файлом: приложение открывает готовый, а не

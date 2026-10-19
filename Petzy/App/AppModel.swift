@@ -25,7 +25,7 @@ final class AppModel {
 
     /// Показывалось ли первое знакомство с приложением. Ключ в UserDefaults:
     /// это не секрет, Keychain тут не нужен.
-    private static let onboardingKey = "seenOnboarding"
+    static let onboardingKey = "seenOnboarding"
 
     var state: State = .restoring
     private(set) var isSigningIn = false
@@ -35,8 +35,9 @@ final class AppModel {
 
     /// Требуется ли согласие с текущей редакцией политики. Сервер поднимает
     /// этот флаг, когда аккаунт создан администратором или когда политику
-    /// поменяли после того, как человек с ней соглашался.
-    private(set) var privacyConsentNeeded = false
+    /// поменяли после того, как человек с ней соглашался. Пишется из
+    /// `AppModel+Session.swift`, поэтому без `private(set)`.
+    var privacyConsentNeeded = false
 
     private(set) var petsState: PetsState = .loading
     private(set) var selectedPetID: String?
@@ -146,7 +147,7 @@ final class AppModel {
     /// Сессия открыта наружу: смена пароля возвращает новую пару токенов, и её
     /// обязан положить в хранилище тот, кто отправил запрос.
     let auth: AuthSession
-    private let defaults: UserDefaults
+    let defaults: UserDefaults
     /// Копия, очередь записей и признак «на экране копия».
     let offline: OfflineState
 
@@ -195,6 +196,13 @@ final class AppModel {
             let apiError = error as? APIError
             if apiError?.isAuthProblem == true {
                 signOut()
+                return
+            }
+            // Без связи питомцы берутся из копии: иначе приложение не знает,
+            // чей дневник открыт, и переключатель с именем исчезают, хотя
+            // лента и разделы из копии показываются.
+            if apiError?.isTransport == true, !offline.snapshot.pets.isEmpty {
+                petsState = .loaded(offline.snapshot.pets)
                 return
             }
             petsState = .failed(apiError?.errorDescription ?? error.localizedDescription)
@@ -286,6 +294,15 @@ final class AppModel {
 
     /// Правка существующей записи.
     func updateEvent(id: String, draft: EventDraft) async {
+        // Запись из очереди ещё не на сервере: правка идёт по своему имени и
+        // без сети, иначе опечатку в метро было бы не исправить.
+        if let updated = offline.updatePending(id, draft: draft) {
+            if let index = rawEvents.firstIndex(where: { $0.id == id }) {
+                rawEvents[index] = updated
+            }
+            feedNotice = nil
+            return
+        }
         feedErrorText = nil
         do {
             let request = EventRequest.update(draft)
@@ -301,6 +318,13 @@ final class AppModel {
     /// запись исчезла бы с экрана, но осталась бы в базе, и человек бы её
     /// искал, думая, что неудачно сохранил.
     func deleteEvent(id: String) async {
+        // Запись из очереди удаляется целиком на устройстве: на сервере её
+        // нет, и запрос только спросил бы о том, чего не существует.
+        if offline.pendingIDs.contains(id) {
+            offline.removePending(id)
+            rawEvents.removeAll { $0.id == id }
+            return
+        }
         feedErrorText = nil
         do {
             try await client.delete("/api/events/\(id)")
@@ -346,26 +370,6 @@ final class AppModel {
             await loadConsent()
             await loadAdminRights()
         }
-    }
-
-    /// Согласие спрашивается при каждом входе: редакция политики может
-    /// поменяться, пока телефон лежал в кармане. Ответ не пришёл — вопрос не
-    /// показываем: лучше пропустить проверку, чем застрять на пустом экране.
-    private func loadConsent() async {
-        privacyConsentNeeded = await (try? AccountAPI.consentNeeded(client)) ?? false
-    }
-
-    func acceptPrivacyConsent() {
-        privacyConsentNeeded = false
-    }
-
-    /// Человек ещё не видел первый экран с объяснением.
-    var needsOnboarding: Bool {
-        !defaults.bool(forKey: Self.onboardingKey)
-    }
-
-    func skipOnboarding() {
-        defaults.set(true, forKey: Self.onboardingKey)
     }
 
     func signIn(username: String, password: String) async {

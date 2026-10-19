@@ -22,10 +22,16 @@ final class MedicationsModel {
 
     private let client: APIClient
     private let petID: String
+    private let offline: OfflineState
 
-    init(client: APIClient, petID: String) {
+    /// На экране копия, а не сеть. Лекарство дают по часам, и ждать интернета
+    /// ради того, чтобы увидеть расписание, нельзя.
+    private(set) var isShowingCached = false
+
+    init(client: APIClient, petID: String, offline: OfflineState) {
         self.client = client
         self.petID = petID
+        self.offline = offline
     }
 
     /// Точка на вкладке: приём просрочен и об этом узнают, не заходя внутрь.
@@ -70,10 +76,20 @@ final class MedicationsModel {
             // По очереди, а не одновременно: два запроса подряд дают
             // предсказуемый порядок, и по заглушке видно, кто что получил.
             // Взаимной зависимости между ними нет, ждать обе сразу незачем.
-            medications = try await MedicationsAPI.list(client, petID: petID, zone: Self.zone)
+            let data = try await MedicationsAPI.raw(client, petID: petID, zone: Self.zone)
+            medications = try MedicationsAPI.decode(data)
+            offline.cacheMedications(data, petID: petID)
             upcoming = try await MedicationsAPI.upcoming(client, petID: petID, zone: Self.zone)
             errorText = nil
+            isShowingCached = false
         } catch {
+            // Копия, а не ошибка: человек открыл раздел без сети и должен
+            // увидеть свои курсы. Показывать ошибку вместо них незачем.
+            if let decoded = medicationsFromCopy() {
+                medications = decoded
+                isShowingCached = true
+                return
+            }
             errorText = Self.text(of: error)
         }
     }
@@ -214,6 +230,14 @@ final class MedicationsModel {
 
     private static func text(of error: Error) -> String {
         (error as? APIError)?.errorDescription ?? error.localizedDescription
+    }
+
+    /// Курсы из копии, если она есть и разбирается. `nil` — показывать нечего,
+    /// и тогда человек должен увидеть ошибку, а не пустоту.
+    private func medicationsFromCopy() -> [Medication]? {
+        guard medications.isEmpty, let copy = offline.medicationsCopy(petID: petID),
+              let decoded = try? MedicationsAPI.decode(copy), !decoded.isEmpty else { return nil }
+        return decoded
     }
 
     /// Отказ пришёл от сервера, а не от сети. Разница важна: на ответе сервера

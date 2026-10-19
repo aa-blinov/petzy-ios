@@ -91,6 +91,11 @@ struct DocumentsView: View {
 
     private var list: some View {
         List {
+            if model.isShowingCached {
+                Section {
+                    CachedNotice()
+                }
+            }
             filter
             ForEach(model.visible) { document in
                 row(document)

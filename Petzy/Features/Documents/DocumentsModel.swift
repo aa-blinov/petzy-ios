@@ -19,10 +19,15 @@ final class DocumentsModel {
 
     private let client: APIClient
     private let petID: String
+    private let offline: OfflineState
 
-    init(client: APIClient, petID: String) {
+    /// На экране копия, а не сеть.
+    private(set) var isShowingCached = false
+
+    init(client: APIClient, petID: String, offline: OfflineState) {
         self.client = client
         self.petID = petID
+        self.offline = offline
     }
 
     /// Документы по фильтру. Фильтр в списке, а не в запросе: список короткий,
@@ -49,9 +54,19 @@ final class DocumentsModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            documents = try await DocumentsAPI.list(client, petID: petID)
+            let data = try await DocumentsAPI.raw(client, petID: petID)
+            documents = try DocumentsAPI.decode(data)
+            offline.cacheDocuments(data, petID: petID)
             errorText = nil
+            isShowingCached = false
         } catch {
+            // Копия, а не ошибка: список документов без сети всё равно полезен,
+            // а сообщение об ошибке только отнимает у человека пустой экран.
+            if let decoded = documentsFromCopy() {
+                documents = decoded
+                isShowingCached = true
+                return
+            }
             errorText = Self.text(of: error)
         }
     }
@@ -141,6 +156,13 @@ final class DocumentsModel {
 
     private static func text(of error: Error) -> String {
         (error as? APIError)?.errorDescription ?? error.localizedDescription
+    }
+
+    /// Документы из копии, если она есть и разбирается.
+    private func documentsFromCopy() -> [PetDocument]? {
+        guard documents.isEmpty, let copy = offline.documentsCopy(petID: petID),
+              let decoded = try? DocumentsAPI.decode(copy), !decoded.isEmpty else { return nil }
+        return decoded
     }
 }
 

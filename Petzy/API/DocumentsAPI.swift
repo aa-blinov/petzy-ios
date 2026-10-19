@@ -10,12 +10,21 @@ enum DocumentsAPI {
         petID: String,
         category: DocumentCategory? = nil
     ) async throws -> [PetDocument] {
+        try await decode(raw(client, petID: petID, category: category))
+    }
+
+    /// Ответ списка как пришёл: его же кладут в копию для работы без сети.
+    static func raw(_ client: APIClient, petID: String, category: DocumentCategory? = nil) async throws -> Data {
         var path = "/api/documents?pet_id=\(AppModel.query(petID))"
         if let category {
             path += "&category=\(AppModel.query(category.rawValue))"
         }
-        let response: DocumentsResponse = try await client.get(path)
-        return response.documents.map(\.domain)
+        return try await client.getRaw(path)
+    }
+
+    /// Разбор ответа списка. Один и тот же и для сети, и для копии.
+    static func decode(_ data: Data) throws -> [PetDocument] {
+        try JSONDecoder().decode(DocumentsResponse.self, from: data).documents.map(\.domain)
     }
 
     /// Загрузка файла. Тело не JSON, а multipart: поля формы и сам файл в
