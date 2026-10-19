@@ -46,7 +46,7 @@ struct PetProfileModelTests {
     @Test("Новый питомец открывается пустым и запроса не делает")
     func newPetStartsEmpty() async {
         StubURLProtocol.reset()
-        let model = await PetProfileModel(client: client(), petID: nil)
+        let model = await PetProfileModel(client: client(), petID: nil, offline: offline())
 
         await model.load()
 
@@ -147,7 +147,7 @@ struct PetProfileModelTests {
     func createdPetAsksToBeSelected() async {
         StubURLProtocol.reset()
         StubURLProtocol.stub(status: 201, json: PetProfileTests.cardResponse())
-        let model = await PetProfileModel(client: client(), petID: nil)
+        let model = await PetProfileModel(client: client(), petID: nil, offline: offline())
         model.draft.name = "Рекс"
 
         let saved = await model.save(photo: nil, removePhoto: false)
@@ -160,7 +160,12 @@ struct PetProfileModelTests {
     }
 
     private func makeModel() async -> PetProfileModel {
-        await PetProfileModel(client: client(), petID: "p1")
+        await PetProfileModel(client: client(), petID: "p1", offline: offline())
+    }
+
+    /// Очередь без связи: пустая и своя, чтобы тесты не делили одну.
+    private func offline() -> OfflineState {
+        OfflineState(store: LocalStore(url: TestSupport.tempStoreURL()))
     }
 
     private func client() async -> APIClient {

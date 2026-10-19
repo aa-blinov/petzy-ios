@@ -30,6 +30,7 @@ extension AppModel {
     func flushQueue() async {
         guard !flushingPending else { return }
         let before = offline.pendingCount
+        let hadPets = offline.pendingPets.isEmpty == false
         flushingPending = true
         queueRefusals = await offline.flush(using: client)
         flushingPending = false
@@ -38,6 +39,11 @@ extension AppModel {
         guard before > 0, offline.pendingCount != before else { return }
         queueFlushCount += 1
         await loadFeed()
+        // Питомец, заведённый без связи, появился на сервере: без перечитки
+        // списка в переключателе его не было бы.
+        if hadPets {
+            await loadPets()
+        }
     }
 
     // MARK: - Записи

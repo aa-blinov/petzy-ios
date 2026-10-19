@@ -23,6 +23,24 @@ enum PetsAPI {
         return response.pet.domain
     }
 
+    /// Тело нового питомца для очереди: то же, что уходит на сервер, но под
+    /// своим именем. Имя это `local_id`: по нему сервер узнаёт повтор и не
+    /// заводит второго питомца.
+    static func createBody(draft: PetDraft, photo: UploadFile?, localID: String) -> MultipartBody {
+        form(draft: draft, photo: photo, removePhoto: false, localID: localID)
+    }
+
+    /// Тело правки для очереди. Версия та, что человек видел: сервер откажет,
+    /// если карточку поменяли с тех пор, и останется версия сервера.
+    static func updateBody(
+        draft: PetDraft,
+        photo: UploadFile?,
+        removePhoto: Bool,
+        baseVersion: String?
+    ) -> MultipartBody {
+        form(draft: draft, photo: photo, removePhoto: removePhoto, baseVersion: baseVersion)
+    }
+
     /// Правка питомца. Ответа с карточкой сервер не присылает, только
     /// «Данные питомца обновлены», поэтому вызывающий перечитывает карточку
     /// сам — иначе на экране осталось бы то, что человек правил до сохранения.
@@ -85,7 +103,8 @@ enum PetsAPI {
         draft: PetDraft,
         photo: UploadFile?,
         removePhoto: Bool,
-        baseVersion: String? = nil
+        baseVersion: String? = nil,
+        localID: String? = nil
     ) -> MultipartBody {
         var body = MultipartBody()
         body.addField(name: "name", value: draft.name)
@@ -104,6 +123,9 @@ enum PetsAPI {
         }
         if let baseVersion {
             body.addField(name: "base_version", value: baseVersion)
+        }
+        if let localID {
+            body.addField(name: "local_id", value: localID)
         }
         if let photo {
             body.addFile(name: "photo_file", fileName: photo.name, contentType: photo.contentType, data: photo.data)

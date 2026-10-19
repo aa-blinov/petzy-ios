@@ -23,7 +23,7 @@ struct PetProfileView: View {
 
     init(client: APIClient, petID: String?, app: AppModel) {
         self.app = app
-        _model = State(initialValue: PetProfileModel(client: client, petID: petID))
+        _model = State(initialValue: PetProfileModel(client: client, petID: petID, offline: app.offline))
     }
 
     var body: some View {
@@ -41,6 +41,7 @@ struct PetProfileView: View {
                 // плейсхолдер исчезает, как только человек что-то ввёл, и
                 // «Рекс» без слова «Имя» на экране ничего не значит.
                 LabeledContent("Имя") { TextField("", text: $model.draft.name) }
+                    .accessibilityIdentifier("petName")
                 Picker("Вид", selection: $model.draft.species) {
                     Text("Не указан").tag(String?.none)
                     ForEach(model.speciesKinds) { kind in
@@ -51,33 +52,7 @@ struct PetProfileView: View {
                     TextField("", text: $model.draft.breed)
                 }
             }
-            Section {
-                Toggle("Дата рождения", isOn: $hasBirthDate)
-                if hasBirthDate {
-                    // Год назад, а не сегодня: сервер даты в будущем не
-                    // принимает, и годовалый щенок не должен ловить ошибку
-                    // только потому, что человек открыл форму.
-                    DatePicker(
-                        "Родился",
-                        selection: $birthDate,
-                        in: ...Date.now,
-                        displayedComponents: .date
-                    )
-                }
-                Picker("Пол", selection: $model.draft.gender) {
-                    ForEach(PetGender.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                // Про кастрацию спрашивают не у всякого: у рыбы её не бывает.
-                if PetSpecies.asksAboutNeutering(model.draft.species) {
-                    Picker(neuteringTitle, selection: $model.draft.neutering) {
-                        ForEach(Neutering.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                }
-            } header: {
-                Text("Здоровье")
-            } footer: {
-                Text("Аллергии, хронические состояния и прививки вносятся в медкарте")
-            }
+            PetHealthSection(hasBirthDate: $hasBirthDate, birthDate: $birthDate, draft: $model.draft)
             Section("Заметки") {
                 TextField("Важная информация о здоровье", text: $model.draft.healthNotes, axis: .vertical)
                     .lineLimit(2 ... 5)
@@ -137,19 +112,24 @@ struct PetProfileView: View {
                 ? "Вместе с ним пропадут: \(model.impact?.summary ?? "")"
                 : "Питомца и его записи будет не вернуть")
         }
+        .alert("Записано", isPresented: Binding(get: { model.notice != nil }, set: {
+            if !$0 {
+                model.notice = nil
+            }
+        })) {
+            // Форма закрывается вместе с окном: питомец уже в телефоне, и
+            // второй раз нажать «Сохранить» нельзя.
+            Button("Понятно") {
+                model.notice = nil
+                dismiss()
+            }
+        } message: {
+            Text(model.notice ?? "")
+        }
     }
 
     private var canSave: Bool {
-        !isSaving && !model.draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    /// «Кастрация» у мальчика и «Стерилизация» у девочки, у остальных — оба.
-    private var neuteringTitle: String {
-        switch model.draft.gender {
-        case .male: "Кастрация"
-        case .female: "Стерилизация"
-        case .unknown: "Кастрация или стерилизация"
-        }
+        !isSaving && !model.isQueued && !model.draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     // MARK: - Фото
@@ -280,6 +260,11 @@ struct PetProfileView: View {
             let saved = await model.save(photo: picked, removePhoto: removePhoto)
             isSaving = false
             guard saved else { return }
+            // Питомец записан в телефон: форму закрывает «Понятно» в окне, а
+            // не эта строка: сохранить его второй раз нельзя.
+            if model.isQueued {
+                return
+            }
             // Список питомцев пора перечитать: имя поменялось, а нового
             // питомца в списке ещё нет.
             if let created = model.createdID {
@@ -301,6 +286,53 @@ struct PetProfileView: View {
             guard model.isDeleted else { return }
             await app.loadPets()
             dismiss()
+        }
+    }
+}
+
+/// Здоровье питомца: дата рождения, пол и кастрация. Отдельным видом, а не
+/// частью формы: та с фотографией и удалением в лимит тела типа не влезает.
+private struct PetHealthSection: View {
+    @Binding var hasBirthDate: Bool
+    @Binding var birthDate: Date
+    @Binding var draft: PetDraft
+
+    var body: some View {
+        Section {
+            Toggle("Дата рождения", isOn: $hasBirthDate)
+            if hasBirthDate {
+                // Год назад, а не сегодня: сервер даты в будущем не принимает,
+                // и годовалый щенок не должен ловить ошибку только потому,
+                // что человек открыл форму.
+                DatePicker(
+                    "Родился",
+                    selection: $birthDate,
+                    in: ...Date.now,
+                    displayedComponents: .date
+                )
+            }
+            Picker("Пол", selection: $draft.gender) {
+                ForEach(PetGender.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            // Про кастрацию спрашивают не у всякого: у рыбы её не бывает.
+            if PetSpecies.asksAboutNeutering(draft.species) {
+                Picker(neuteringTitle, selection: $draft.neutering) {
+                    ForEach(Neutering.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+            }
+        } header: {
+            Text("Здоровье")
+        } footer: {
+            Text("Аллергии, хронические состояния и прививки вносятся в медкарте")
+        }
+    }
+
+    /// «Кастрация» у мальчика и «Стерилизация» у девочки, у остальных — оба.
+    private var neuteringTitle: String {
+        switch draft.gender {
+        case .male: "Кастрация"
+        case .female: "Стерилизация"
+        case .unknown: "Кастрация или стерилизация"
         }
     }
 }

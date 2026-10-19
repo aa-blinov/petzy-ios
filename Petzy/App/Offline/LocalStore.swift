@@ -34,7 +34,7 @@ struct PendingWrite: Codable, Sendable, Identifiable {
     let localID: String
     let petID: String
     /// Что за запись в очереди: запись ленты, курс лекарства, медицинская
-    /// запись или отметка приёма.
+    /// запись, отметка приёма или питомец.
     let kind: PendingKind
     /// Чем показать её в списке неотправленного.
     let title: String
@@ -45,6 +45,29 @@ struct PendingWrite: Codable, Sendable, Identifiable {
     let path: String
     /// Тело запроса, JSON: ровно то, что уйдёт на сервер.
     let payload: Data
+    /// Заголовок `Content-Type` тела. `nil` — тело JSON. У питомца тело
+    /// multipart, и без заголовка с границей сервер его не разберёт.
+    let contentType: String?
+
+    init(
+        localID: String,
+        petID: String,
+        kind: PendingKind,
+        title: String,
+        method: String,
+        path: String,
+        payload: Data,
+        contentType: String? = nil
+    ) {
+        self.localID = localID
+        self.petID = petID
+        self.kind = kind
+        self.title = title
+        self.method = method
+        self.path = path
+        self.payload = payload
+        self.contentType = contentType
+    }
 }
 
 /// Раздел записи в очереди. По нему раздел показывает своё неотправленное, а
@@ -54,6 +77,7 @@ enum PendingKind: String, Codable, Sendable {
     case medication
     case medicalRecord = "medical_record"
     case intake
+    case pet
 }
 
 extension PendingWrite {
@@ -62,6 +86,8 @@ extension PendingWrite {
         switch kind {
         case .intake:
             "отметка приёма ждёт отправки"
+        case .pet:
+            method == "PUT" ? "правка ждёт отправки" : "питомец ждёт отправки"
         default:
             method == "PUT" ? "правка ждёт отправки" : "не отправлено"
         }

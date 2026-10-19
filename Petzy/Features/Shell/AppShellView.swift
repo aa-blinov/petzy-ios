@@ -125,6 +125,18 @@ private struct SettingsSection: View {
                 // Без `.plain` вся строка красится в акцент и читается как
                 // ссылка, а не как пункт настроек рядом с «Историей».
                 .buttonStyle(.plain)
+                // Питомец, заведённый без связи, ждёт здесь своей отправки.
+                // Рядом с кнопкой «Добавить питомца» он и виден: иначе человек
+                // не понял бы, куда делся его новый питомец.
+                if !model.offline.pendingPets.isEmpty {
+                    Section {
+                        ForEach(model.offline.pendingPets) { write in
+                            PendingRow(write: write) { model.offline.removePending(write.localID) }
+                        }
+                    } header: {
+                        Text("Не отправлено")
+                    }
+                }
                 NavigationLink {
                     HelpView()
                 } label: {

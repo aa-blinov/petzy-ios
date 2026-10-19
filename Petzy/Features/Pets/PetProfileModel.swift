@@ -18,6 +18,12 @@ final class PetProfileModel {
     /// её нельзя, сервер заменяет карточку целиком.
     private(set) var loadFailed = false
     var errorText: String?
+    /// Питомец записан в телефон и ждёт связи. Пока это так, форма закрывается
+    /// по кнопке «Понятно», а не сама.
+    var notice: String?
+    /// Питомец уже в очереди: второй раз сохранять нельзя, иначе завелся бы
+    /// второй такой же.
+    private(set) var isQueued = false
     /// Питомец удалён: список питомцев пора перечитать, а экран закрыть.
     private(set) var isDeleted = false
     /// Питомец добавлен: его надо выбрать и показать в списке.
@@ -25,10 +31,12 @@ final class PetProfileModel {
 
     private let client: APIClient
     private let petID: String?
+    private let offline: OfflineState
 
-    init(client: APIClient, petID: String?) {
+    init(client: APIClient, petID: String?, offline: OfflineState) {
         self.client = client
         self.petID = petID
+        self.offline = offline
         draft = PetDraft()
     }
 
@@ -103,6 +111,12 @@ final class PetProfileModel {
             }
             return true
         } catch {
+            // Без связи питомец не теряется: он ждёт в очереди и уйдёт на
+            // сервер сам, когда связь вернётся.
+            if (error as? APIError)?.isTransport == true {
+                queue(photo: photo, removePhoto: removePhoto)
+                return true
+            }
             // Питомца поменяли, пока человек его правил. Остаётся версия
             // сервера, и её надо показать, а не держать на экране старую.
             if (error as? APIError)?.code == "conflict" {
@@ -111,6 +125,49 @@ final class PetProfileModel {
             errorText = Self.text(of: error)
             return false
         }
+    }
+
+    /// Ставит питомца в очередь. Создание и правка идут разными запросами, но
+    /// очередь одна: путь, метод и тело.
+    private func queue(photo: UploadFile?, removePhoto: Bool) {
+        guard let petID else {
+            let localID = "local-" + UUID().uuidString
+            let body = PetsAPI.createBody(draft: draft, photo: photo, localID: localID)
+            enqueue(localID: localID, title: draft.name, method: "POST", path: "/api/pets", body: body)
+            notice = "Питомец записан в телефон, уйдёт на сервер, когда появится связь"
+            return
+        }
+        // Версия та, что человек видел: сервер откажет, если карточку поменяли
+        // с тех пор, и останется версия сервера.
+        let body = PetsAPI.updateBody(
+            draft: draft,
+            photo: photo,
+            removePhoto: removePhoto,
+            baseVersion: profile?.updatedAt
+        )
+        enqueue(
+            localID: petID,
+            title: draft.name,
+            method: "PUT",
+            path: "/api/pets/" + AppModel.query(petID),
+            body: body
+        )
+        notice = "Правка сохранена в телефон, уйдёт на сервер, когда появится связь"
+    }
+
+    private func enqueue(localID: String, title: String, method: String, path: String, body: MultipartBody) {
+        guard let contentType = body.contentType else { return }
+        offline.enqueue(PendingWrite(
+            localID: localID,
+            petID: localID,
+            kind: .pet,
+            title: title,
+            method: method,
+            path: path,
+            payload: body.data,
+            contentType: contentType
+        ))
+        isQueued = true
     }
 
     /// Что пропадёт вместе с питомцем. Читается до вопроса: человек должен

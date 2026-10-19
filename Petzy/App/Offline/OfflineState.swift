@@ -86,10 +86,18 @@ final class OfflineState {
     /// записью, а не создаст вторую.
     @discardableResult
     func enqueue(_ write: PendingWrite) -> PendingWrite {
+        // Правка, которая уже лежит в очереди, заменяется новой: иначе ушло бы
+        // два запроса с одной версией, и второй отказался бы как устаревший.
+        snapshot.queue.removeAll { $0.localID == write.localID && $0.kind == write.kind }
         snapshot.queue.append(write)
         store.save(snapshot)
         pendingIDs.insert(write.localID)
         return write
+    }
+
+    /// Питомцы, которых ещё нет на сервере: они ждут своей очереди.
+    var pendingPets: [PendingWrite] {
+        snapshot.queue.filter { $0.kind == .pet }
     }
 
     /// Неотправленное выбранного питомца по виду записи: раздел показывает
@@ -146,7 +154,12 @@ final class OfflineState {
         var refused: [String] = []
         while let pending = snapshot.queue.first {
             do {
-                try await client.sendRaw(pending.path, method: pending.method, body: pending.payload)
+                try await client.sendRaw(
+                    pending.path,
+                    method: pending.method,
+                    body: pending.payload,
+                    contentType: pending.contentType
+                )
                 removePending(pending.localID)
             } catch {
                 // Запись на сервере уже удалили. Повторять её незачем: она вернёт

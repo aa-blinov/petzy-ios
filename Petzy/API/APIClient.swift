@@ -39,8 +39,11 @@ struct APIClient: Sendable {
     /// Запрос с телом, которое уже собрано: очередь офлайн-записей хранит
     /// тело как пришло и отправляет его теми же байтами. Разбирать ответ не
     /// нужно: после отправки раздел перечитывается с сервера.
-    func sendRaw(_ path: String, method: String = "POST", body: Data) async throws {
-        let result = try await raw(APIRequest(path: path, method: method, body: body))
+    ///
+    /// `contentType` нужен телу не JSON: у питомца это multipart с границей,
+    /// и без заголовка сервер не поймёт, где кончается одна часть тела.
+    func sendRaw(_ path: String, method: String = "POST", body: Data, contentType: String? = nil) async throws {
+        let result = try await raw(APIRequest(path: path, method: method, body: body, contentType: contentType))
         guard (200 ..< 300).contains(result.1.statusCode) else {
             throw HTTP.apiError(data: result.0, response: result.1)
         }
@@ -135,6 +138,8 @@ struct APIClient: Sendable {
         var path: String
         var method = "GET"
         var body: Data?
+        /// Заголовок `Content-Type` тела, когда оно не JSON.
+        var contentType: String?
         /// Запрос без сессии: токен не подставляется и обновляться нечему.
         var anonymous = false
     }
@@ -174,7 +179,15 @@ struct APIClient: Sendable {
     }
 
     private func perform(_ request: APIRequest, token: String?) async throws -> (Data, HTTPURLResponse) {
-        try await HTTP.send(
+        // Тело не JSON уезжает multipart'ом: у него своя граница в заголовке,
+        // и сервер без неё тело не разберёт.
+        if let contentType = request.contentType {
+            return try await HTTP.sendMultipart(
+                urlSession: urlSession, baseURL: baseURL, path: request.path,
+                method: request.method, body: request.body ?? Data(), contentType: contentType, accessToken: token
+            )
+        }
+        return try await HTTP.send(
             urlSession: urlSession, baseURL: baseURL, path: request.path,
             method: request.method, jsonBody: request.body, accessToken: token
         )
