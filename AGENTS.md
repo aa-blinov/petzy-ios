@@ -334,7 +334,10 @@ commits that sit on `master` locally but not on `origin`:
   `deleted_at`, kept for 30 days.
 
 Own event types (`/api/event-types`, key `custom_…`, `category: null`):
-- The key and the colour are the server's to assign; send neither on create.
+- The **key** is the server's to assign; `icon` and `color` are not — without
+  either of them `POST` answers 422 `validation_error` with
+  `{"field": "icon"|"color", "type": "missing"}`. The app sends both from the
+  person's choice of icon and colour.
 - `DELETE …?preview=true` returns `events_count`, and the type is **not**
   deletable while it has records: the real `DELETE` answers 422
   `event_type_has_events`. Ask for the count first and say plainly that only an
@@ -511,7 +514,10 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
   initializer to `EventDraft` silently removed the synthesised `init(type:…)` that
   the tests and the form were calling, and the errors pointed at every call site
   instead of at the struct. When a struct grows a convenience initializer, write
-  the plain one out by hand.
+  the plain one out by hand. The same trap is built into the language: a `let`
+  with a default value (`let batch: String? = nil`) is dropped from the memberwise
+  initializer too, so adding "just a default" makes every call site stop
+  compiling with «extra arguments at positions …».
 - «the compiler is unable to type-check this expression in reasonable time» is
   almost never a slow type checker. It is a modifier or argument the API does not
   have, and the real diagnostic («no member `allowsFullSwipe`») shows up only
