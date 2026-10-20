@@ -115,6 +115,7 @@ struct LocalStoreTests {
             breed: nil,
             birthDate: nil,
             gender: nil,
+            photoURL: nil,
             updatedAt: nil
         )]
         snapshot.eventTypes = ["weight": EventTypeInfo(

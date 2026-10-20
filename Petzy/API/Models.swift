@@ -53,6 +53,14 @@ struct Pet: Codable, Sendable, Identifiable, Equatable {
     let breed: String?
     let birthDate: String?
     let gender: String?
+    /// Подписанный адрес фотографии питомца. Список питомцев отдаёт его
+    /// вместе с остальным, и телефон ходит по нему сам, без токена: подпись
+    /// в самой ссылке.
+    ///
+    /// Ограничение: адрес живёт час-два, и когда он протухает, фото в карточке
+    /// надо перезапросить. Пока это незаметно: список питомцев перечитывается
+    /// при запуске приложения, а загруженная картинка остаётся в памяти.
+    let photoURL: URL?
     /// Версия питомца: когда его меняли в последний раз. Её приложение
     /// отправляет при правке, и сервер отвечает отказом, если питомца поменяли
     /// с тех пор.
@@ -62,6 +70,7 @@ struct Pet: Codable, Sendable, Identifiable, Equatable {
         case id = "_id"
         case name, species, breed, gender
         case birthDate = "birth_date"
+        case photoURL = "photo_url"
         case updatedAt = "updated_at"
     }
 }

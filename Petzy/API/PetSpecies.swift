@@ -7,6 +7,9 @@ enum PetSpecies {
     struct Kind: Identifiable, Sendable {
         let key: String
         let title: String
+        /// Значок вида в карточке питомца. У кота и собаки свои, у кого знака
+        /// нет, лапка.
+        let icon: String
         /// У рыбы и попугая породы нет: то, что у собаки «порода», у рыбки
         /// «вид». Подпись поля меняется вместе с видом питомца.
         let breedTitle: String
@@ -19,19 +22,25 @@ enum PetSpecies {
     }
 
     private static let kinds: [Kind] = [
-        Kind(key: "cat", title: "Кот", breedTitle: "Порода", neutering: true),
-        Kind(key: "dog", title: "Собака", breedTitle: "Порода", neutering: true),
-        Kind(key: "rabbit", title: "Кролик", breedTitle: "Порода", neutering: true),
-        Kind(key: "ferret", title: "Хорёк", breedTitle: "Окрас", neutering: true),
-        Kind(key: "guinea_pig", title: "Морская свинка", breedTitle: "Порода", neutering: true),
-        Kind(key: "chinchilla", title: "Шиншилла", breedTitle: "Окрас", neutering: true),
-        Kind(key: "rat", title: "Крыса", breedTitle: "Порода", neutering: true),
-        Kind(key: "hamster", title: "Хомяк", breedTitle: "Порода", neutering: true),
-        Kind(key: "bird", title: "Птица", breedTitle: "Вид", neutering: false),
-        Kind(key: "fish", title: "Рыбка", breedTitle: "Вид", neutering: false),
-        Kind(key: "turtle", title: "Черепаха", breedTitle: "Вид", neutering: false),
-        Kind(key: "reptile", title: "Ящерица или змея", breedTitle: "Вид", neutering: false),
-        Kind(key: "other", title: "Другой питомец", breedTitle: "Порода или вид", neutering: true)
+        Kind(key: "cat", title: "Кот", icon: "cat.fill", breedTitle: "Порода", neutering: true),
+        Kind(key: "dog", title: "Собака", icon: "dog.fill", breedTitle: "Порода", neutering: true),
+        Kind(key: "rabbit", title: "Кролик", icon: "hare.fill", breedTitle: "Порода", neutering: true),
+        Kind(key: "ferret", title: "Хорёк", icon: "pawprint.fill", breedTitle: "Окрас", neutering: true),
+        Kind(key: "guinea_pig", title: "Морская свинка", icon: "pawprint.fill", breedTitle: "Порода", neutering: true),
+        Kind(key: "chinchilla", title: "Шиншилла", icon: "pawprint.fill", breedTitle: "Окрас", neutering: true),
+        Kind(key: "rat", title: "Крыса", icon: "pawprint.fill", breedTitle: "Порода", neutering: true),
+        Kind(key: "hamster", title: "Хомяк", icon: "pawprint.fill", breedTitle: "Порода", neutering: true),
+        Kind(key: "bird", title: "Птица", icon: "bird.fill", breedTitle: "Вид", neutering: false),
+        Kind(key: "fish", title: "Рыбка", icon: "fish.fill", breedTitle: "Вид", neutering: false),
+        Kind(key: "turtle", title: "Черепаха", icon: "tortoise.fill", breedTitle: "Вид", neutering: false),
+        Kind(key: "reptile", title: "Ящерица или змея", icon: "pawprint.fill", breedTitle: "Вид", neutering: false),
+        Kind(
+            key: "other",
+            title: "Другой питомец",
+            icon: "pawprint.fill",
+            breedTitle: "Порода или вид",
+            neutering: true
+        )
     ]
 
     /// Порядок как в вебе: сначала те, у кого вид выбирают чаще.
@@ -48,6 +57,11 @@ enum PetSpecies {
     static func label(for key: String?) -> String? {
         guard let key, !key.isEmpty else { return nil }
         return kind(key)?.title ?? key
+    }
+
+    /// Значок вида для карточки питомца. У кого своего знака нет, лапка.
+    static func icon(for key: String?) -> String {
+        kind(key)?.icon ?? "pawprint.fill"
     }
 
     static func breedTitle(for key: String?) -> String {

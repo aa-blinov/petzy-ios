@@ -232,6 +232,7 @@ struct OfflineFeedTests {
             breed: nil,
             birthDate: nil,
             gender: nil,
+            photoURL: nil,
             updatedAt: nil
         )]
         snapshot.events = ["p1": [PetEvent(

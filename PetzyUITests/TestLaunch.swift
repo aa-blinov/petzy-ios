@@ -126,6 +126,24 @@ enum TestLaunch {
         return nil
     }
 
+    /// Питомец с фото на стенде: имя и порода. Фото есть не у всех, а у
+    /// питомца без фото карточка показывает значок вида, и проверять тогда
+    /// нечего.
+    static func petWithPhoto() async -> (name: String, breed: String?)? {
+        guard let base = URL(string: "http://localhost:5002"),
+              let token = await token(),
+              let pets = try? await get("/api/pets", base: base, token: token),
+              let list = pets["pets"] as? [[String: Any]]
+        else { return nil }
+        for pet in list {
+            guard let name = pet["name"] as? String,
+                  let photo = pet["photo_url"] as? String, !photo.isEmpty
+            else { continue }
+            return (name: name, breed: pet["breed"] as? String)
+        }
+        return nil
+    }
+
     /// Переключает приложение на питомца с именем `name`.
     static func selectPet(_ app: XCUIApplication, named name: String) {
         let switcher = app.buttons["petSwitcher"]

@@ -82,16 +82,32 @@ struct FeedView: View {
             }
         } else if model.isLoadingFeed, model.days.isEmpty {
             ProgressView()
-        } else if model.days.isEmpty {
-            ContentUnavailableView("Пока нет записей", systemImage: "list.bullet")
         } else {
             list
+        }
+    }
+
+    /// Карточка питомца: фото, имя и кто он. Тап открывает «О питомце», где
+    /// всё это и правят. В вебе та же карточка стоит над лентой.
+    @ViewBuilder
+    private var card: some View {
+        if let pet = model.selectedPet {
+            NavigationLink {
+                PetProfileView(client: model.client, petID: pet.id, app: model)
+            } label: {
+                PetSummaryCard(pet: pet)
+            }
+            // Без `.plain` вся строка красится в акцент и читается как ссылка,
+            // а не как карточка питомца.
+            .buttonStyle(.plain)
+            .listRowSeparator(.hidden)
         }
     }
 
     private var list: some View {
         ScrollViewReader { proxy in
             List {
+                card
                 if model.offline.isShowingCached {
                     Section {
                         Label("Нет связи, показаны сохранённые записи", systemImage: "wifi.slash")
@@ -128,18 +144,25 @@ struct FeedView: View {
                         }
                     }
                 }
-                ForEach(model.days) { day in
-                    Section(Feed.dayHeader(day.date, today: .now, calendar: .current)) {
-                        ForEach(day.events) { event in
-                            row(event)
+                if model.days.isEmpty {
+                    // Пустая лента это тоже про питомца: карточка над этим
+                    // текстом остаётся, и видно, чей дневник пуст.
+                    ContentUnavailableView("Пока нет записей", systemImage: "list.bullet")
+                        .listRowSeparator(.hidden)
+                } else {
+                    ForEach(model.days) { day in
+                        Section(Feed.dayHeader(day.date, today: .now, calendar: .current)) {
+                            ForEach(day.events) { event in
+                                row(event)
+                            }
                         }
                     }
-                }
-                if model.hasMoreEvents {
-                    Button(model.isLoadingFeed ? "Загружаем" : "Загрузить ещё") {
-                        Task { await model.loadMore() }
+                    if model.hasMoreEvents {
+                        Button(model.isLoadingFeed ? "Загружаем" : "Загрузить ещё") {
+                            Task { await model.loadMore() }
+                        }
+                        .disabled(model.isLoadingFeed)
                     }
-                    .disabled(model.isLoadingFeed)
                 }
             }
             .listStyle(.plain)

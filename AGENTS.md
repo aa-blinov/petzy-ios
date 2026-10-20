@@ -498,6 +498,13 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
   [What's new in SwiftUI, WWDC26](https://developer.apple.com/videos/play/wwdc2026/269/).
 - **Pets carry a photo and a name.** No photo frames, no coloured card background,
   no handwritten font. Those were web decoration.
+- **The pet's card is the first row of the feed.** Photo (or the species icon when
+  there is no photo), name, and the line «age, breed, gender», all in one line
+  through a comma. The photo comes from the pet list itself (`photo_url` in
+  `/api/pets`), so no extra request is needed; the address is signed and opens
+  without a token. The card is a link to «О питомце», where all of this is
+  edited. The web's «Добавить возраст и породу» button is not repeated: the
+  link leads to the same form.
 - **Native components, no glass of our own.** Use the system control, strip its
   background and shadow, keep the accent (`#C46A3F` light, `#E8946A` dark).
 
