@@ -45,7 +45,7 @@ struct APIClient: Sendable {
     func sendRaw(_ path: String, method: String = "POST", body: Data, contentType: String? = nil) async throws {
         let result = try await raw(APIRequest(path: path, method: method, body: body, contentType: contentType))
         guard (200 ..< 300).contains(result.1.statusCode) else {
-            throw HTTP.apiError(data: result.0, response: result.1)
+            throw Self.failure(data: result.0, response: result.1)
         }
     }
 
@@ -62,7 +62,7 @@ struct APIClient: Sendable {
     func delete(_ path: String) async throws {
         let result = try await raw(APIRequest(path: path, method: "DELETE"))
         guard (200 ..< 300).contains(result.1.statusCode) else {
-            throw HTTP.apiError(data: result.0, response: result.1)
+            throw Self.failure(data: result.0, response: result.1)
         }
     }
 
@@ -112,7 +112,7 @@ struct APIClient: Sendable {
     func download(_ path: String) async throws -> (data: Data, fileName: String?) {
         let result = try await raw(APIRequest(path: path))
         guard (200 ..< 300).contains(result.1.statusCode) else {
-            throw HTTP.apiError(data: result.0, response: result.1)
+            throw Self.failure(data: result.0, response: result.1)
         }
         return (result.0, Self.fileName(from: result.1))
     }
@@ -218,6 +218,16 @@ struct APIClient: Sendable {
             urlSession: urlSession, baseURL: baseURL, path: request.path,
             method: request.method, body: body, contentType: contentType, accessToken: token
         )
+    }
+
+    /// Ошибка по ответу сервера. Отказ 401 — это конец сессии, и его надо
+    /// отличить от обычной ошибки: иначе приложение остаётся внутри с текстом
+    /// «Сессия закончилась», и человек думает, что действие не сработало.
+    private static func failure(data: Data, response: HTTPURLResponse) -> APIError {
+        if response.statusCode == 401 {
+            return .unauthorized
+        }
+        return HTTP.apiError(data: data, response: response)
     }
 
     private static func decode<T: Decodable>(

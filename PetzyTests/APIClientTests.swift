@@ -155,6 +155,46 @@ struct APIClientTests {
         #expect(try storage.read() != nil, "токены стёрты, а сеть просто моргнула")
     }
 
+    /// Отказ 401 на маршруте, где ответ не разбирается, означает то же, что и
+    /// на остальных: сессия кончилась. Раньше такие маршруты отдавали обычную
+    /// ошибку сервера, приложение оставалось внутри с текстом «Сессия
+    /// закончилась», и человек думал, что действие не сработало.
+    @Test("401 при удалении выкидывает на экран входа")
+    func unauthorizedOnDelete() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 401, json: ["error": "Нет токена или он истёк"])
+        StubURLProtocol.stub(status: 401, json: ["error": "refresh-токен недействителен"])
+        let client = await makeClient(storage: signedInStorage())
+
+        await #expect(throws: APIError.unauthorized) {
+            try await client.delete("/api/events/e-1")
+        }
+    }
+
+    @Test("401 при выгрузке выкидывает на экран входа")
+    func unauthorizedOnDownload() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 401, json: ["error": "Нет токена или он истёк"])
+        StubURLProtocol.stub(status: 401, json: ["error": "refresh-токен недействителен"])
+        let client = await makeClient(storage: signedInStorage())
+
+        await #expect(throws: APIError.unauthorized) {
+            try await client.download("/api/export/all/csv?pet_id=p1")
+        }
+    }
+
+    @Test("401 в очереди офлайн-записей выкидывает на экран входа")
+    func unauthorizedOnRawSend() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 401, json: ["error": "Нет токена или он истёк"])
+        StubURLProtocol.stub(status: 401, json: ["error": "refresh-токен недействителен"])
+        let client = await makeClient(storage: signedInStorage())
+
+        await #expect(throws: APIError.unauthorized) {
+            try await client.sendRaw("/api/events", method: "POST", body: Data("{}".utf8))
+        }
+    }
+
     @Test("Без входа клиент не ходит в сеть")
     func refusesRequestWithoutTokens() async throws {
         StubURLProtocol.reset()
