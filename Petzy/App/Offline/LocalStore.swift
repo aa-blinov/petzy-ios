@@ -112,6 +112,28 @@ struct PendingBody: Codable, Sendable {
     }
 }
 
+/// Тело офлайн-правки записи: ровно то, что уходит в `PUT /api/events/<id>`.
+/// Типа у него нет: тип записи не меняется, и в правке его нет.
+struct PendingEditBody: Codable, Sendable {
+    let date: String
+    let time: String
+    let comment: String
+    let fields: [String: FieldValue]
+}
+
+/// Правка записи, сделанная без сети: что человек изменил и в какой записи.
+/// Сервер про такую правку ещё не знает, и показывать надо её, а не то, что
+/// прислал сервер: человек иначе решит, что правка пропала.
+struct PendingEventEdit: Sendable {
+    /// Имя записи. У правки оно серверное: запись на сервере есть, и правка
+    /// идёт по её адресу.
+    let id: String
+    let date: String
+    let time: String
+    let comment: String
+    let fields: [String: FieldValue]
+}
+
 /// Локальная копия на диске. Пишется целиком и атомарно: оборванная запись
 /// файла означала бы, что у человека пропал дневник.
 final class LocalStore: @unchecked Sendable {

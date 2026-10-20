@@ -119,6 +119,26 @@ final class OfflineState {
             .compactMap(Self.event(from:))
     }
 
+    /// Правки записей, сделанные без сети: что человек изменил и в какой
+    /// записи. Их надо класть поверх того, что показано, иначе на экране
+    /// останется серверная версия, а человек решит, что правка пропала.
+    func pendingEventEdits(petID: String) -> [PendingEventEdit] {
+        pendingWrites(kind: .event, petID: petID)
+            .filter { $0.method == "PUT" }
+            .compactMap { write in
+                guard let body = try? JSONDecoder().decode(PendingEditBody.self, from: write.payload) else {
+                    return nil
+                }
+                return PendingEventEdit(
+                    id: write.localID,
+                    date: body.date,
+                    time: body.time,
+                    comment: body.comment,
+                    fields: body.fields
+                )
+            }
+    }
+
     func removePending(_ localID: String) {
         snapshot.queue.removeAll { $0.localID == localID }
         store.save(snapshot)

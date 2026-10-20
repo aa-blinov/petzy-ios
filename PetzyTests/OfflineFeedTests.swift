@@ -220,6 +220,39 @@ struct OfflineFeedTests {
         #expect(store.load().queue.isEmpty)
     }
 
+    /// Правка без сети не должна теряться с экрана. Запись на сервере есть, и
+    /// показывать надо отредактированную, с пометкой «не отправлено», а не
+    /// серверную и не ничего: человек правил запись в метро и потом ищет её
+    /// по всей ленте, не находя.
+    @Test("Правка без сети остаётся на экране, когда лента перечитывается")
+    func offlineEditStaysOnScreen() async {
+        StubURLProtocol.reset()
+        let store = LocalStore(url: Self.tempURL())
+        let model = await Self.model(store: store)
+        await model.select(petID: "p1")
+        TestSupport.stubTypeReference()
+        StubURLProtocol.stub(status: 200, json: Self.page())
+        await model.loadFeed()
+        #expect(model.rawEvents.count == 1)
+
+        // Связи нет: правка встаёт в очередь.
+        StubURLProtocol.stubOffline()
+        var edited = Self.draft
+        edited.comment = "Опечатка исправлена"
+        await model.updateEvent(id: "e1", draft: edited)
+        #expect(store.load().queue.first?.method == "PUT")
+
+        // Связь вернулась, лента перечиталась: сервер отдаёт старую версию,
+        // а отправка правки не удалась и запись осталась в очереди.
+        TestSupport.stubTypeReference()
+        StubURLProtocol.stub(status: 200, json: Self.page())
+        await model.loadFeed()
+
+        #expect(model.rawEvents.map(\.id) == ["e1"], "правка без сети убрала запись из ленты")
+        #expect(model.rawEvents.first?.comment == "Опечатка исправлена", "на экране старая версия записи")
+        #expect(model.offline.pendingIDs.contains("e1"))
+    }
+
     // MARK: - Образцы
 
     static func storeWithEvent() -> LocalStore {

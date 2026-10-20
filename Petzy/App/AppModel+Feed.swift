@@ -15,14 +15,39 @@ extension AppModel {
         eventTypes = offline.snapshot.eventTypes
         rawEvents = cached
         offline.isShowingCached = true
+        // Записи и правки, сделанные без сети, показываются и по копии: в
+        // метро человек сделал их, и ждать связи, чтобы увидеть свою запись,
+        // незачем.
+        showPending()
     }
 
     /// Записи очереди показываются в ленте сразу: человек сделал их в метро и
     /// должен видеть их так же, как остальные.
     func showPending() {
         guard let petID = selectedPetID else { return }
-        rawEvents.removeAll { offline.pendingIDs.contains($0.id) }
         rawEvents.append(contentsOf: offline.pendingEvents(petID: petID))
+        applyPendingEdits()
+    }
+
+    /// Правки, сделанные без сети, кладутся поверх того, что показано. Запись
+    /// на сервере есть, и на экране должна быть отредактированная, с пометкой
+    /// «не отправлено»: серверная версия выглядела бы так, будто правка
+    /// пропала, а человек потом ищет её по всей ленте.
+    func applyPendingEdits() {
+        guard let petID = selectedPetID else { return }
+        for edit in offline.pendingEventEdits(petID: petID) {
+            guard let index = rawEvents.firstIndex(where: { $0.id == edit.id }) else { continue }
+            let old = rawEvents[index]
+            rawEvents[index] = PetEvent(
+                id: old.id,
+                type: old.type,
+                dateTime: "\(edit.date) \(edit.time)",
+                comment: edit.comment,
+                fields: edit.fields,
+                isDeleted: false,
+                updatedAt: old.updatedAt
+            )
+        }
     }
 
     /// Очередь уходит, когда сеть вернулась. После отправки лента перечитывается:
