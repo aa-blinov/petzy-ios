@@ -1,6 +1,7 @@
 included:
   - Petzy
   - PetzyTests
+  - PetzyUITests
 
 line_length:
   warning: 120

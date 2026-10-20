@@ -164,6 +164,22 @@ with CI, and that is the usual source of "works here, fails in CI".
   is absent.
 - **The client retries once after a 401 and the refresh.** A second 401
   becomes `.unauthorized`; there is no loop.
+- **A session dies only when the server says so.** The refresh token lives a
+  week, so a network blip must not wipe it: the person in the subway would be
+  thrown out of the app and would have to type their password again.
+  `AuthSession.RefreshOutcome` tells the three cases apart: `.refreshed`,
+  `.offline` (the network is gone, the session is alive, the request failed
+  as a transport error and the app shows the saved copy) and `.expired` (the
+  server refused, the tokens are gone, the person goes back to the login
+  screen).
+- **Any 401 means the session is over, on every route.** `APIClient.failure`
+  turns it into `.unauthorized` so that `isAuthProblem` is true and the app
+  shows the login. A route that does not parse the response (delete, raw
+  send, download, the raw copy of a section) must not return the server's
+  401 as an ordinary error: the person would stay inside the app with
+  "Session expired" and think the action failed. The same goes for `getRaw`:
+  the body of an error must not reach the offline copy, or its parsing fails
+  later with a service message instead of "session expired".
 - **Models decode with hand-written `CodingKeys`.**
   `JSONDecoder.convertFromSnakeCase` turns the pet id `_id` into `Id`, and
   that typo does not surface as a build error.
@@ -190,6 +206,14 @@ with CI, and that is the usual source of "works here, fails in CI".
   is `Bool?` and a missing key becomes `false`. Make the field required and
   the whole user list fails to decode, and the screen stays empty with a
   decoding error.
+- **The offline copy belongs to the person who put it there.** The snapshot
+  keeps the login of its owner, and the copy is shown only to him: on a
+  shared device the next person to sign in must not see someone else's
+  diary. Signing out takes the copy with it, but a session that died on its
+  own does not: the person did not choose that, and his records must still
+  be there next time. The login is known without the network (the login form
+  gives it), and it is remembered in `UserDefaults` -- it is not a secret, and
+  without it the app could not tell whose copy it is showing.
 - **The offline queue is one queue of raw requests.** A write made without a
   network is kept as the path, the method and the body, and the name the
   device gave the record is the `local_id` of the contract, so a repeated
@@ -243,6 +267,9 @@ with CI, and that is the usual source of "works here, fails in CI".
   place: swiftformat moves the brace of a multi-line `if let` onto its own
   line and SwiftLint's `opening_brace` forbids it. Write such conditions on
   one line rather than adding a suppression.
+- **CI checks the style of everything.** SwiftLint covers `Petzy`,
+  `PetzyTests` and `PetzyUITests`, and the workflow also runs
+  `swiftformat --lint`: a hook can be bypassed, CI cannot.
 - **No dependency without a reason written down next to it.** The project
   has no package manager and no third-party package; the system frameworks
   are all it uses.

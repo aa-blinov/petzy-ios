@@ -54,6 +54,13 @@ jobs:
       - name: Проверить стиль
         run: swiftlint lint --strict
 
+      # Форматирование проверяет и хук, но хук можно обойти, а CI — нет.
+      # Версия swiftformat закреплена, чтобы новый не переписал код иначе.
+      - name: Проверить форматирование
+        run: |
+          brew install swiftformat
+          swiftformat Petzy PetzyTests PetzyUITests --lint
+
       - name: Собрать
         run: |
           xcodebuild -project Petzy.xcodeproj -scheme Petzy \

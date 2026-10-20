@@ -4,6 +4,18 @@ import XCTest
 /// экран, который грузит по прежнему питомцу, показывает пустоту до
 /// перезапуска приложения: человек видит «Лекарств нет» у питомца с курсами и
 /// верит этому.
+/// Питомец на стенде: имя и адрес.
+private struct StandPet {
+    let id: String
+    let name: String
+}
+
+/// Питомец, у которого на стенде есть курс, и название этого курса.
+private struct CourseOwner {
+    let pet: StandPet
+    let medication: String
+}
+
 @MainActor
 final class PetSwitchUITests: XCTestCase {
     override func setUp() {
@@ -18,6 +30,7 @@ final class PetSwitchUITests: XCTestCase {
         guard let target = stand.petWithMedications else {
             throw XCTSkip("На стенде нет питомца с курсами: проверять нечего")
         }
+        let course = target.medication
         // Раздел открываем до смены питомца: дефект живёт именно в этом
         // порядке. Когда раздел открывают уже после смены, он и так грузит
         // нужного питомца с первого раза, и проверка ничего не поймала бы.
@@ -26,30 +39,25 @@ final class PetSwitchUITests: XCTestCase {
 
         // Сначала уходим на другого питомца: если выбранный уже нужный, смены
         // не происходит и проверка ничего не поймала бы.
-        if let other = stand.pet(without: target.id) {
+        if let other = stand.pet(without: target.pet.id) {
             TestLaunch.selectPet(app, named: other.name)
         }
-        TestLaunch.selectPet(app, named: target.name)
+        TestLaunch.selectPet(app, named: target.pet.name)
 
         XCTAssertTrue(
-            app.staticTexts[target.medication].waitForExistence(timeout: 25),
-            "После смены питомца его курс «\(target.medication)» не показан: \(app.debugDescription)"
+            app.staticTexts[course].waitForExistence(timeout: 25),
+            "После смены питомца его курс «\(course)» не показан: \(app.debugDescription)"
         )
     }
 
     /// Снимок стенда для теста: кто есть и у кого что. Читается напрямую, как
     /// в остальных прогонах против живого стека.
     private struct Stand {
-        struct Pet {
-            let id: String
-            let name: String
-        }
-
         /// Питомец, у которого есть хоть один курс, и название этого курса.
-        let petWithMedications: (id: String, name: String, medication: String)?
-        let pets: [Pet]
+        let petWithMedications: CourseOwner?
+        let pets: [StandPet]
 
-        func pet(without id: String) -> Pet? {
+        func pet(without id: String) -> StandPet? {
             pets.first { $0.id != id }
         }
 
@@ -59,12 +67,12 @@ final class PetSwitchUITests: XCTestCase {
                 throw XCTSkip("Стенд не отдал токен: \(base)")
             }
             let list = try await Self.get("/api/pets", base: base, token: token)
-            let all = (list["pets"] as? [[String: Any]] ?? []).compactMap { row -> Pet? in
+            let all = (list["pets"] as? [[String: Any]] ?? []).compactMap { row -> StandPet? in
                 guard let id = row["_id"] as? String, let name = row["name"] as? String else { return nil }
-                return Pet(id: id, name: name)
+                return StandPet(id: id, name: name)
             }
             pets = all
-            var found: (id: String, name: String, medication: String)?
+            var found: CourseOwner?
             for pet in all {
                 guard let page = try? await Self.get(
                     "/api/medications?pet_id=\(pet.id)",
@@ -76,7 +84,7 @@ final class PetSwitchUITests: XCTestCase {
                 let shown = medications.first(where: { ($0["is_active"] as? Bool) != false }),
                 let name = shown["name"] as? String
                 else { continue }
-                found = (pet.id, pet.name, name)
+                found = CourseOwner(pet: pet, medication: name)
                 break
             }
             petWithMedications = found
