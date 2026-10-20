@@ -190,20 +190,27 @@ struct FeedView: View {
     }
 
     private func row(_ event: PetEvent) -> some View {
-        FeedRow(event: event, model: model)
-            .contentShape(.rect)
-            .onTapGesture { openEditor(event) }
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                Button("Изменить") { openEditor(event) }
-                // Полный свайп выключен: удаление на сервере жёсткое, и одна
-                // подтверждённая кнопка лучше случайного жеста.
-                // В iOS 26 кнопки свайпа берут цвет из тинта: одной роли
-                // `.destructive` недостаточно, «Удалить» вышла бы того же
-                // коричневого цвета, что «Изменить». Роль оставлена тоже: по ней
-                // доступность читает действие как разрушающее.
-                Button("Удалить", role: .destructive) { pendingDelete = event }
-                    .tint(.red)
-            }
+        // Кнопка, а не жест: строкой без кнопки голос её не откроет, а на
+        // iPad и на Mac по ней нельзя перейти клавишей. Как в документах и
+        // своих типах записей.
+        Button {
+            openEditor(event)
+        } label: {
+            FeedRow(event: event, model: model)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button("Изменить") { openEditor(event) }
+            // Полный свайп выключен: удаление на сервере жёсткое, и одна
+            // подтверждённая кнопка лучше случайного жеста.
+            // В iOS 26 кнопки свайпа берут цвет из тинта: одной роли
+            // `.destructive` недостаточно, «Удалить» вышла бы того же
+            // коричневого цвета, что «Изменить». Роль оставлена тоже: по ней
+            // доступность читает действие как разрушающее.
+            Button("Удалить", role: .destructive) { pendingDelete = event }
+                .tint(.red)
+        }
     }
 
     private func openEditor(_ event: PetEvent) {

@@ -102,6 +102,9 @@ struct RestockSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var amount = ""
+    /// У поля с цифровой клавиатурой нет клавиши Return, и без кнопки
+    /// «Готово» над ней её нечем убрать.
+    @FocusState private var amountFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -109,6 +112,7 @@ struct RestockSheet: View {
                 Section {
                     TextField("Сколько добавить", text: $amount)
                         .keyboardType(.decimalPad)
+                        .focused($amountFocused)
                 } footer: {
                     if let text = parsed, text <= 0 {
                         Text("Количество должно быть больше нуля")
@@ -120,6 +124,7 @@ struct RestockSheet: View {
             }
             .navigationTitle(medication.name)
             .navigationBarTitleDisplayMode(.inline)
+            .keyboardDone { amountFocused = false }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Отмена") { dismiss() }
@@ -153,6 +158,9 @@ struct DoseSheet: View {
     @State private var date = Date.now
     @State private var time = Date.now
     @State private var skipped = false
+    /// У поля с цифровой клавиатурой нет клавиши Return, и без кнопки
+    /// «Готово» над ней её нечем убрать.
+    @FocusState private var doseFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -163,6 +171,7 @@ struct DoseSheet: View {
                     Text(medication.name).font(.headline)
                     TextField("Сколько дали", text: $dose)
                         .keyboardType(.decimalPad)
+                        .focused($doseFocused)
                     DatePicker("Когда", selection: $date, displayedComponents: .date)
                     DatePicker("Во сколько", selection: $time, displayedComponents: .hourAndMinute)
                 } header: {
@@ -178,6 +187,7 @@ struct DoseSheet: View {
             }
             .navigationTitle("Отметить приём")
             .navigationBarTitleDisplayMode(.inline)
+            .keyboardDone { doseFocused = false }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Отмена") { dismiss() }

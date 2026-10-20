@@ -7,6 +7,9 @@ struct FormDefaultsView: View {
     let app: AppModel
 
     @State private var query = ""
+    /// Какое поле сейчас в фокусе. У поля с цифровой клавиатурой нет клавиши
+    /// Return, и без кнопки «Готово» над ней её нечем убрать.
+    @FocusState private var focus: String?
 
     var body: some View {
         List {
@@ -15,6 +18,13 @@ struct FormDefaultsView: View {
                     Label(problem, systemImage: "exclamationmark.triangle")
                         .font(.subheadline)
                         .foregroundStyle(.red)
+                }
+            }
+            if types.isEmpty, !query.isEmpty {
+                // Пустой поиск должен говорить об этом: молчаливый белый
+                // список выглядит как поломка.
+                Section {
+                    ContentUnavailableView.search(text: query)
                 }
             }
             ForEach(types) { type in
@@ -33,6 +43,7 @@ struct FormDefaultsView: View {
         .searchable(text: $query, prompt: "Найти поле")
         .navigationTitle("Значения по умолчанию")
         .navigationBarTitleDisplayMode(.inline)
+        .keyboardDone { focus = nil }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(model.isSaving ? "Сохраняем" : "Сохранить") {
@@ -63,8 +74,10 @@ struct FormDefaultsView: View {
         } else if field.type == "number" {
             TextField(field.label, text: text)
                 .keyboardType(.decimalPad)
+                .focused($focus, equals: "\(type.key)-\(field.name)")
         } else {
             TextField(field.label, text: text)
+                .focused($focus, equals: "\(type.key)-\(field.name)")
         }
     }
 }

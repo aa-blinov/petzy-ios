@@ -6,10 +6,13 @@ struct RegisterView: View {
     /// `@Bindable`, а не `let`: форма правит черновик в модели напрямую, и без
     /// этого поля не пишутся.
     @Bindable var model: AuthFlowModel
-    let onPolicy: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var isSaving = false
+    /// Лист с политикой открывается отсюда, а не от экрана входа: лист,
+    /// поднятый из-под другого листа, показывается позади него, и кнопка
+    /// «Прочитать политику» выглядела бы мёртвой.
+    @State private var showingPolicy = false
 
     /// Какое поле в фокусе. Return ведёт по полям по порядку, как в системных
     /// формах: подпись «Далее» на клавиатуре обещает переход, и он должен
@@ -80,7 +83,7 @@ struct RegisterView: View {
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
-                    Button("Прочитать политику", action: onPolicy)
+                    Button("Прочитать политику") { showingPolicy = true }
                         .font(.subheadline)
                 }
             }
@@ -93,6 +96,16 @@ struct RegisterView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Создать") { register() }
                         .disabled(isSaving)
+                }
+            }
+            .sheet(isPresented: $showingPolicy) {
+                NavigationStack {
+                    PrivacyView(model: model, showsAgree: false) {}
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Закрыть") { showingPolicy = false }
+                            }
+                        }
                 }
             }
         }

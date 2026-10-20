@@ -31,7 +31,11 @@ struct RootView: View {
             LoginView(model: model, flow: flow)
         case .signedIn:
             if model.privacyConsentNeeded {
-                PrivacyView(model: flow, showsAgree: true) { model.acceptPrivacyConsent() }
+                // Свой NavigationStack: без него у экрана согласия не было бы
+                // заголовка «Политика» — титул рисует только навигация.
+                NavigationStack {
+                    PrivacyView(model: flow, showsAgree: true) { model.acceptPrivacyConsent() }
+                }
             } else {
                 AppShellView(model: model, flow: flow)
             }

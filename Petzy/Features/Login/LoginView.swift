@@ -12,7 +12,6 @@ struct LoginView: View {
     @State private var password = ProcessInfo.processInfo.environment["PETZY_TEST_PASSWORD"] ?? ""
     @State private var registering = false
     @State private var forgot = false
-    @State private var policy = false
 
     /// Какое поле сейчас в фокусе. Return в «Логине» ведёт в «Пароль»:
     /// без этого подпись «Далее» на клавиатуре обещает переход, а ничего не
@@ -42,15 +41,10 @@ struct LoginView: View {
             .toolbar(model.needsOnboarding ? .hidden : .visible, for: .navigationBar)
             .task { await flow.loadRegistrationStatus() }
             .sheet(isPresented: $registering) {
-                RegisterView(model: flow) { policy = true }
+                RegisterView(model: flow)
             }
             .sheet(isPresented: $forgot) {
                 ForgotPasswordView(model: flow)
-            }
-            .sheet(isPresented: $policy) {
-                NavigationStack {
-                    PrivacyView(model: flow, showsAgree: false) {}
-                }
             }
         }
     }

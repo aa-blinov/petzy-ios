@@ -21,6 +21,9 @@ struct EventFormView: View {
     @State private var draft: EventDraft
     @State private var day: Date
     @State private var moment: Date
+    /// Какое поле сейчас в фокусе. Return ведёт к следующему полю, а над
+    /// цифровой клавиатурой стоит «Готово»: у неё клавиши Return нет.
+    @FocusState private var focus: String?
 
     private let isNew: Bool
 
@@ -54,6 +57,9 @@ struct EventFormView: View {
                 Section("Комментарий") {
                     TextField("Что заметили", text: $draft.comment, axis: .vertical)
                         .lineLimit(1 ... 4)
+                        .focused($focus, equals: "comment")
+                        .submitLabel(.done)
+                        .onSubmit { moveFocus() }
                 }
                 if let problem = draft.problem {
                     Section {
@@ -65,6 +71,7 @@ struct EventFormView: View {
             // чём, а человек смотрит на поля и должен понимать, что правит.
             .navigationTitle(draft.type.label)
             .navigationBarTitleDisplayMode(.inline)
+            .keyboardDone { focus = nil }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Отмена") { dismiss() }
@@ -94,6 +101,9 @@ struct EventFormView: View {
                     .foregroundStyle(.secondary)
                 TextField("", text: binding(for: field), axis: .vertical)
                     .lineLimit(3 ... 6)
+                    .focused($focus, equals: field.name)
+                    .submitLabel(.next)
+                    .onSubmit { moveFocus() }
             }
         } else if field.type == "number" {
             // Подпись живёт в `LabeledContent`, а не в плейсхолдере поля:
@@ -102,12 +112,27 @@ struct EventFormView: View {
             LabeledContent(field.label) {
                 TextField("", text: binding(for: field))
                     .keyboardType(.decimalPad)
+                    .focused($focus, equals: field.name)
             }
         } else {
             LabeledContent(field.label) {
                 TextField("", text: binding(for: field))
+                    .focused($focus, equals: field.name)
+                    .submitLabel(.next)
+                    .onSubmit { moveFocus() }
             }
         }
+    }
+
+    /// Поля по порядку: Return ведёт к следующему. Поля с вариантами ответа
+    /// пропускаются: в них нечего набирать.
+    private var focusOrder: [String] {
+        draft.type.fields.filter { ($0.options?.isEmpty ?? true) }.map(\.name) + ["comment"]
+    }
+
+    private func moveFocus() {
+        guard let current = focus, let index = focusOrder.firstIndex(of: current) else { return }
+        focus = index + 1 < focusOrder.count ? focusOrder[index + 1] : nil
     }
 
     private func binding(for field: EventFieldInfo) -> Binding<String> {

@@ -589,7 +589,10 @@ Three things were not, and are now rules:
   of tiles breaks at the largest size: the titles wrap by letters and the
   chevron lands on the text. `MedicalCardView.columns(for:)` switches to one
   column when `dynamicTypeSize.isAccessibilitySize`, and the tile puts the
-  icon above the title so the title gets the whole width. Check it with:
+  icon above the title so the title gets the whole width. The weekdays of the
+  medication course are the same story: seven chips in a row leave 40 pt each
+  and «Пн» breaks by letters, so `WeekdaysPicker` puts them in a grid of four.
+  Check it with:
 
   ```bash
   xcrun simctl ui <udid> content_size accessibility-extra-extra-extra-large
@@ -600,11 +603,36 @@ Three things were not, and are now rules:
 - **Return has to go somewhere.** A field with `.submitLabel(.next)` and no
   `@FocusState` promises a transition and does nothing. Forms with more than
   one field take a `@FocusState` with an enum of the fields and move the focus
-  in `.onSubmit`: login, registration, pet card, document.
+  in `.onSubmit`: login, registration, pet card, document, medication course,
+  medical record, event.
 - **The keyboard hides itself on its own.** A `Form` and a `List` dismiss the
   keyboard when the content scrolls, so `.scrollDismissesKeyboard` is not
   needed. Only a number pad has no way out, and that is what the keyboard
   toolbar is for.
+
+Four more, found by going screen by screen:
+
+- **A tappable row is a `Button`, not `onTapGesture`.** A gesture leaves the
+  row invisible to VoiceOver: the person hears the text and cannot open the
+  record, and on iPad or Mac the row cannot be reached with the keyboard. The
+  feed, the history and «Свои типы записей» were the last three places with a
+  gesture; documents, users and the rest were already buttons.
+- **A number pad needs a «Готово» above it.** The numeric keyboard has no
+  Return key, so it cannot be dismissed, and it covers the form. The button
+  lives in `ToolbarItemGroup(placement: .keyboard)` and the shared modifier is
+  `View.keyboardDone` (`Petzy/App/KeyboardDone.swift`). The focus state has to
+  cover **all** the fields of the form, not only the numeric ones: otherwise
+  the button is on the screen and does nothing.
+- **A sheet needs a way out.** A sheet without a close button closes only by
+  a swipe down, and on a device with a vertical tab rail the gesture is not
+  obvious. The close button goes on the sheet that is actually on screen, not
+  on the view inside it: the policy is opened both from the login screen and
+  from the settings, and a close button in `PrivacyView` would be wrong in one
+  of them.
+- **A sheet presented from under another sheet opens behind it.** The
+  registration form is a sheet, and the policy opened by the login screen
+  appeared *behind* it, so «Прочитать политику» looked dead. The sheet has to
+  be attached to the view that is on screen.
 
 ## Swift conventions
 

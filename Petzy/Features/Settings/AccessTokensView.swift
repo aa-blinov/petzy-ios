@@ -92,6 +92,9 @@ struct AccessTokensView: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
+                // Галочку видно глазом, а голос о выборе не говорит: без этой
+                // черты человек не слышит, что отметка стоит.
+                .accessibilityAddTraits(model.draft.scopes.contains(scope) ? .isSelected : [])
             }
             if let problem = AccessTokenDraft.problem(model.draft) {
                 Text(problem).foregroundStyle(.red)

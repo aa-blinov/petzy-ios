@@ -19,6 +19,10 @@ struct MedicationFormView: View {
     @State private var hasStart = true
     @State private var hasEnd = false
 
+    /// Какое поле сейчас в фокусе. Return ведёт к следующему полю, а над
+    /// цифровой клавиатурой стоит «Готово»: у неё клавиши Return нет.
+    @FocusState private var focus: MedicationField?
+
     init(app: AppModel, model: MedicationsModel, target: MedicationFormTarget) {
         self.app = app
         self.model = model
@@ -89,6 +93,7 @@ struct MedicationFormView: View {
             }
             .navigationTitle(isEditing ? "Лекарство" : "Новое лекарство")
             .navigationBarTitleDisplayMode(.inline)
+            .keyboardDone { focus = nil }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Отмена") { dismiss() }
@@ -112,7 +117,7 @@ struct MedicationFormView: View {
 
     private var basics: some View {
         Section("Лекарство") {
-            TextField("Название", text: $draft.name)
+            input(.name, "Название", $draft.name)
             Picker("Форма", selection: $draft.kind) {
                 ForEach(Self.kinds, id: \.self) { Text($0) }
             }
@@ -123,16 +128,16 @@ struct MedicationFormView: View {
                     draft.doseUnit = unit
                 }
             }
-            TextField("Дозировка, например 500 мг", text: Binding(
+            input(.strength, "Дозировка, например 500 мг", Binding(
                 get: { draft.strength ?? "" },
                 set: { draft.strength = $0.isEmpty ? nil : $0 }
             ))
-            TextField("Сколько давать", text: Binding(
+            input(.dose, "Сколько давать", Binding(
                 get: { draft.defaultDose.map(Amount.text) ?? "" },
                 set: { draft.defaultDose = $0.isEmpty ? nil : Double($0.replacingOccurrences(of: ",", with: ".")) }
             ))
             .keyboardType(.decimalPad)
-            TextField("Единица, например таб", text: Binding(
+            input(.unit, "Единица, например таб", Binding(
                 get: { draft.doseUnit ?? "" },
                 set: { draft.doseUnit = $0.isEmpty ? nil : $0 }
             ))
@@ -143,26 +148,7 @@ struct MedicationFormView: View {
         Section {
             Toggle("По необходимости", isOn: $draft.asNeeded)
             if !draft.asNeeded {
-                HStack(spacing: 6) {
-                    ForEach(0 ..< 7, id: \.self) { index in
-                        let picked = days.contains(index)
-                        Button {
-                            if picked {
-                                days.remove(index)
-                            } else {
-                                days.insert(index)
-                            }
-                        } label: {
-                            Text(Self.weekdays[index])
-                                .font(.subheadline.weight(picked ? .semibold : .regular))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(picked ? Color.accentColor.opacity(0.18) : Color.clear,
-                                            in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                WeekdaysPicker(days: $days)
                 ForEach($times, id: \.self) { $item in
                     DatePicker(
                         "Приём в \(item)",
@@ -192,11 +178,11 @@ struct MedicationFormView: View {
         Section {
             Toggle("Учитывать остаток", isOn: $draft.inventoryEnabled)
             if draft.inventoryEnabled {
-                TextField("Сколько осталось", text: numberBinding(\.inventoryCurrent))
+                input(.current, "Сколько осталось", numberBinding(\.inventoryCurrent))
                     .keyboardType(.decimalPad)
-                TextField("Сколько в упаковке", text: numberBinding(\.inventoryTotal))
+                input(.total, "Сколько в упаковке", numberBinding(\.inventoryTotal))
                     .keyboardType(.decimalPad)
-                TextField("Предупредить за дней", text: numberBinding(\.inventoryWarningDays))
+                input(.warning, "Предупредить за дней", numberBinding(\.inventoryWarningDays))
                     .keyboardType(.numberPad)
             }
         } header: {
@@ -224,11 +210,11 @@ struct MedicationFormView: View {
 
     private var notes: some View {
         Section("Заметки") {
-            TextField("От чего или для чего", text: Binding(
+            input(.purpose, "От чего или для чего", Binding(
                 get: { draft.purpose ?? "" },
                 set: { draft.purpose = $0.isEmpty ? nil : $0 }
             ))
-            TextField("Кто назначил", text: Binding(
+            input(.prescribedBy, "Кто назначил", Binding(
                 get: { draft.prescribedBy ?? "" },
                 set: { draft.prescribedBy = $0.isEmpty ? nil : $0 }
             ))
@@ -237,7 +223,22 @@ struct MedicationFormView: View {
                 set: { draft.comment = $0.isEmpty ? nil : $0 }
             ), axis: .vertical)
                 .lineLimit(2 ... 4)
+                .focused($focus, equals: .comment)
+                .submitLabel(.done)
+                .onSubmit { moveFocus() }
         }
+    }
+
+    /// Поле формы: фокус, подпись Return и переход к следующему полю.
+    private func input(_ id: MedicationField, _ title: String, _ text: Binding<String>) -> some View {
+        TextField(title, text: text)
+            .focused($focus, equals: id)
+            .submitLabel(.next)
+            .onSubmit { moveFocus() }
+    }
+
+    private func moveFocus() {
+        focus = focus?.next(inventory: draft.inventoryEnabled)
     }
 
     // MARK: - Разбор и сохранение
@@ -304,6 +305,4 @@ extension MedicationFormView {
         "Таблетка": "таб", "Капсула": "капс", "Капли": "кап",
         "Укол": "мл", "Сироп": "мл", "Суспензия": "мл"
     ]
-
-    static let weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 }

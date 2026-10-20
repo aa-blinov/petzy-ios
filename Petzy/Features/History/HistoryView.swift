@@ -139,8 +139,14 @@ struct HistoryView: View {
             ForEach(model.historyDays) { day in
                 Section(Feed.dayHeader(day.date, today: .now, calendar: .current)) {
                     ForEach(day.events) { event in
-                        HistoryRow(event: event, model: model)
-                            .onTapGesture { openEditor(event) }
+                        // Кнопка, а не жест: строкой без кнопки голос её не
+                        // откроет.
+                        Button {
+                            openEditor(event)
+                        } label: {
+                            HistoryRow(event: event, model: model)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }

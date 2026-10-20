@@ -127,7 +127,9 @@ struct DocumentFormView: View {
     private func fileRow(name: String, size: String? = nil, action: String) -> some View {
         HStack {
             Label(name, systemImage: "doc")
-                .lineLimit(1)
+                // Две строки, а не одна: на крупном шрифте длинное имя файла
+                // обрезалось многоточием, и было не видно, что это за файл.
+                .lineLimit(2)
             Spacer()
             if let size {
                 Text(size)

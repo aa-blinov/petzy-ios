@@ -124,22 +124,25 @@ struct CustomTypesView: View {
     /// шесть раз из шести. В ленте и документах тот же приём не падает.
     private func row(_ type: EventTypeInfo) -> some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Image(systemName: EventIcon.symbol(for: type.icon))
-                        .foregroundStyle(.tint)
-                    Text(type.label)
-                }
-                Text(fieldsText(of: type))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(.rect)
-            .onTapGesture {
+            // Название — кнопка, а не жест: жестом строку не откроет голос.
+            Button {
                 editing = type
                 isEditing = true
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Image(systemName: EventIcon.symbol(for: type.icon))
+                            .foregroundStyle(.tint)
+                        Text(type.label)
+                    }
+                    Text(fieldsText(of: type))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(.rect)
             }
+            .buttonStyle(.plain)
             Button {
                 Task { await model.prepareDelete(type) }
             } label: {

@@ -26,13 +26,19 @@ struct PrivacyView: View {
                     """
                 )
                 .font(.subheadline)
-                ForEach(model.policy?.facts ?? [], id: \.self) { fact in
-                    Text(fact).font(.subheadline)
-                }
-                if let version = model.policy?.version {
-                    Text("Редакция от \(MomentText.russianDay(MomentText.day(of: version)))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                if model.policy == nil, model.errorText == nil {
+                    // Текст условий едет с сервера, и пока он не приехал, на
+                    // экране пусто: без этого загрузку не отличить от отказа.
+                    ProgressView()
+                } else {
+                    ForEach(model.policy?.facts ?? [], id: \.self) { fact in
+                        Text(fact).font(.subheadline)
+                    }
+                    if let version = model.policy?.version {
+                        Text("Редакция от \(MomentText.russianDay(MomentText.day(of: version)))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             } header: {
                 Text("Обработка персональных данных")

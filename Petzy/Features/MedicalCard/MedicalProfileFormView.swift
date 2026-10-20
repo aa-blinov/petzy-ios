@@ -10,6 +10,9 @@ struct MedicalProfileFormView: View {
     @State private var draft: MedicalProfileDraft
     /// Годы набраны текстом: пустое поле это «год не указан», а не ноль.
     @State private var years: [Int: String]
+    /// Какое поле сейчас в фокусе. У поля с цифровой клавиатурой нет клавиши
+    /// Return, и без кнопки «Готово» над ней её нечем убрать.
+    @FocusState private var focus: String?
 
     init(model: MedicalCardModel, card: MedicalCard?) {
         self.model = model
@@ -31,22 +34,23 @@ struct MedicalProfileFormView: View {
                 allergies
                 conditions
                 Section("Питомец") {
-                    field("Группа крови", $draft.bloodType)
-                    field("Номер чипа", $draft.chipNumber)
+                    field("blood", "Группа крови", $draft.bloodType)
+                    field("chip", "Номер чипа", $draft.chipNumber)
                 }
                 Section("Клиника") {
-                    field("Название", $draft.clinicName)
-                    field("Телефон", $draft.clinicPhone)
-                    field("Врач", $draft.vetName)
+                    field("clinic", "Название", $draft.clinicName)
+                    field("phone", "Телефон", $draft.clinicPhone)
+                    field("vet", "Врач", $draft.vetName)
                 }
                 Section("Условия") {
-                    field("Чем кормят", $draft.diet)
-                    field("Где живёт", $draft.living)
-                    field("Роды и течка", $draft.reproduction)
+                    field("diet", "Чем кормят", $draft.diet)
+                    field("living", "Где живёт", $draft.living)
+                    field("reproduction", "Роды и течка", $draft.reproduction)
                 }
             }
             .navigationTitle("Профиль")
             .navigationBarTitleDisplayMode(.inline)
+            .keyboardDone { focus = nil }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Отмена") { dismiss() }
@@ -78,9 +82,11 @@ struct MedicalProfileFormView: View {
             ForEach(draft.allergies.indices, id: \.self) { index in
                 VStack(alignment: .leading, spacing: 4) {
                     TextField("На что", text: $draft.allergies[index].substance)
+                        .focused($focus, equals: "allergy-\(index)-substance")
                     TextField("Как проявляется", text: $draft.allergies[index].reaction)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .focused($focus, equals: "allergy-\(index)-reaction")
                 }
             }
             .onDelete { draft.allergies.remove(atOffsets: $0) }
@@ -105,9 +111,11 @@ struct MedicalProfileFormView: View {
             ForEach(draft.conditions.indices, id: \.self) { index in
                 VStack(alignment: .leading, spacing: 4) {
                     TextField("Название", text: $draft.conditions[index].name)
+                        .focused($focus, equals: "condition-\(index)-name")
                     TextField("Чем обостряется", text: note(index))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .focused($focus, equals: "condition-\(index)-note")
                     TextField("С какого года", text: Binding(
                         get: { years[index] ?? "" },
                         set: { value in
@@ -118,6 +126,7 @@ struct MedicalProfileFormView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .keyboardType(.numberPad)
+                    .focused($focus, equals: "condition-\(index)-year")
                 }
             }
             .onDelete { removeConditions(at: $0) }
@@ -151,11 +160,12 @@ struct MedicalProfileFormView: View {
         }
     }
 
-    private func field(_ title: String, _ value: Binding<String?>) -> some View {
+    private func field(_ id: String, _ title: String, _ value: Binding<String?>) -> some View {
         TextField(title, text: Binding(
             get: { value.wrappedValue ?? "" },
             set: { value.wrappedValue = $0.isEmpty ? nil : $0 }
         ))
+        .focused($focus, equals: id)
     }
 
     private func save() {

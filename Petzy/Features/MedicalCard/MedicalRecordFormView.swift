@@ -142,6 +142,16 @@ struct MedicalRecordFormView: View {
     @State private var date = Date.now
     @State private var nextDue = Date.now
     @State private var hasNextDue = false
+    /// Какое поле сейчас в фокусе: Return ведёт к следующему полю.
+    @FocusState private var focus: Field?
+
+    /// Поля формы. У каждого вида записи свой набор: у прививки есть номер
+    /// партии, у визита к врачу — жалобы.
+    enum Field: Hashable {
+        case title, batch
+        case complaint, diagnosis, recommendations
+        case clinic, vet, comment
+    }
 
     init(app: AppModel, model: MedicalCardModel, target: MedicalFormTarget) {
         self.app = app
@@ -187,6 +197,9 @@ struct MedicalRecordFormView: View {
                         ForEach(MedicalKind.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     TextField("Название", text: $draft.title)
+                        .focused($focus, equals: .title)
+                        .submitLabel(.next)
+                        .onSubmit { moveFocus() }
                     DatePicker("Дата", selection: $date, displayedComponents: .date)
                 }
                 repeating
@@ -195,16 +208,25 @@ struct MedicalRecordFormView: View {
                         "Клиника",
                         text: Binding(get: { draft.clinic ?? "" }, set: { draft.clinic = $0.isEmpty ? nil : $0 })
                     )
+                    .focused($focus, equals: .clinic)
+                    .submitLabel(.next)
+                    .onSubmit { moveFocus() }
                     TextField(
                         "Врач",
                         text: Binding(get: { draft.vet ?? "" }, set: { draft.vet = $0.isEmpty ? nil : $0 })
                     )
+                    .focused($focus, equals: .vet)
+                    .submitLabel(.next)
+                    .onSubmit { moveFocus() }
                     TextField(
                         "Комментарий",
                         text: Binding(get: { draft.note ?? "" }, set: { draft.note = $0.isEmpty ? nil : $0 }),
                         axis: .vertical
                     )
                     .lineLimit(2 ... 4)
+                    .focused($focus, equals: .comment)
+                    .submitLabel(.done)
+                    .onSubmit { moveFocus() }
                 }
             }
             .navigationTitle(isEditing ? "Правка записи" : "Новая запись")
@@ -235,6 +257,24 @@ struct MedicalRecordFormView: View {
         return false
     }
 
+    /// Поля по порядку: Return ведёт к следующему, а не к тому, что дальше по
+    /// коду.
+    private var focusOrder: [Field] {
+        var order: [Field] = [.title]
+        if draft.kind == .vaccination {
+            order.append(.batch)
+        }
+        if draft.kind == .visit {
+            order += [.complaint, .diagnosis, .recommendations]
+        }
+        return order + [.clinic, .vet, .comment]
+    }
+
+    private func moveFocus() {
+        guard let current = focus, let index = focusOrder.firstIndex(of: current) else { return }
+        focus = index + 1 < focusOrder.count ? focusOrder[index + 1] : nil
+    }
+
     /// Повтор есть только у прививок и обработок: у визита к врачу и у
     /// операции «повторить через полгода» не бывает.
     @ViewBuilder
@@ -259,6 +299,9 @@ struct MedicalRecordFormView: View {
                         get: { draft.batch ?? "" },
                         set: { draft.batch = $0.isEmpty ? nil : $0 }
                     ))
+                    .focused($focus, equals: .batch)
+                    .submitLabel(.next)
+                    .onSubmit { moveFocus() }
                 } else {
                     Picker("От кого", selection: Binding(
                         get: { draft.target ?? "" },
@@ -278,15 +321,24 @@ struct MedicalRecordFormView: View {
                     set: { draft.complaint = $0.isEmpty ? nil : $0 }
                 ), axis: .vertical)
                     .lineLimit(2 ... 5)
+                    .focused($focus, equals: .complaint)
+                    .submitLabel(.next)
+                    .onSubmit { moveFocus() }
                 TextField("Диагноз", text: Binding(
                     get: { draft.diagnosis ?? "" },
                     set: { draft.diagnosis = $0.isEmpty ? nil : $0 }
                 ))
+                .focused($focus, equals: .diagnosis)
+                .submitLabel(.next)
+                .onSubmit { moveFocus() }
                 TextField("Назначения", text: Binding(
                     get: { draft.recommendations ?? "" },
                     set: { draft.recommendations = $0.isEmpty ? nil : $0 }
                 ), axis: .vertical)
                     .lineLimit(2 ... 5)
+                    .focused($focus, equals: .recommendations)
+                    .submitLabel(.next)
+                    .onSubmit { moveFocus() }
             }
         }
     }
