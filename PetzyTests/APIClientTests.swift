@@ -195,6 +195,21 @@ struct APIClientTests {
         }
     }
 
+    /// Ответ раздела копируется как пришёл, и тело ошибки в копию попадать не
+    /// должно: разбор потом падает с чужой ошибкой, и человек видит служебный
+    /// текст вместо «сессия закончилась».
+    @Test("Ошибка в ответе раздела не попадает в копию")
+    func rawResponseDoesNotCarryErrorBody() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 401, json: ["error": "Нет токена или он истёк"])
+        StubURLProtocol.stub(status: 401, json: ["error": "refresh-токен недействителен"])
+        let client = await makeClient(storage: signedInStorage())
+
+        await #expect(throws: APIError.unauthorized) {
+            try await client.getRaw("/api/medications?pet_id=p1")
+        }
+    }
+
     @Test("Без входа клиент не ходит в сеть")
     func refusesRequestWithoutTokens() async throws {
         StubURLProtocol.reset()

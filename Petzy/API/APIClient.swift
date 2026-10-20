@@ -22,8 +22,15 @@ struct APIClient: Sendable {
     /// Ответ как пришёл, без разбора. Им копируется раздел для работы без
     /// сети: сохранять проще то, что пришло, а разбирать потом тем же кодом,
     /// что и сеть, иначе копия и сеть разойдутся.
+    ///
+    /// Тело ошибки в копию не попадает: разбор упал бы с чужой ошибкой, и
+    /// человек увидел бы служебный текст вместо «сессия закончилась».
     func getRaw(_ path: String) async throws -> Data {
-        try await raw(APIRequest(path: path)).0
+        let result = try await raw(APIRequest(path: path))
+        guard (200 ..< 300).contains(result.1.statusCode) else {
+            throw Self.failure(data: result.0, response: result.1)
+        }
+        return result.0
     }
 
     func post<T: Decodable & Sendable>(
