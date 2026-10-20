@@ -44,10 +44,10 @@ the fields of that type. The rest of the app exists so that writing one entry
 and reading it back later take as few steps as possible, and so that the
 record can be handed to somebody else when it has to be.
 
-Success for the person: the entry is in the diary in two taps, and it is
-still there when the phone is out of the network. Success for the product:
-the diary lives in one place, the phone and the browser show the same
-records, and the person can hand the doctor a summary of a year of entries
+Success for the person: the entry is in the diary as soon as it is written,
+and it is still there when the phone is out of the network. Success for the
+product: the diary lives in one place, the phone and the browser show the
+same records, and the person can hand the doctor a summary of the entries
 without typing it out.
 
 ## Positioning
@@ -87,7 +87,7 @@ network is back.
 The appointment is the moment the record is read by somebody else. The
 medical card, the PDF and the share link are built for that moment.
 
-The work happens against a local stack of the backend in Docker on port 5002,
+The work runs against a local stack of the backend in Docker on port 5002,
 and the UI tests run against that stack. The same backend serves the
 production instance at `petzy.duckdns.org`.
 
@@ -141,12 +141,12 @@ Deliberately not true, and worth knowing before a change:
 ## Brand Commitments
 
 **Name:** Petzy. **Tone:** calm and direct, in Russian. The interface states
-the outcome in words: a refused write, an expired document and a delete that
-has to be confirmed each say so on the screen, and not only in a colour.
+the outcome in words: a refused write, a record somebody else changed and an
+expired document each say so on the screen, and not only in a colour.
 
-**The accent.** A warm brown-orange, `UIColor(red: 0.77, green: 0.42, blue:
-0.25)` in light mode and `(0.91, 0.58, 0.42)` in dark mode, applied to the
-whole app.
+**The accent.** A warm brown-orange, `UIColor(red: 0.77, green: 0.42, blue: 0.25)`
+in light mode and `UIColor(red: 0.91, green: 0.58, blue: 0.42)` in dark mode,
+applied to the whole app.
 
 **The icon.** The petzy brand icon, the same "P" on a cream square
 (`#FAF6EF`) that the web app uses. It comes from `docs/app-icon.svg` and is
@@ -178,7 +178,7 @@ Absent, and not to be invented: no screenshot of the interface is in the
 repository, only the icon. There are no download counts, no usage numbers, no
 testimonials and no comparison with other pet diary apps. The repository was
 created in October 2026, has no stars, no forks and no releases, and there is
-nowhere to count them.
+nowhere to count the downloads.
 
 ## Product Principles
 

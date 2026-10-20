@@ -26,9 +26,10 @@ make ci            # lint-strict, format-check, build and test, all of CI
 make hooks         # point git at .githooks, once per clone
 ```
 
-Xcode 27.1, iOS 26.0 minimum, Swift 6 with strict concurrency on. The bundle
-id is `ru.petzy.app`, the scheme is `Petzy`, the derived data lands in
-`.build`.
+Xcode 27.1 and Swift 6.4.0 are pinned in `.xcode-version` and `.swift-version`.
+The app targets iOS 26.0 and above, the language mode is Swift 6, and the
+strict concurrency is complete. The bundle id is `ru.petzy.app`, the scheme is
+`Petzy`, and the derived data lands in `.build`.
 
 Go through `make`, not through a hand-written `xcodebuild`. The Makefile owns
 the destination, the derived data path and the scheme, and it is the one
@@ -184,9 +185,10 @@ with CI, and that is the usual source of "works here, fails in CI".
   its own copy wholesale after a full read. Asking for the tombstones only
   cost page slots: a page of a hundred held fewer live records, and on a pet
   whose records were deleted many times the feed looked empty.
-- **`is_admin` in the user list is a field of one record only.** It is
-  present in the admin's own record and in nobody else's. A non-optional
-  decode of it breaks the whole list, and the screen stays empty with a
+- **`is_admin` is optional in the user DTO, and that is deliberate.** The
+  server sends the flag only in the admin's own record, so `UserDTO.isAdmin`
+  is `Bool?` and a missing key becomes `false`. Make the field required and
+  the whole user list fails to decode, and the screen stays empty with a
   decoding error.
 - **The offline queue is one queue of raw requests.** A write made without a
   network is kept as the path, the method and the body, and the name the
@@ -262,10 +264,10 @@ with CI, and that is the usual source of "works here, fails in CI".
   1024x1024 PNG without transparency and without rounded corners: iOS cuts
   the shape itself.
 - **The web app decides the behaviour and the Russian wording.** The route
-  map is `frontend/src/App.tsx` in the `petzy`
-  repository, the API truth is `/api/openapi.json` of a running stand, and
-  the sync contract is written out in the "Синхронизация с нативным
-  приложением" section of `web/openapi_doc.py`.
+  map is `frontend/src/App.tsx` in the `petzy` repository, the API truth is
+  `/api/openapi.json` of a running stand, and the sync contract is written
+  out in the "Синхронизация с нативным приложением" section of
+  `web/openapi_doc.py`.
 - **Git.** Work in `master`: no feature branches, no pull requests. Commit
   locally as each piece is done, and push only when the owner says so. Never
   `--no-verify`: fix the cause. Never add an AI attribution trailer to a

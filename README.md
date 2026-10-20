@@ -35,8 +35,9 @@ The local stack answers on `http://localhost:5002`. Its demo account is
 | A physical phone | not wired up | a signing identity, which the repository does not have |
 
 The simulator reaches the Mac on `localhost`. A phone on the same network
-cannot, and it would need an exception in `Info.plist` for the host. Neither
-is done: without a signature there is nothing to build onto a device.
+cannot: it needs the address of the Mac on the LAN and an exception in
+`Info.plist` for that host. Neither is in place, because without a signature
+there is nothing to build onto a device.
 
 `make run SIM="iPhone Duo"` picks another simulator. The default is
 `iPhone 18 Pro`.
