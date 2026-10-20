@@ -112,26 +112,6 @@ extension MedicalCard {
         return (step, step.action)
     }
 
-    /// Строка под «Медкартой» в ленте: что просрочено, иначе сколько готово.
-    /// Просроченное важнее готовности: это то, что врач спросит первым.
-    var statusLine: String {
-        let vaccine = isOverdue(.vaccination)
-        let parasite = isOverdue(.parasite)
-        if vaccine, parasite {
-            return "Прививка и обработка просрочены"
-        }
-        if vaccine {
-            return "Прививка просрочена"
-        }
-        if parasite {
-            return "Обработка просрочена"
-        }
-        if readinessDone == MedicalReadiness.allCases.count {
-            return "Всё заполнено"
-        }
-        return "Заполнено \(readinessDone) из \(MedicalReadiness.allCases.count)"
-    }
-
     /// Что требует внимания: сначала самое горящее. Заменённая более новой
     /// запись не зовёт: её уже сделали заново.
     var attention: [MedicalAttention] {

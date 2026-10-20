@@ -67,42 +67,6 @@ struct MedicalCardDocumentTests {
         #expect(card.readinessNext == nil)
     }
 
-    /// Строка под «Медкартой»: что просрочено важнее, чем сколько готово.
-    @Test("Просроченное важнее готовности")
-    func overdueWinsOverReadiness() {
-        let card = Self.card(
-            allergies: ["Пенициллин"], vaccinations: 1, parasites: 1, clinics: 1, weight: true,
-            overdue: [.vaccination]
-        )
-
-        #expect(card.statusLine == "Прививка просрочена")
-    }
-
-    @Test("Просрочены обе — говорим обе")
-    func bothOverdue() {
-        let card = Self.card(
-            allergies: ["Пенициллин"], vaccinations: 1, parasites: 1, clinics: 1, weight: true,
-            overdue: [.vaccination, .parasite]
-        )
-
-        #expect(card.statusLine == "Прививка и обработка просрочены")
-    }
-
-    /// Когда просроченного нет, строка говорит, сколько готово.
-    @Test("Когда всё в срок, строка говорит о готовности")
-    func statusLineCountsReadiness() {
-        let card = Self.card(allergies: ["Пенициллин"], vaccinations: 1, parasites: 0, clinics: 0, weight: true)
-
-        #expect(card.statusLine == "Заполнено 3 из 5")
-    }
-
-    @Test("Когда готово всё, строка говорит об этом")
-    func statusLineWhenAllReady() {
-        let card = Self.card(allergies: ["Пенициллин"], vaccinations: 1, parasites: 1, clinics: 1, weight: true)
-
-        #expect(card.statusLine == "Всё заполнено")
-    }
-
     /// Статус записи читается словами и с числом дней: «Просрочено на 11 дней»,
     /// «Через 5 дней», «Сегодня», «Завтра», «В срок».
     @Test("Статус записи читается словами")
