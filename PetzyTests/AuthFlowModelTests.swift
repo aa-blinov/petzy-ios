@@ -12,6 +12,9 @@ struct AuthFlowModelTests {
         StubURLProtocol.stub(status: 201, json: [
             "message": "Аккаунт создан", "access_token": "access-9", "refresh_token": "refresh-9"
         ])
+        // После регистрации приложение спрашивает сессию: кто вошёл и какие у
+        // него права. По логину копия дневника становится его.
+        StubURLProtocol.stub(status: 200, json: ["is_admin": false, "username": "anna"])
         let storage = InMemoryTokenStorage(tokens: nil)
         let model = await makeModel(storage: storage)
         var draft = RegistrationDraft()
@@ -24,7 +27,7 @@ struct AuthFlowModelTests {
         let registered = await model.register()
 
         #expect(registered)
-        #expect(StubURLProtocol.requestedPaths == ["/api/auth/register"])
+        #expect(StubURLProtocol.requestedPaths == ["/api/auth/register", "/api/auth/session"])
         #expect(try storage.read() == StoredTokens(accessToken: "access-9", refreshToken: "refresh-9"))
         #expect(model.app.state == .signedIn)
     }
@@ -84,6 +87,9 @@ struct AuthFlowModelTests {
         StubURLProtocol.stub(status: 200, json: [
             "message": "Пароль обновлён", "access_token": "access-7", "refresh_token": "refresh-7"
         ])
+        // Сессия после смены пароля: логин узнаётся у сервера, по нему копия
+        // дневника становится его.
+        StubURLProtocol.stub(status: 200, json: ["is_admin": false, "username": "anna"])
         let storage = InMemoryTokenStorage(tokens: nil)
         let model = await makeModel(storage: storage)
 
@@ -94,7 +100,8 @@ struct AuthFlowModelTests {
         #expect(done)
         #expect(StubURLProtocol.requestedPaths == [
             "/api/auth/password/reset/check",
-            "/api/auth/password/reset"
+            "/api/auth/password/reset",
+            "/api/auth/session"
         ])
         #expect(try storage.read() == StoredTokens(accessToken: "access-7", refreshToken: "refresh-7"))
         #expect(model.app.state == .signedIn)

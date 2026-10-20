@@ -23,9 +23,21 @@ final class AppModel {
     /// тут не нужен; секрет только у refresh-токена.
     private static let selectedPetKey = "selectedPetId"
 
+    /// Логин человека, которому принадлежит открытый дневник. Копия на
+    /// устройстве принадлежит ему же: на общем устройстве следующий вошедший
+    /// не должен видеть чужой дневник.
+    ///
+    /// Сеттер не `private`: он живёт в файле сессии, а объявлен здесь.
+    internal(set) var currentUser: String?
+
     /// Показывалось ли первое знакомство с приложением. Ключ в UserDefaults:
     /// это не секрет, Keychain тут не нужен.
     static let onboardingKey = "seenOnboarding"
+
+    /// Логин человека, чей дневник открыт. В UserDefaults: логин не секрет, а
+    /// знать его надо и без сети — по нему приложение понимает, чья это копия
+    /// и можно ли её показывать.
+    static let currentUserKey = "petzy.username"
 
     var state: State = .restoring
     private(set) var isSigningIn = false
@@ -43,7 +55,8 @@ final class AppModel {
     /// `AppModel+Session.swift`, поэтому без `private(set)`.
     var privacyConsentNeeded = false
 
-    private(set) var petsState: PetsState = .loading
+    /// Сеттер не `private`: список питомцев грузится в файле питомцев.
+    internal(set) var petsState: PetsState = .loading
     private(set) var selectedPetID: String?
 
     /// Дни ленты выбранного питомца. Сами записи лежат в `rawEvents`: дни
@@ -183,6 +196,7 @@ final class AppModel {
         offline = OfflineState(store: store)
         selectedPetID = defaults.string(forKey: Self.selectedPetKey)
         needsOnboarding = !defaults.bool(forKey: Self.onboardingKey)
+        currentUser = defaults.string(forKey: Self.currentUserKey)
         client = APIClient(baseURL: baseURL, urlSession: urlSession, auth: auth)
     }
 
@@ -207,41 +221,6 @@ final class AppModel {
         // Тип в выгрузке должен быть среди типов нового питомца, иначе
         // переключатель показывает пустоту.
         exportType = "all"
-    }
-
-    func loadPets() async {
-        petsState = .loading
-        do {
-            let response = try await client.get("/api/pets", as: PetsResponse.self)
-            petsState = .loaded(response.pets)
-            offline.cache(
-                events: rawEvents,
-                types: eventTypes,
-                pets: response.pets,
-                petID: selectedPetID ?? ""
-            )
-
-            // Питомца могли удалить или переименовать на другом устройстве, пока
-            // телефон лежал в кармане. Молча открываем первого: иначе оболочка
-            // осталась бы с выбором, которого в списке нет.
-            if !response.pets.contains(where: { $0.id == selectedPetID }) {
-                select(petID: response.pets.first?.id)
-            }
-        } catch {
-            let apiError = error as? APIError
-            if apiError?.isAuthProblem == true {
-                signOut()
-                return
-            }
-            // Без связи питомцы берутся из копии: иначе приложение не знает,
-            // чей дневник открыт, и переключатель с именем исчезают, хотя
-            // лента и разделы из копии показываются.
-            if apiError?.isTransport == true, !offline.snapshot.pets.isEmpty {
-                petsState = .loaded(offline.snapshot.pets)
-                return
-            }
-            petsState = .failed(apiError?.errorDescription ?? error.localizedDescription)
-        }
     }
 
     /// Первая страница ленты: заново, со справочником типов и выбранным питомцем.
@@ -277,7 +256,7 @@ final class AppModel {
             try await apply(fetchPage(petID: petID, before: nil), appending: false)
             offline.isShowingCached = false
             showPending()
-            offline.cache(events: rawEvents, types: eventTypes, pets: pets, petID: petID)
+            offline.cache(events: rawEvents, types: eventTypes, pets: pets, petID: petID, owner: currentUser)
             // Сеть появилась: накопленное уходит само, без всякой кнопки.
             if offline.pendingCount > 0 {
                 await flushQueue()
@@ -363,7 +342,7 @@ final class AppModel {
         state = await auth.isSignedIn ? .signedIn : .signedOut
         if state == .signedIn {
             await loadConsent()
-            await loadAdminRights()
+            await loadSession()
         }
     }
 
@@ -375,18 +354,15 @@ final class AppModel {
         do {
             try await auth.signIn(username: username, password: password)
             state = .signedIn
-            await loadAdminRights()
+            // Логин известен из формы: с этого момента копия дневника
+            // принадлежит этому человеку, и чужая копия ему не показывается.
+            bindUser(username)
+            await loadSession()
         } catch {
             // Неверный пароль приходит 401, но текст здесь серверный:
             // «Неверный логин или пароль», а не «сессия закончилась».
             errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
             state = .signedOut
         }
-    }
-
-    func signOut() {
-        Task { await auth.signOut() }
-        errorText = nil
-        state = .signedOut
     }
 }

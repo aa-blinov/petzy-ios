@@ -258,6 +258,8 @@ struct OfflineFeedTests {
     static func storeWithEvent() -> LocalStore {
         let store = LocalStore(url: tempURL())
         var snapshot = OfflineSnapshot()
+        // Копия принадлежит человеку: без этого её никто не увидит.
+        snapshot.owner = Self.user
         snapshot.pets = [Pet(
             id: "p1",
             name: "Рекс",
@@ -280,8 +282,11 @@ struct OfflineFeedTests {
         return store
     }
 
+    /// Логин человека, которому принадлежит копия дневника.
+    static let user = "demo"
+
     static func model(store: LocalStore) async -> AppModel {
-        await TestSupport.makeModel(defaults: TestSupport.makeDefaults(), store: store)
+        await TestSupport.makeModel(defaults: TestSupport.makeDefaults(), store: store, user: user)
     }
 
     static var draft: EventDraft {

@@ -18,11 +18,11 @@ enum AccountAPI {
         return response.privacyConsentNeeded
     }
 
-    /// Администратор ли человек. Отдельный путь `/api/auth/session`: он отдаёт
-    /// одно поле, а весь аккаунт для этого перечитывать незачем.
-    static func isAdmin(_ client: APIClient) async throws -> Bool {
+    /// Администратор ли человек и кто он. Отдельный путь `/api/auth/session`:
+    /// он отдаёт два поля, а весь аккаунт для этого перечитывать незачем.
+    static func session(_ client: APIClient) async throws -> SessionInfo {
         let response: SessionDTO = try await client.get("/api/auth/session")
-        return response.isAdmin
+        return SessionInfo(isAdmin: response.isAdmin, username: response.username)
     }
 
     /// Смена почты. Пустая почта убирает адрес, а новая уходит в
@@ -141,8 +141,16 @@ private struct ConsentDTO: Decodable {
 
 private struct SessionDTO: Decodable {
     let isAdmin: Bool
+    let username: String
 
     enum CodingKeys: String, CodingKey {
         case isAdmin = "is_admin"
+        case username
     }
+}
+
+/// Кто вошёл и какие у него права.
+struct SessionInfo: Sendable {
+    let isAdmin: Bool
+    let username: String
 }

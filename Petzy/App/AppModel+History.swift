@@ -166,7 +166,7 @@ extension AppModel {
     private func handleHistoryError(_ error: Error) {
         let apiError = error as? APIError
         if apiError?.isAuthProblem == true {
-            signOut()
+            endSession()
             return
         }
         historyErrorText = apiError?.errorDescription ?? error.localizedDescription
@@ -199,7 +199,7 @@ extension AppModel {
         } catch {
             let apiError = error as? APIError
             if apiError?.isAuthProblem == true {
-                signOut()
+                endSession()
                 return nil
             }
             exportErrorText = apiError?.errorDescription ?? error.localizedDescription

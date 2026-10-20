@@ -62,10 +62,11 @@ final class AuthFlowModel {
         problems = []
         errorText = nil
         do {
+            let username = draft.username
             let tokens = try await AuthAPI.register(client, draft: draft)
             try await auth.replaceTokens(tokens)
             draft = RegistrationDraft()
-            app.acceptSession()
+            await app.acceptSession(username: username)
             return true
         } catch {
             errorText = Self.text(of: error)
@@ -101,7 +102,8 @@ final class AuthFlowModel {
             let tokens = try await AuthAPI.resetPassword(client, token: token, password: password)
             try await auth.replaceTokens(tokens)
             password = ""
-            app.acceptSession()
+            // Логина здесь нет: его узнает сервер, когда модель спросит сессию.
+            await app.acceptSession()
             return true
         } catch {
             errorText = Self.text(of: error)

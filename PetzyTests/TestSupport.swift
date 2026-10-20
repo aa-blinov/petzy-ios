@@ -22,10 +22,20 @@ enum TestSupport {
     /// Модель с залогиненной сессией. Без токенов APIClient отвечает
     /// `.signedOut` и в сеть не ходит вовсе: тест проходил бы, ни разу не
     /// проверив запрос.
+    /// `user` — логин человека, которому принадлежит дневник. Копия на
+    /// устройстве показывается только ему, и без логина тест про копию
+    /// ничего не проверяет.
     @MainActor
-    static func makeModel(defaults: UserDefaults, store: LocalStore = LocalStore(
-        url: FileManager.default.temporaryDirectory.appendingPathComponent("petzy-test-\(UUID().uuidString).json")
-    )) async -> AppModel {
+    static func makeModel(
+        defaults: UserDefaults,
+        store: LocalStore = LocalStore(
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("petzy-test-\(UUID().uuidString).json")
+        ),
+        user: String? = nil
+    ) async -> AppModel {
+        if let user {
+            defaults.set(user, forKey: AppModel.currentUserKey)
+        }
         let session = StubURLProtocol.makeSession()
         // swiftlint:disable:next force_unwrapping
         let auth = AuthSession(

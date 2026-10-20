@@ -73,11 +73,45 @@ final class OfflineState {
 
     /// Копия после успешной загрузки. Без неё следующий запуск без сети
     /// показал бы пустую ленту, хотя человек её только что читал.
-    func cache(events: [PetEvent], types: [String: EventTypeInfo], pets: [Pet], petID: String) {
+    ///
+    /// `owner` — логин человека, которому эти данные принадлежат: с этого
+    /// момента копию показывают только ему.
+    func cache(events: [PetEvent], types: [String: EventTypeInfo], pets: [Pet], petID: String, owner: String?) {
         snapshot.events[petID] = events
         snapshot.eventTypes = types
         snapshot.pets = pets
+        snapshot.owner = owner
         snapshot.syncAt = syncAt
+        store.save(snapshot)
+    }
+
+    /// Логин человека, которому принадлежит копия.
+    var owner: String? {
+        snapshot.owner
+    }
+
+    /// Копию показывают только её владельцу. На общем устройстве следующий
+    /// вошедший не должен видеть чужой дневник, а копия без владельца не
+    /// принадлежит никому и не показывается тоже.
+    func belongs(to username: String?) -> Bool {
+        guard let username, let owner = snapshot.owner else { return false }
+        return owner == username
+    }
+
+    /// Копия становится его: с этого момента её показывают ему. Чужую копию
+    /// не забираем — она уйдёт, когда придут данные нового человека.
+    func bind(owner username: String?) {
+        guard let username, snapshot.owner == nil || snapshot.owner == username else { return }
+        snapshot.owner = username
+        store.save(snapshot)
+    }
+
+    /// Дневник уходит с устройства: так человек понимает, что после выхода
+    /// его записи здесь не остаются.
+    func clear() {
+        snapshot = OfflineSnapshot()
+        pendingIDs = []
+        syncAt = nil
         store.save(snapshot)
     }
 

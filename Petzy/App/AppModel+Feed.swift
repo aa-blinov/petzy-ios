@@ -8,7 +8,9 @@ extension AppModel {
     /// сети: без связи человек должен увидеть свой дневник сразу, а не после
     /// ожидания, которое ничем не кончится.
     func restoreFromCache() {
-        guard !offline.isShowingCached, let petID = selectedPetID,
+        // Копия своя: на общем устройстве следующий вошедший не должен видеть
+        // чужой дневник.
+        guard canUseDiary, !offline.isShowingCached, let petID = selectedPetID,
               let cached = offline.cachedEvents(petID: petID) else { return }
         // Копия без типов показала бы записи голыми ключами, поэтому берём и
         // типы: без них человек не прочитает, что за запись увидел.
@@ -252,7 +254,7 @@ extension AppModel {
     func handleFeedError(_ error: Error) {
         let apiError = error as? APIError
         if apiError?.isAuthProblem == true {
-            signOut()
+            endSession()
             return
         }
         // Сервера не было: оставляем на экране копию и говорим об этом, вместо
