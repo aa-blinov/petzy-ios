@@ -156,6 +156,50 @@ struct AppModelTests {
         #expect(StubURLProtocol.requests.count == before)
     }
 
+    /// Ленту перечитывают по разным поводам: запись сохранили, очередь ушла,
+    /// питомца переключили. Человек при этом остался на той же странице, и
+    /// читать дальше неё незачем. Глубина восстанавливается, а не
+    /// удваивается с каждым перечитыванием: иначе после нескольких сохранений
+    /// приложение читало бы вдвое, вчетверо страниц — и упёрлось бы в лимит
+    /// запросов, не спросив человека.
+    @Test("Перечитывание ленты не читает больше страниц, чем человек дочитал")
+    func reloadingFeedDoesNotReadMorePages() async {
+        StubURLProtocol.reset()
+        let types: [String: Any] = ["event_types": [["key": "weight", "label": "Вес", "fields": []]]]
+        // Каждая страница отдаёт курсор: страниц может быть сколько угодно, и
+        // перечитывание не должно решать за приложение, где лента кончилась.
+        let page: [String: Any] = [
+            "items": [stubEvent("e1", dateTime: "2026-10-18 09:00")],
+            "next_cursor": "cur-1"
+        ]
+        // Заготовки идут в том же порядке, в каком уходят запросы: справочник
+        // типов, первая страница и страница, до которой человек дочитал.
+        for _ in 0 ..< 3 {
+            StubURLProtocol.stub(status: 200, json: types)
+            StubURLProtocol.stub(status: 200, json: page)
+            StubURLProtocol.stub(status: 200, json: page)
+        }
+        // Лишняя страница в самом конце: на неё уйдёт заготовка, только если
+        // глубина выросла сама.
+        StubURLProtocol.stub(status: 200, json: page)
+        let model = await TestSupport.makeModel(defaults: TestSupport.makeDefaults())
+        model.select(petID: "pet-1")
+
+        await model.loadFeed()
+        // Человек дочитал вторую страницу и остался на ней.
+        await model.loadMore()
+        // Два перечитывания: запись сохранили, потом ушла очередь.
+        await model.loadFeed()
+        await model.loadFeed()
+
+        let feedRequests = StubURLProtocol.requestedPaths.filter { $0 == "/api/events" }
+        let trace = StubURLProtocol.requests.map { "\($0.url?.path ?? "")?\($0.url?.query ?? "")" }
+        #expect(
+            feedRequests.count == 6,
+            "лента прочитана \(feedRequests.count) раз вместо 6: \(trace)"
+        )
+    }
+
     /// Смена аккаунта, у которого питомцев нет, оставляла на экране чужую
     /// ошибку «Питомец не найден», а «Повторить» ничего не менял: ленты у
     /// нового аккаунта нет, и показывать надо пустоту, а не чужую ошибку.
