@@ -151,10 +151,16 @@ struct HistoryView: View {
                 }
             }
             if model.hasMoreHistory {
-                Button(model.isLoadingHistory ? "Загружаем" : "Загрузить ещё") {
-                    Task { await model.loadMoreHistory() }
+                // Как в ленте: страница догружается сама, когда человек дошёл
+                // до конца, а кнопка «Загрузить ещё» в ленте уже убрана.
+                HStack {
+                    if model.isLoadingHistory {
+                        ProgressView()
+                    }
                 }
-                .disabled(model.isLoadingHistory)
+                .frame(maxWidth: .infinity)
+                .frame(height: 28)
+                .onAppear { Task { await model.loadMoreHistory() } }
             }
         }
     }

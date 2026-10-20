@@ -114,7 +114,9 @@ extension AppModel {
     }
 
     func loadMoreHistory() async {
-        guard hasMoreHistory, let cursor = historyCursor, let petID = selectedPetID else { return }
+        // Пока страница едет, вторую не берём: иначе список прочитает одну
+        // страницу дважды, и записи покажутся дважды.
+        guard hasMoreHistory, let cursor = historyCursor, let petID = selectedPetID, !isLoadingHistory else { return }
         isLoadingHistory = true
         isHistoryLoaded = true
         defer { isLoadingHistory = false }

@@ -31,53 +31,44 @@ final class FeedUITests: XCTestCase {
         )
     }
 
-    /// Кнопка «Загрузить ещё» реально дочитывает следующую страницу: после
-    /// неё в ленте появляются дни, которых на первой странице не было.
+    /// Лента догружается сама, когда человек дошёл до конца: кнопки
+    /// «Загрузить ещё» в ней больше нет, а страница приезжает без всякого
+    /// нажатия, и в ленте появляются дни, которых на первой странице не было.
     ///
-    /// Кнопка есть не у каждого питомца, и это не поломка: страницу
+    /// Страница есть не у каждого питомца, и это не поломка: страницу
     /// приложение берёт по сто записей, и когда у питомца их меньше, сервер не
     /// отдаёт курсор. Поэтому питомец для проверки выбирается по стенду, а
     /// выбранный по умолчанию может быть тем, у кого догружать нечего.
-    func testLoadMoreReadsNextPage() async throws {
+    func testFeedLoadsNextPageOnItsOwn() async throws {
         let app = TestLaunch.signedOut()
         XCTAssertTrue(TestLaunch.logIn(app), "не удалось войти и открыть оболочку")
 
-        guard let pet = await TestLaunch.petWithNextFeedPage() else {
+        guard let (pet, day) = await TestLaunch.petWithNextFeedPage() else {
             throw XCTSkip("на стенде нет питомца, чья следующая страница приносит новые записи, догружать нечего")
         }
         TestLaunch.selectPet(app, named: pet)
 
-        // Кнопка догрузки последняя в списке: пока она на экране, лента
-        // пролистана до конца.
-        var seen: Set<String> = []
-        for _ in 0 ..< 80 {
-            seen.formUnion(dateHeaders(app))
-            if app.buttons["Загрузить ещё"].isHittable {
-                break
-            }
-            app.swipeUp()
-        }
-        XCTAssertTrue(
-            app.buttons["Загрузить ещё"].isHittable,
-            "сервер отдал курсор, а кнопка догрузки не доехала до низа ленты: \(app.debugDescription)"
+        XCTAssertFalse(
+            app.buttons["Загрузить ещё"].exists,
+            "в ленте осталась кнопка догрузки: \(app.debugDescription)"
         )
 
-        app.buttons["Загрузить ещё"].tap()
-
-        // Новая страница встаёт под старой, поэтому новые дни видны только
-        // после прокрутки: листаем, пока новый день не появится.
-        var after = seen
-        for _ in 0 ..< 40 {
-            after.formUnion(dateHeaders(app))
-            if after.count > seen.count {
+        // Листаем до конца: страница должна приехать сама, без кнопки. День
+        // берём самый старый: он в самом низу ленты, и мимо него прокрутка не
+        // проскакивает, а середину пролистать можно между двумя замерами.
+        var seen: Set<String> = []
+        for _ in 0 ..< 120 {
+            seen.formUnion(dateHeaders(app))
+            if seen.contains(day) {
                 break
             }
             app.swipeUp()
         }
-        after.formUnion(dateHeaders(app))
+        seen.formUnion(dateHeaders(app))
+
         XCTAssertTrue(
-            after.count > seen.count,
-            "после догрузки новых дней не появилось: было \(seen.count), стало \(after.count)"
+            seen.contains(day),
+            "страница не подгрузилась сама: дня \(day) так и не появилось"
         )
     }
 

@@ -332,12 +332,12 @@ commits that sit on `master` locally but not on `origin`:
   never shift a page. `page`/`page_size` is the web app's own path.
 - Soft delete: `with_deleted=1` returns tombstones with `is_deleted` and
   `deleted_at`, kept for 30 days.
-- **A tombstone takes up a place in the page.** The app reads the whole feed
-  with `with_deleted=1`, because that is the contract: the client drops the
-  deleted records from its own copy. So a page of a hundred holds fewer live
-  records, and on a pet whose records were deleted many times «Загрузить ещё»
-  can bring nothing new. The stand collects such trash by itself: every UI
-  run creates and deletes a record.
+- **The app reads the feed without `with_deleted=1`, and that is deliberate.**
+  A deleted record is not in the normal response anyway, and the app replaces
+  its own copy wholesale after a full read, so it has nothing to purge. Asking
+  for tombstones only cost page slots: a page of a hundred held fewer live
+  records, and on a pet whose records were deleted many times the feed looked
+  empty. Tombstones matter for a client that syncs by `since`.
 
 Own event types (`/api/event-types`, key `custom_…`, `category: null`):
 - The **key** is the server's to assign; `icon` and `color` are not — without
@@ -655,6 +655,11 @@ Four more, found by going screen by screen:
   registration form is a sheet, and the policy opened by the login screen
   appeared *behind* it, so «Прочитать политику» looked dead. The sheet has to
   be attached to the view that is on screen.
+- **A long list loads the next page by itself.** «Загрузить ещё» was a web
+  pattern: in iOS the list grows when the person reaches the end, and the app
+  asks for the next page on its own, the way Mail and Photos do. The trigger is
+  a row at the end of the list with `onAppear`, and the request is guarded by
+  `isLoadingMore`, so two appearances cannot read the same page twice.
 
 ## Swift conventions
 
@@ -700,3 +705,9 @@ Three things that cost real time and are now fixed:
 - **A tap on a `StaticText` inside a `Button` with `.plain` does nothing.**
   The text has no hit area of its own. Use
   `app.buttons.containing(.staticText, identifier: title).firstMatch`.
+- **A swipe can step over a day header.** A UI test that samples the visible
+  headers while scrolling misses the ones that passed between two samples: the
+  test looked for a day in the middle of the feed, never saw it, and the app
+  had long since loaded the page. Look for the day at the very bottom of the
+  feed, which is on screen at the end, and take one more sample after the last
+  swipe.

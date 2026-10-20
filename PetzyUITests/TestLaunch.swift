@@ -68,49 +68,67 @@ enum TestLaunch {
         return app.buttons["Лента"].waitForExistence(timeout: timeout)
     }
 
-    /// Имя питомца, у которого кнопка догрузки дочитает страницу с новыми
-    /// записями. Запрос повторяет запрос приложения, вместе с надгробиями
-    /// (`with_deleted=1`): надгробия занимают место в странице, и у питомца,
-    /// чьи записи много раз удаляли, следующая страница может оказаться сплошь
-    /// из удалённых записей. Тогда догружать нечего, и проверка падала бы
-    /// впустую — из-за данных стенда, а не из-за приложения.
-    static func petWithNextFeedPage() async -> String? {
+    /// Питомец и самый старый день его ленты: дойдя до конца, человек должен
+    /// увидеть его сам, без всякой кнопки. Запрос повторяет запрос
+    /// приложения, без надгробий: удалённые записи сервер и так не отдаёт, а
+    /// страница с надгробиями приносила из ста записей одну живую, и догружать
+    /// было нечего.
+    static func petWithNextFeedPage() async -> (pet: String, day: String)? {
         guard let base = URL(string: "http://localhost:5002"),
               let token = await token(),
               let pets = try? await get("/api/pets", base: base, token: token),
               let list = pets["pets"] as? [[String: Any]]
         else { return nil }
+        let limit = daysAgo(3)
         for pet in list {
             guard let name = pet["name"] as? String,
-                  let petID = pet["_id"] as? String,
-                  let page = try? await get(
-                      "/api/events?with_deleted=1&page_size=100&pet_id=\(petID)",
-                      base: base,
-                      token: token
-                  ),
-                  let cursor = page["next_cursor"] as? String, !cursor.isEmpty
+                  let petID = pet["_id"] as? String
             else { continue }
-            let first = liveDays(page["items"] as? [[String: Any]] ?? [])
-            guard let next = try? await get(
-                "/api/events?with_deleted=1&page_size=100&pet_id=\(petID)&before=\(escaped(cursor))",
-                base: base,
-                token: token
-            ) else { continue }
-            // Догрузка должна принести записи новых дней: только тогда её видно
-            // в ленте, и только тогда проверка что-то значит.
-            if liveDays(next["items"] as? [[String: Any]] ?? []).subtracting(first).isEmpty {
+            var cursor: String?
+            var all: Set<String> = []
+            var pages = 0
+            repeat {
+                var path = "/api/events?page_size=100&pet_id=\(petID)"
+                if let cursor {
+                    path += "&before=\(escaped(cursor))"
+                }
+                guard let page = try? await get(path, base: base, token: token) else { break }
+                all.formUnion(days(page["items"] as? [[String: Any]] ?? []))
+                cursor = page["next_cursor"] as? String
+                pages += 1
+            } while cursor != nil && pages < 12
+            // Страниц больше одной: иначе догружать нечего. День берётся тот,
+            // который приложение покажет датой, а не «Сегодня» или «Вчера».
+            guard pages > 1, let day = all.filter { $0 <= limit }.sorted().first else {
                 continue
             }
-            return name
+            return (pet: name, day: displayDay(day))
         }
         return nil
     }
 
-    /// Дни живых записей: удалённые в ленте не показываются.
-    private static func liveDays(_ events: [[String: Any]]) -> Set<String> {
-        Set(events.filter { ($0["is_deleted"] as? Bool) != true }.compactMap { event in
-            (event["date_time"] as? String)?.prefix(10).description
-        })
+    /// Дни записей в виде «2026-08-17».
+    private static func days(_ events: [[String: Any]]) -> Set<String> {
+        Set(events.compactMap { ($0["date_time"] as? String)?.prefix(10).description })
+    }
+
+    /// Дата так, как её показывает приложение: «17.08.2026».
+    private static func displayDay(_ iso: String) -> String {
+        let parts = iso.split(separator: "-")
+        guard parts.count == 3 else { return iso }
+        return "\(parts[2]).\(parts[1]).\(parts[0])"
+    }
+
+    /// Дата, которая прошла не меньше трёх дней назад. Ближе к сегодня
+    /// приложение показывает «Сегодня» и «Вчера», а не дату, и проверка искала
+    /// бы не то.
+    private static func daysAgo(_ count: Int) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        let date = Calendar.current.date(byAdding: .day, value: -count, to: Date()) ?? Date()
+        return formatter.string(from: date)
     }
 
     /// Курсор в строку запроса так же, как это делает приложение.

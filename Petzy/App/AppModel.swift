@@ -59,6 +59,11 @@ final class AppModel {
     /// Значения по умолчанию выбранного питомца: ими открывается новая запись.
     var formDefaults: FormDefaults = [:]
     private(set) var isLoadingFeed = false
+    /// Едет ли следующая страница. Отдельный флаг от `isLoadingFeed`: первая
+    /// страница и догрузка ходят в разное время, и догрузка не должна ждать
+    /// первой — но и две догрузки одна за другой читать одну страницу нельзя,
+    /// иначе записи покажутся дважды.
+    private(set) var isLoadingMore = false
     var feedErrorText: String?
     /// Идёт ли отправка очереди. Отправка перечитывает ленту, а лента после
     /// успешной загрузки отправляет очередь: без этого флага они бы гоняли
@@ -282,9 +287,9 @@ final class AppModel {
     /// Следующая страница по курсору. Догружать нечего — запроса не будет:
     /// лишний запрос на последней странице это и лишний шаг к лимиту входа.
     func loadMore() async {
-        guard hasMoreEvents, let cursor = feedNextCursor, let petID = selectedPetID else { return }
-        isLoadingFeed = true
-        defer { isLoadingFeed = false }
+        guard hasMoreEvents, let cursor = feedNextCursor, let petID = selectedPetID, !isLoadingMore else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
         do {
             try await apply(fetchPage(petID: petID, before: cursor), appending: true)
             feedDepth += 1

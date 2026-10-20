@@ -158,10 +158,18 @@ struct FeedView: View {
                         }
                     }
                     if model.hasMoreEvents {
-                        Button(model.isLoadingFeed ? "Загружаем" : "Загрузить ещё") {
-                            Task { await model.loadMore() }
+                        // Лента догружается сама, когда человек дошёл до конца,
+                        // как в системных приложениях. Кнопка «Загрузить ещё»
+                        // тут была лишней, а страница с надгробиями удалённых
+                        // записей и вовсе приводила к пустому списку.
+                        HStack {
+                            if model.isLoadingMore {
+                                ProgressView()
+                            }
                         }
-                        .disabled(model.isLoadingFeed)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 28)
+                        .onAppear { Task { await model.loadMore() } }
                     }
                 }
             }
