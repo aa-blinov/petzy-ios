@@ -193,9 +193,12 @@ struct MedicalRecordFormView: View {
                     }
                 }
                 Section("Вид") {
-                    Picker("Вид записи", selection: $draft.kind) {
-                        ForEach(MedicalKind.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
+                    // Вид записи задаётся тем, откуда форму открыли, и на
+                    // сервере он не меняется: выбрать другой в форме бессмысленно —
+                    // сервер оставит прежний и отбросит поля чужого вида, а
+                    // человек решит, что запись стала другой. На вебе так же:
+                    // вид приходит из адреса, а не из выбора.
+                    LabeledContent("Вид", value: draft.kind.title)
                     TextField("Название", text: $draft.title)
                         .focused($focus, equals: .title)
                         .submitLabel(.next)
