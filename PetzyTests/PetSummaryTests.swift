@@ -121,6 +121,10 @@ struct PetSummaryTests {
         #expect(PetSpecies.icon(for: "rabbit") == "hare.fill")
         #expect(PetSpecies.icon(for: "hamster") == "pawprint.fill")
         #expect(PetSpecies.icon(for: nil) == "pawprint.fill")
+        // Вид, вписанный словами, а не ключом («собака» вместо «dog»): по
+        // названию он узнаётся, иначе собака показывалась бы лапкой.
+        #expect(PetSpecies.icon(for: "собака") == "dog.fill")
+        #expect(PetSpecies.icon(for: "Собака") == "dog.fill")
     }
 
     /// Дата из строки «ГГГГ-ММ-ДД» в полночь своего дня.

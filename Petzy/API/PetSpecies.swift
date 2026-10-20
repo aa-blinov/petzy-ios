@@ -60,8 +60,15 @@ enum PetSpecies {
     }
 
     /// Значок вида для карточки питомца. У кого своего знака нет, лапка.
+    /// Вид, вписанный словами («собака» вместо «dog»), узнаётся по названию:
+    /// иначе собака показывалась бы лапкой.
     static func icon(for key: String?) -> String {
-        kind(key)?.icon ?? "pawprint.fill"
+        guard let key, !key.isEmpty else { return "pawprint.fill" }
+        if let kind = kind(key) {
+            return kind.icon
+        }
+        let lowered = key.lowercased()
+        return kinds.first { $0.title.lowercased() == lowered }?.icon ?? "pawprint.fill"
     }
 
     static func breedTitle(for key: String?) -> String {
