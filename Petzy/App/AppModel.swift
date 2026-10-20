@@ -201,6 +201,12 @@ final class AppModel {
         isHistoryLoaded = false
         statsType = nil
         statsPoints = []
+        // Типы тоже принадлежат питомцу: у нового их может не быть, а чужие
+        // типы в фильтре истории и в выгрузке только сбивают с толку.
+        usedTypes = []
+        // Тип в выгрузке должен быть среди типов нового питомца, иначе
+        // переключатель показывает пустоту.
+        exportType = "all"
     }
 
     func loadPets() async {

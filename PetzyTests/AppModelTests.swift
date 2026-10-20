@@ -230,6 +230,45 @@ struct AppModelTests {
         #expect(model.historyType == nil)
     }
 
+    /// Типы в фильтре истории и в выгрузке принадлежат питомцу. У другого
+    /// питомца их может не быть, и чужие типы в списке только сбивают с толку:
+    /// человек выбирает «Вес», а у его питомца веса не было никогда.
+    @Test("Смена питомца сбрасывает его типы")
+    func switchingPetResetsUsedTypes() async {
+        let model = await TestSupport.makeModel(defaults: TestSupport.makeDefaults())
+        model.select(petID: "pet-1")
+        model.usedTypes = ["weight"]
+        model.exportType = "weight"
+
+        model.select(petID: "pet-2")
+
+        #expect(model.usedTypes.isEmpty, "остались типы прежнего питомца")
+        #expect(model.exportType == "all", "в выгрузке остался тип прежнего питомца")
+    }
+
+    /// Типы читаются для того питомца, чей дневник открыт. Список прежнего
+    /// питомца держать нельзя, иначе запрос ушёл бы с чужим питомцем или не
+    /// ушёл бы вовсе.
+    @Test("После смены питомца его типы читаются заново")
+    func usedTypesAreReadForTheNewPet() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["types": ["feeding"]])
+        let model = await TestSupport.makeModel(defaults: TestSupport.makeDefaults())
+        model.select(petID: "pet-1")
+        model.usedTypes = ["weight"]
+
+        await model.select(petID: "pet-2")
+        await model.loadUsedTypes()
+
+        #expect(
+            StubURLProtocol.requestedPaths.contains("/api/events/used-types"),
+            "типы не перечитались: \(StubURLProtocol.requestedPaths)"
+        )
+        let query = StubURLProtocol.requests.first { $0.url?.path == "/api/events/used-types" }?.url?.query ?? ""
+        #expect(query.contains("pet_id=pet-2"), "запрос ушёл с чужим питомцем: \(query)")
+        #expect(model.usedTypes == ["feeding"])
+    }
+
     private func weightDraft() -> EventDraft {
         EventDraft(
             type: EventTypeInfo(key: "weight", label: "Вес", icon: "scale", category: "health", fields: [
