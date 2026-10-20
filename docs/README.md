@@ -1,23 +1,24 @@
-<!-- house-style: template — fill this file in, then delete this line -->
-
 # Documentation
 
-<!--
-  The index of the documents in this folder. A folder of documents with no
-  entry point is a folder nobody opens.
-
-  Replace the entries below with the real ones. The house style's checker
-  wants an index that links to at least one other document here.
--->
+The documents in this folder describe the Petzy app for iOS. There are four
+of them, and none of them repeats the README.
 
 | Document | What it covers |
 | --- | --- |
-| [architecture.md](architecture.md) | How petzy-ios is put together, and why. |
-| [../README.md](../README.md) | The front door: what it does and how to run it. |
+| [architecture.md](architecture.md) | The layers of the app, the path a request takes through them, the decisions that are not obvious and the boundaries between them. |
+| [screenshots/README.md](screenshots/README.md) | Why the folder holds no picture of the interface, and how to take one. |
+| [PORT-PLAN.md](PORT-PLAN.md) | The inventory of the 48 web routes and the 11 stages they were ported in. |
+| [USER-CASES.md](USER-CASES.md) | What a person can do in the app, and the test that covers each case. |
+| [../README.md](../README.md) | The front door: what the app does and how to run it. |
+| [../PRODUCT.md](../PRODUCT.md) | The product record: the users, the purpose and the principles the port is held to. |
 
 ## Reading order
 
-New here: [../README.md](../README.md), then [architecture.md](architecture.md).
+New here: [../README.md](../README.md), then
+[architecture.md](architecture.md). The README gives you the commands and
+the capabilities, the architecture gives you the layers behind them.
 
 Changing the code: [architecture.md](architecture.md), then
-[../AGENTS.md](../AGENTS.md) for the traps.
+[../AGENTS.md](../AGENTS.md) for the traps. The traps in this project are
+mostly SwiftUI behaviours that cost a rebuild to learn, and several of them
+are the reason a screen looks the way it does.
