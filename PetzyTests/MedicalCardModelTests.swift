@@ -28,7 +28,7 @@ struct MedicalCardModelTests {
 
         await model.load()
 
-        #expect(model.overdueCount == 2)
+        #expect(model.overdueCount == 1)
         #expect(model.hasOverdue)
     }
 

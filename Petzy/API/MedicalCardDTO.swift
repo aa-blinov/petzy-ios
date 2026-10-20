@@ -25,13 +25,20 @@ struct CardDTO: Decodable {
     let visitPrep: VisitPrepDTO?
     let generatedAt: String
     let canEdit: Bool
+    /// Сертификаты прививок: документы со сроком, отдельные от записей.
+    /// Необязательное поле: сервер без него ещё ничего не знает о
+    /// сертификатах, и карта от этого разваливаться не должна.
+    let vaccinations: [CertificateDTO]?
+    /// Сколько всего законченных курсов: в карте показывают два последних.
+    let pastCoursesTotal: Int?
 
     enum CodingKeys: String, CodingKey {
-        case pet, records, medications, documents, profile
+        case pet, records, medications, documents, profile, vaccinations
         case recordCounts = "record_counts"
         case overdueRecords = "overdue_records"
         case weight
         case pastCourses = "past_courses"
+        case pastCoursesTotal = "past_courses_total"
         case visitPrep = "visit_prep"
         case generatedAt = "generated_at"
         case canEdit = "can_edit"
@@ -44,11 +51,16 @@ struct CardPetDTO: Decodable {
     let species: String?
     let ageText: String?
     let neuteredText: String?
+    let birthDate: String?
+    let gender: String?
+    let healthNotes: String?
 
     enum CodingKeys: String, CodingKey {
-        case name, breed, species
+        case name, breed, species, gender
         case ageText = "age_text"
         case neuteredText = "neutered_text"
+        case birthDate = "birth_date"
+        case healthNotes = "health_notes"
     }
 }
 
@@ -74,6 +86,9 @@ struct RecordDTO: Decodable {
     /// отправляет при правке, и сервер отвечает отказом, если запись поменяли
     /// с тех пор.
     let updatedAt: String?
+    /// Запись заменена более новой: сервер знает это, и на экране такая запись
+    /// уже не зовёт.
+    let superseded: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -84,11 +99,31 @@ struct RecordDTO: Decodable {
         case clinic, vet, note, target, protects, batch
         case complaint, diagnosis, recommendations, documents
         case updatedAt = "updated_at"
+        case superseded
     }
 }
 
 struct WeightDTO: Decodable {
     let latest: PointDTO?
+    /// Ряд замеров, от старого к новому. Без него на экране не будет линии
+    /// веса и дельты.
+    let series: [PointDTO]?
+}
+
+/// Сертификат прививки: документ со сроком.
+struct CertificateDTO: Decodable {
+    let id: String
+    let title: String
+    let expiresAt: String?
+    let status: String?
+    let daysLeft: Int?
+    let note: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, status, note
+        case expiresAt = "expires_at"
+        case daysLeft = "days_left"
+    }
 }
 
 struct PointDTO: Decodable {
@@ -101,16 +136,31 @@ struct CardMedicationDTO: Decodable {
     let name: String
     let doseText: String?
     let purpose: String?
+    let scheduleText: String?
+    let prescribedBy: String?
+    let startedOn: String?
+    let endedOn: String?
+    let given: Int?
+    let skipped: Int?
+    let status: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, purpose
+        case id, name, purpose, given, skipped, status
         case doseText = "dose_text"
+        case scheduleText = "schedule_text"
+        case prescribedBy = "prescribed_by"
+        case startedOn = "started_on"
+        case endedOn = "ended_on"
     }
 }
 
 struct CardDocumentDTO: Decodable {
     let id: String
     let title: String
+    /// Категория документа: `lab_result`, `conclusion`, `vaccination`.
+    let category: String?
+    /// Дата, когда документ положили в карту.
+    let added: String?
 }
 
 struct CardCourseDTO: Decodable {
@@ -201,7 +251,10 @@ extension CardDTO {
                 breed: pet.breed ?? "",
                 species: pet.species ?? "",
                 ageText: pet.ageText ?? "",
-                neuteredText: pet.neuteredText ?? ""
+                neuteredText: pet.neuteredText ?? "",
+                birthDate: pet.birthDate,
+                gender: pet.gender,
+                healthNotes: pet.healthNotes
             ),
             records: records,
             counts: counts,
@@ -211,9 +264,18 @@ extension CardDTO {
                 id: $0.id,
                 name: $0.name,
                 doseText: $0.doseText,
-                purpose: $0.purpose
+                purpose: $0.purpose,
+                scheduleText: $0.scheduleText,
+                prescribedBy: $0.prescribedBy,
+                startedOn: $0.startedOn,
+                endedOn: $0.endedOn,
+                given: $0.given ?? 0,
+                skipped: $0.skipped ?? 0,
+                status: $0.status
             ) },
-            documents: documents.map { CardDocument(id: $0.id, title: $0.title) },
+            documents: documents.map {
+                CardDocument(id: $0.id, title: $0.title, category: $0.category ?? "", added: $0.added ?? "")
+            },
             pastCourses: pastCourses.map { CardCourse(id: $0.id, name: $0.name) },
             profile: profile?.domain,
             visitPrep: visitPrep.map {
@@ -228,7 +290,20 @@ extension CardDTO {
                 )
             },
             generatedAt: generatedAt,
-            canEdit: canEdit
+            canEdit: canEdit,
+            weightSeries: (weight?.series ?? []).map { WeightPoint(date: $0.date, value: $0.value) },
+            certificates: (vaccinations ?? []).map {
+                CardCertificate(
+                    id: $0.id,
+                    title: $0.title,
+                    expiresAt: $0.expiresAt,
+                    status: $0.status.flatMap(CertificateStatus.init(rawValue:)) ?? .none,
+                    daysLeft: $0.daysLeft,
+                    note: $0.note
+                )
+            },
+            pastCoursesTotal: pastCoursesTotal ?? 0,
+            overdueRecords: overdueRecords.map { $0.domain(fallback: .vaccination) }
         )
     }
 }
@@ -254,7 +329,8 @@ extension RecordDTO {
             diagnosis: diagnosis,
             recommendations: recommendations,
             documentIDs: documents.map(\.id),
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            superseded: superseded ?? false
         )
     }
 }

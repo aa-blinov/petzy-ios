@@ -75,15 +75,34 @@ struct MedicalRecord: Identifiable, Sendable {
     /// Версия записи, которую человек видел. Её приложение отправляет при
     /// правке: сервер отвечает отказом, если запись поменяли с тех пор.
     let updatedAt: String?
+    /// Запись заменена более новой: она больше не зовёт и в «Требует
+    /// внимания» не попадает, но в разделе остаётся.
+    var superseded: Bool = false
 
-    /// «Просрочено 11 дней». Пусто у записи без даты повтора: выдуманный срок
-    /// хуже отсутствия срока.
+    /// Статус словами, как его говорит человек: «Просрочено на 11 дней»,
+    /// «Через 5 дней», «Сегодня», «Завтра», «В срок». У записи без даты
+    /// повтора срока нет, и выдуманный срок хуже отсутствия срока.
     var statusText: String? {
         guard let daysLeft else { return nil }
         // Просрочка считается отрицательным числом дней, поэтому в текст идёт
-        // модуль: «Просрочено 11 дней», а не «Просрочено -11 дней».
+        // модуль: «Просрочено на 11 дней», а не «Просрочено на -11 дней».
         let days = Words.text(abs(daysLeft), one: "день", few: "дня", many: "дней")
-        return status == .overdue ? "Просрочено \(days)" : "Осталось \(days)"
+        switch status {
+        case .overdue:
+            return "Просрочено на \(days)"
+        case .soon:
+            if daysLeft == 0 {
+                return "Сегодня"
+            }
+            if daysLeft == 1 {
+                return "Завтра"
+            }
+            return "Через \(days)"
+        case .fine:
+            return "В срок"
+        case .none:
+            return nil
+        }
     }
 
     var isOverdue: Bool {
@@ -109,13 +128,18 @@ struct CardTile: Identifiable, Sendable {
     }
 }
 
-/// Питомец в шапке медкарты: то, что врач видит первым.
+/// Питомец в паспорте медкарты: то, что врач видит первым.
 struct CardPet: Sendable {
     let name: String
     let breed: String
     let species: String
     let ageText: String
     let neuteredText: String
+    /// Дата рождения, пол и заметки о здоровье — строки паспорта. Сервер
+    /// отдаёт их пустыми, и паспорт без них всё равно показывается.
+    var birthDate: String?
+    var gender: String?
+    var healthNotes: String?
 }
 
 /// Замер веса.
@@ -140,6 +164,18 @@ struct MedicalCard: Sendable {
     let visitPrep: VisitPrep?
     let generatedAt: String
     let canEdit: Bool
+    /// Ряд замеров веса, от старого к новому. По нему линия веса, дельта и
+    /// «N замеров с …»: одного последнего замера мало.
+    var weightSeries: [WeightPoint] = []
+    /// Сертификаты прививок: документы со сроком. Это не записи о прививках, а
+    /// бумаги, и срок у них свой.
+    var certificates: [CardCertificate] = []
+    /// Сколько всего законченных курсов. В карте показывают два последних,
+    /// а считать надо все: «прошлых курсов 12».
+    var pastCoursesTotal: Int = 0
+    /// Все просроченные записи, а не только показанные в разделах: сервер
+    /// отдаёт их все, и по ним считается значок на вкладке.
+    var overdueRecords: [MedicalRecord] = []
 
     func count(for kind: MedicalKind) -> Int {
         counts[kind] ?? 0
@@ -169,12 +205,56 @@ struct CardMedication: Identifiable, Sendable {
     let name: String
     let doseText: String?
     let purpose: String?
+    /// «По сб в 10:00» — расписание словами, как его видит человек.
+    var scheduleText: String?
+    /// Кто назначил: в карте врач нужен рядом с курсом.
+    var prescribedBy: String?
+    /// Когда начался и когда закончился.
+    var startedOn: String?
+    var endedOn: String?
+    /// Сколько раз дали и сколько пропустили.
+    var given: Int = 0
+    var skipped: Int = 0
+    /// «active», «planned» или «ended»: у курса в карте есть состояние.
+    var status: String?
 }
 
 /// Документ, приложенный к медкарте.
 struct CardDocument: Identifiable, Sendable {
     let id: String
     let title: String
+    /// Категория документа: «Анализ крови» — это `lab_result`, а «Сертификат
+    /// прививки» — `vaccination`. По ней блок «Анализы и заключения» понимает,
+    /// что перед ним.
+    var category: String = ""
+    /// Дата, когда документ положили в карту.
+    var added: String = ""
+}
+
+/// Сертификат прививки: документ со сроком. Статус считает сервер, здесь он
+/// только читается.
+struct CardCertificate: Identifiable, Sendable {
+    let id: String
+    let title: String
+    /// Срок сертификата. `nil` — срок не указан.
+    let expiresAt: String?
+    let status: CertificateStatus
+    /// Осталось дней до срока, отрицательное — истёк.
+    let daysLeft: Int?
+    let note: String?
+}
+
+/// Статус сертификата. Отличать надо и по сроку, и по тому, что сервер
+/// посчитал: «действует», «скоро истекает», «истёк» и «срока нет».
+enum CertificateStatus: String, Sendable {
+    /// Срок не указан.
+    case none
+    /// Действует.
+    case valid
+    /// Скоро истекает.
+    case soon
+    /// Истёк.
+    case expired
 }
 
 /// Законченный курс: человек хочет знать, чем лечили и что закончилось.

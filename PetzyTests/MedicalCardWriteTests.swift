@@ -99,7 +99,7 @@ struct MedicalCardWriteTests {
 
         #expect(records.count == 1)
         #expect(records.first?.title == "Бравекто")
-        #expect(records.first?.statusText == "Просрочено 11 дней")
+        #expect(records.first?.statusText == "Просрочено на 11 дней")
         #expect(records.first?.isOverdue == true)
     }
 

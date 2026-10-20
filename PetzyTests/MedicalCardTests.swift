@@ -21,21 +21,46 @@ struct MedicalCardTests {
         #expect(card.pet.ageText == "5 лет")
         #expect(card.count(for: .vaccination) == 3)
         #expect(card.count(for: .parasite) == 2)
-        #expect(card.overdueCount == 2)
+        #expect(card.overdueCount == 1)
         #expect(card.weight?.value == 29.3)
-        #expect(card.generatedAt == "2026-10-18")
+        #expect(card.generatedAt == "2026-10-20")
+    }
+
+    /// Медкарта стала документом, и сервер отдаёт для него больше: ряд замеров
+    /// веса, сертификаты прививок со сроком, общее число законченных курсов,
+    /// дату рождения, пол, категорию и дату документов. Без этого на экране не
+    /// будет ни линии веса, ни паспорта, ни сертификатов.
+    @Test("Карта берёт всё, что сервер отдаёт для документа")
+    func cardTakesEverythingForTheDocument() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
+
+        let card = try await MedicalCardAPI.card(client, petID: "p1", zone: "Asia/Almaty")
+
+        #expect(card.weightSeries.count == 7, "ряд замеров веса не взят")
+        #expect(card.weightSeries.last?.value == 29.3)
+        #expect(card.certificates.count == 1, "сертификаты прививок не взяты")
+        #expect(card.certificates.first?.title == "Сертификат прививки от бешенства")
+        #expect(card.certificates.first?.status == .valid)
+        #expect(card.certificates.first?.daysLeft == 26)
+        #expect(card.pastCoursesTotal == 1)
+        #expect(card.pet.birthDate == "2021-08-01")
+        #expect(card.pet.gender == "Мальчик")
+        #expect(card.documents.first?.category == "lab_result")
+        #expect(card.documents.first?.added == "2026-10-03")
     }
 
     @Test("Просроченная запись читается словами, а не кодом статуса")
     func overdueReadsInWords() {
         let record = Self.record(status: "overdue", daysLeft: -11)
-        #expect(record.statusText == "Просрочено 11 дней")
+        #expect(record.statusText == "Просрочено на 11 дней")
     }
 
-    @Test("Скоро и «осталось» тоже читаются по-русски")
+    @Test("Скоро и «в срок» тоже читаются по-русски")
     func soonAndLeft() {
-        #expect(Self.record(status: "soon", daysLeft: 5).statusText == "Осталось 5 дней")
-        #expect(Self.record(status: "ok", daysLeft: 30).statusText == "Осталось 30 дней")
+        #expect(Self.record(status: "soon", daysLeft: 5).statusText == "Через 5 дней")
+        #expect(Self.record(status: "ok", daysLeft: 30).statusText == "В срок")
         // У записи без даты повтора срока нет, и выдумывать его нельзя.
         #expect(Self.record(status: "none", daysLeft: nil).statusText == nil)
     }

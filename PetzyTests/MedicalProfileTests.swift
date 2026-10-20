@@ -71,7 +71,7 @@ struct MedicalProfileTests {
 
         // Без версии форма отправила бы base_version = nil, сервер проверку
         // пропустил бы, и правка второго человека затиралась бы без слова.
-        #expect(card.profile?.baseVersion == "554c0b266eda4363a8bbf560e3b1236e")
+        #expect(card.profile?.baseVersion == "bcf7921cf6f841fba0cef50dd6ef7d9b")
     }
 
     @Test("Заметка «К приёму» несёт свою версию, а не версию профиля")
