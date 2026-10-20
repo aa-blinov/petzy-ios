@@ -74,7 +74,9 @@ final class MedicalCardModel {
     func loadAllRecords(of kind: MedicalKind) async {
         guard allRecords[kind] == nil else { return }
         do {
-            allRecords[kind] = try await MedicalCardAPI.records(client, petID: petID, kind: kind)
+            allRecords[kind] = try await MedicalCardAPI.records(
+                client, petID: petID, kind: kind, zone: Self.zone
+            )
         } catch {
             errorText = Self.text(of: error)
         }
@@ -279,7 +281,7 @@ final class MedicalCardModel {
         isPreparingPDF = true
         defer { isPreparingPDF = false }
         do {
-            let file = try await MedicalCardAPI.pdf(client, petID: petID)
+            let file = try await MedicalCardAPI.pdf(client, petID: petID, zone: Self.zone)
             let url = FileManager.default.temporaryDirectory.appendingPathComponent(
                 file.fileName ?? "медкарта.pdf"
             )

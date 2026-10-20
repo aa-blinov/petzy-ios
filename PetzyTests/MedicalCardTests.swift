@@ -96,6 +96,25 @@ struct MedicalCardTests {
         #expect(VisitChecks.title("activity") == "Активность")
     }
 
+    /// Часовой пояс уходит с каждым запросом медкарты. Без него сервер считает
+    /// «сегодня» по своему времени, и около полуночи статус прививки в
+    /// разделе и в PDF отличался бы от статуса на карте.
+    @Test("Время устройства уходит с разделом и с PDF")
+    func zoneGoesWithTheSectionAndThePdf() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["records": []])
+        StubURLProtocol.stub(status: 200, data: Data("%PDF".utf8), headers: [:])
+        let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
+
+        _ = try await MedicalCardAPI.records(client, petID: "p1", kind: .vaccination, zone: "Asia/Almaty")
+        _ = try await MedicalCardAPI.pdf(client, petID: "p1", zone: "Asia/Almaty")
+
+        for request in StubURLProtocol.requests {
+            let query = request.url?.query ?? ""
+            #expect(query.contains("tz=Asia%2FAlmaty"), "без времени устройства: \(query)")
+        }
+    }
+
     @Test("Пустой ответ даёт пустую карту, а не ошибку")
     func emptyCardIsNotAnError() async throws {
         StubURLProtocol.reset()

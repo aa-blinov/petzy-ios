@@ -23,13 +23,21 @@ enum MedicalCardAPI {
 
     /// PDF для врача приходит файлом: приложение открывает готовый, а не
     /// собирает свой. Вместе с телом отдаётся имя файла из заголовка сервера.
-    static func pdf(_ client: APIClient, petID: String) async throws -> (data: Data, fileName: String?) {
-        try await client.download("/api/pets/\(AppModel.query(petID))/medical-card/pdf")
+    /// Часовой пояс нужен и здесь: без него сервер считает «сегодня» по своему
+    /// времени, и около полуночи PDF говорил бы о другом дне, чем карта.
+    static func pdf(_ client: APIClient, petID: String, zone: String) async throws -> (data: Data, fileName: String?) {
+        try await client.download("/api/pets/\(AppModel.query(petID))/medical-card/pdf?tz=\(AppModel.query(zone))")
     }
 
     /// Все записи вида. Плитка показывает десять, остальное — отсюда.
-    static func records(_ client: APIClient, petID: String, kind: MedicalKind) async throws -> [MedicalRecord] {
+    static func records(
+        _ client: APIClient,
+        petID: String,
+        kind: MedicalKind,
+        zone: String
+    ) async throws -> [MedicalRecord] {
         let path = "/api/medical-records?pet_id=\(AppModel.query(petID))&kind=\(kind.rawValue)"
+            + "&tz=\(AppModel.query(zone))"
         let response: RecordsResponse = try await client.get(path)
         return response.records.map { $0.domain(fallback: kind) }
     }

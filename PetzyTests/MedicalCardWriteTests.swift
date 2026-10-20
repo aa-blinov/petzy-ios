@@ -95,7 +95,7 @@ struct MedicalCardWriteTests {
         ]])
         let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
 
-        let records = try await MedicalCardAPI.records(client, petID: "p1", kind: .parasite)
+        let records = try await MedicalCardAPI.records(client, petID: "p1", kind: .parasite, zone: "Asia/Almaty")
 
         #expect(records.count == 1)
         #expect(records.first?.title == "Бравекто")
@@ -112,7 +112,7 @@ struct MedicalCardWriteTests {
         ])
         let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
 
-        let file = try await MedicalCardAPI.pdf(client, petID: "p1")
+        let file = try await MedicalCardAPI.pdf(client, petID: "p1", zone: "Asia/Almaty")
 
         #expect(StubURLProtocol.requestedPaths == ["/api/pets/p1/medical-card/pdf"])
         #expect(file.fileName == "медкарта_Рекс.pdf")
