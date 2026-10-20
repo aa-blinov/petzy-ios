@@ -52,14 +52,24 @@ struct MedicalCondition: Sendable, Equatable, Identifiable {
 
     /// «Дисплазия тазобедренных суставов, с 2023, обострения после нагрузки».
     var text: String {
-        var parts = [name]
+        ([name] + subtitleParts).joined(separator: ", ")
+    }
+
+    /// «с 2023, обострения после нагрузки»: подпись под названием, без самого
+    /// названия — иначе оно читалось бы дважды подряд.
+    var subtitle: String {
+        subtitleParts.joined(separator: ", ")
+    }
+
+    private var subtitleParts: [String] {
+        var parts: [String] = []
         if let sinceYear {
             parts.append("с \(sinceYear)")
         }
         if let note, !note.isEmpty {
             parts.append(note)
         }
-        return parts.joined(separator: ", ")
+        return parts
     }
 
     /// Год из того, что человек напечатал. Пустая строка это «год не указан»,

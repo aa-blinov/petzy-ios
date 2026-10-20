@@ -187,6 +187,13 @@ struct MedicalCard: Sendable {
         return "\(Amount.text(weight.value)) кг, последний \(Medication.russianDay(weight.date))"
     }
 
+    /// «29,3 кг (04.10.2026)»: вес и день замера так, как в паспорте, — двумя
+    /// фактами, а не одним числом с датой внутри.
+    var weightLine: String? {
+        guard let weight else { return nil }
+        return "\(Amount.text(weight.value)) кг (\(MedicalCardDates.russian(weight.date)))"
+    }
+
     /// Плитки в порядке экрана.
     var tiles: [CardTile] {
         MedicalKind.allCases.map { kind in

@@ -45,7 +45,14 @@ struct AppShellView: View {
             .badge(medications?.overdueCount ?? 0)
             Tab("Медкарта", systemImage: "cross.case", value: .medicalCard) {
                 if let medicalCard {
-                    MedicalCardView(model: medicalCard, app: model)
+                    // Лекарства и документы живут на своих вкладках, и из
+                    // медкарты на них переходят тихие двери.
+                    MedicalCardView(
+                        model: medicalCard,
+                        app: model,
+                        showMedications: { tab = .medications },
+                        showDocuments: { tab = .documents }
+                    )
                 }
             }
             // Значок считает просроченные прививки и обработки: о них узнают,

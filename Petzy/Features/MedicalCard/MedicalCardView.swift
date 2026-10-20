@@ -1,32 +1,25 @@
 import SwiftUI
 
-/// Медкарта выбранного питомца. Экран рисует состояние `MedicalCardModel` и
-/// ничего не знает про пути и ключи ответа.
+/// Медкарта выбранного питомца как документ: читается сверху вниз, в том
+/// порядке, в каком спрашивает врач. Плиток больше нет — на вебе карту
+/// переписали в документ (коммит `19d9657`), и приложение идёт следом, но
+/// по-русски и по-нативному.
 struct MedicalCardView: View {
     let model: MedicalCardModel
     let app: AppModel
+    /// Переключить вкладку: лекарства и документы живут на своих вкладках.
+    var showMedications: () -> Void = {}
+    var showDocuments: () -> Void = {}
 
     @State private var form: MedicalFormTarget?
-    @State private var pendingDelete: MedicalRecord?
+    @State private var weightForm: EventFormTarget?
     @State private var profile = false
     @State private var prep = false
     @State private var sharing = false
     /// Какой раздел открыт. Переход идёт по пути, а не ссылкой: ссылка внутри
-    /// строки списка отдавала переход самой строке, и тап по плитке открывал
+    /// строки списка отдавала переход самой строке, и тап по строке открывал
     /// чужой раздел, а «назад» вёл к следующему разделу вместо медкарты.
     @State private var path: [MedicalKind] = []
-
-    /// Крупный шрифт человека. Плитки на нём перестраиваются: см. `columns`.
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    /// Сколько колонок у плиток разделов. На крупном шрифте две плитки в ряд не
-    /// помещаются: заголовок переносится по буквам и наезжает на стрелку.
-    /// Тогда колонка одна, и заголовку достаётся вся ширина.
-    static func columns(for size: DynamicTypeSize) -> [GridItem] {
-        size.isAccessibilitySize
-            ? [GridItem(.flexible())]
-            : [GridItem(.flexible()), GridItem(.flexible())]
-    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -43,14 +36,7 @@ struct MedicalCardView: View {
                 }
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) { PetSwitcher(model: app) }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            form = .new(app: app, kind: .vaccination)
-                        } label: {
-                            Label("Новая запись", systemImage: "plus")
-                        }
-                        .disabled(model.card?.canEdit != true)
-                    }
+                    ToolbarItem(placement: .topBarTrailing) { newRecordMenu }
                 }
         }
         // Ключ здесь — сама модель, а не выбранный питомец: оболочка
@@ -71,6 +57,9 @@ struct MedicalCardView: View {
         .sheet(item: $form) { target in
             MedicalRecordFormView(app: app, model: model, target: target)
         }
+        .sheet(item: $weightForm) { target in
+            EventFormView(model: app, draft: target.draft, recordID: target.recordID)
+        }
         .sheet(isPresented: $profile) {
             MedicalProfileFormView(model: model, card: model.card)
         }
@@ -79,23 +68,6 @@ struct MedicalCardView: View {
         }
         .sheet(isPresented: $sharing) {
             MedicalShareSheet(model: model)
-        }
-        .confirmationDialog(
-            "Удалить запись?",
-            isPresented: Binding(get: { pendingDelete != nil }, set: {
-                if !$0 {
-                    pendingDelete = nil
-                }
-            }),
-            titleVisibility: .visible,
-            presenting: pendingDelete
-        ) { record in
-            Button("Удалить", role: .destructive) {
-                Task { await model.delete(record) }
-            }
-            Button("Отмена") { pendingDelete = nil }
-        } message: { _ in
-            Text("Запись пропадёт из медкарты")
         }
         .alert("Медкарта не открылась", isPresented: Binding(
             get: { model.errorText != nil && model.card == nil },
@@ -153,161 +125,123 @@ struct MedicalCardView: View {
                     Text("Не отправлено")
                 }
             }
-            header(card)
-            Section("Разделы") {
-                LazyVGrid(columns: MedicalCardView.columns(for: typeSize), spacing: 12) {
-                    ForEach(card.tiles) { tile in
-                        Button {
-                            path.append(tile.kind)
-                        } label: {
-                            CardTileView(tile: tile)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
-            }
-            visitPrep(card)
-            vet(card)
+            MedicalCardDocumentView(card: card, actions: actions)
+            MedicalCardBlocks(card: card, actions: actions)
+            MedicalCardRecords(card: card, actions: actions)
         }
         .listStyle(.plain)
         .refreshable { await model.load() }
+        .safeAreaInset(edge: .bottom) { handover(card) }
     }
 
-    private func header(_ card: MedicalCard) -> some View {
-        Section {
-            Button("Профиль для врача") { profile = true }
-                .font(.subheadline)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(card.pet.name).font(.title2.weight(.semibold))
-                Text(subtitle(card.pet)).font(.subheadline).foregroundStyle(.secondary)
-                if let weight = card.weightText {
-                    Label(weight, systemImage: "scalemass")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+    /// Кнопки документа. Документ сам никуда не ведёт: он знает, что
+    /// нажали, а ведёт его экран.
+    private var actions: MedicalCardActions {
+        MedicalCardActions(
+            newRecord: { form = .new(app: app, kind: $0) },
+            openSection: { path.append($0) },
+            openProfile: { profile = true },
+            openVisitPrep: { prep = true },
+            readinessStep: readinessStep,
+            showMedications: showMedications,
+            showDocuments: showDocuments,
+            editRecord: { form = .edit(app: app, record: $0) }
+        )
+    }
+
+    /// Пункт готовности ведёт туда, где его и заполняют: аллергии и клиника —
+    /// в профиль для врача, прививка и обработка — в запись, вес — в дневник.
+    private func readinessStep(_ step: MedicalReadiness) {
+        switch step {
+        case .allergies, .clinic:
+            profile = true
+        case .vaccination:
+            form = .new(app: app, kind: .vaccination)
+        case .parasite:
+            form = .new(app: app, kind: .parasite)
+        case .weight:
+            recordWeight()
+        }
+    }
+
+    /// Вес — это запись в дневнике, а не в медкарте, и форма у неё общая с
+    /// лентой. Без записи о весе врач не посчитает дозу.
+    private func recordWeight() {
+        guard let type = app.typeInfo(for: "weight") else { return }
+        weightForm = EventFormTarget(draft: app.newDraft(for: type), recordID: nil)
+    }
+
+    /// «+» в панели: вид записи выбирается, потому что записи четыре и
+    /// «прививка» по умолчанию была бы догадкой.
+    private var newRecordMenu: some View {
+        Menu {
+            ForEach(MedicalKind.allCases, id: \.rawValue) { kind in
+                Button(kind.title) { form = .new(app: app, kind: kind) }
             }
-            .padding(.vertical, 4)
+        } label: {
+            Label("Новая запись", systemImage: "plus")
         }
+        .disabled(model.card?.canEdit != true)
     }
 
-    private func subtitle(_ pet: CardPet) -> String {
-        var parts = [pet.breed, pet.ageText, pet.neuteredText].filter { !$0.isEmpty }
-        if parts.isEmpty {
-            parts = ["Возраст не указан"]
-        }
-        return parts.joined(separator: ", ")
-    }
-
-    private func visitPrep(_ card: MedicalCard) -> some View {
-        Section {
-            if let prep = card.visitPrep {
-                if let complaint = prep.complaint, !complaint.isEmpty {
-                    Text(complaint).font(.subheadline)
+    /// PDF и ссылка для врача: то, ради чего карту и ведут. Показываются, когда
+    /// заполнено хотя бы два пункта из пяти: на пустой карте отдавать нечего,
+    /// и об этом сказано словами внизу.
+    private func handover(_ card: MedicalCard) -> some View {
+        VStack(spacing: 0) {
+            Divider()
+            if card.readinessDone >= 2 {
+                HStack(spacing: 8) {
+                    pdfButton
+                    if card.canEdit {
+                        Button {
+                            sharing = true
+                        } label: {
+                            Label("Ссылка для врача", systemImage: "link")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
-                // Сначала что изменилось, потом «как обычно»: в этом порядке
-                // врач это читает, и словами, а не ключами `changed`.
-                let values = Dictionary(uniqueKeysWithValues: prep.checks.map { ($0.id, $0.value) })
-                let changed = VisitChecks.changed(values)
-                if !changed.isEmpty {
-                    Text("Изменилось: \(changed.joined(separator: ", "))")
-                        .font(.subheadline)
-                        .foregroundStyle(.orange)
-                }
-                let normal = VisitChecks.normal(values)
-                if !normal.isEmpty {
-                    Text("Как обычно: \(normal.joined(separator: ", "))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             } else {
-                Text("Что беспокоит и что изменилось: врач увидит это первой строкой")
-                    .font(.subheadline)
+                Text("Карта почти пуста. Заполните её, и появятся PDF и ссылка для врача")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
             }
-            // Правка внутри своей секции: отдельной строкой над «К приёму» она
-            // читалась как заголовок соседнего раздела.
-            Button("Изменить") { prep = true }
-                .font(.subheadline)
-        } header: {
-            Text("К приёму")
         }
+        .background(.bar)
     }
 
-    /// Файл для врача. PDF серверный: приложение его готовит и отдаёт
-    /// системному меню, а не собирает документ само.
-    private func vet(_ card: MedicalCard) -> some View {
-        Section("Для врача") {
+    /// Кнопка PDF. Когда файл готов, она превращается в системное меню
+    /// «Поделиться»: открывать файл руками не нужно.
+    @ViewBuilder
+    private var pdfButton: some View {
+        if let file = model.pdfFile {
+            ShareLink(item: file) {
+                Label("Поделиться файлом", systemImage: "square.and.arrow.up")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+        } else {
             Button {
                 Task { await model.downloadPDF() }
             } label: {
                 Label(model.isPreparingPDF ? "Готовим файл" : "Скачать PDF", systemImage: "arrow.down.doc")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
             .disabled(model.isPreparingPDF)
-            if let file = model.pdfFile {
-                ShareLink(item: file) {
-                    Label("Поделиться файлом", systemImage: "square.and.arrow.up")
-                }
-            }
-            Button {
-                sharing = true
-            } label: {
-                Label("Ссылка для врача", systemImage: "link")
-            }
-            .disabled(card.canEdit != true)
-        }
-    }
-}
-
-/// Плитка раздела: сколько записей и есть ли среди них просроченные.
-private struct CardTileView: View {
-    let tile: CardTile
-
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 6) {
-                title
-                Text(tile
-                    .count == 0 ? "Нет записей" :
-                    "\(tile.count) \(Words.pick(tile.count, one: "запись", few: "записи", many: "записей"))")
-                    .font(.title3.weight(.semibold))
-                if let status = tile.statusText {
-                    Text(status).font(.caption).foregroundStyle(.red)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            // Стрелка говорит, что плитка открывается. Раньше её рисовала
-            // система у ссылки, а ссылка внутри строки списка ломала переход.
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        }
-        // По верху, а не по центру: плитки в ряду выравниваются по высоте самой
-        // высокой, и подпись снизу уезжала бы от заголовка на пол-экрана.
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(12)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
-    }
-
-    /// На крупном шрифте значок встаёт над названием: рядом с ним названию
-    /// достаётся меньше ширины, чем букве, и слово рвётся посередине.
-    @ViewBuilder
-    private var title: some View {
-        if typeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 4) {
-                Image(systemName: tile.kind.symbol)
-                    .font(.title3)
-                    .foregroundStyle(.primary)
-                Text(tile.kind.title)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-            }
-        } else {
-            Label(tile.kind.title, systemImage: tile.kind.symbol)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
         }
     }
 }
@@ -321,7 +255,7 @@ enum MedicalFormTarget: Identifiable {
         switch self {
         case let .new(_, kind):
             // Вид входит в имя: форма открыта и её вид поменяли, лист должен
-            // показать новый, а не прежний.
+            // показать новую, а не прежнюю.
             "new-\(kind.rawValue)"
         case let .edit(_, record):
             record.id
