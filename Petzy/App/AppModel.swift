@@ -333,8 +333,15 @@ final class AppModel {
 
     /// Экранирование значения для строки запроса. `nonisolated`, потому что
     /// пути строит и слой API, а он не привязан к главному актору.
+    ///
+    /// Разрешённых знаков меньше, чем в стандартном `urlQueryAllowed`: там
+    /// остаются `&`, `+`, `=` и `?`, а в строке запроса `&` разрывает
+    /// параметры, `+` сервер читает как пробел, и из-за этого часовой пояс
+    /// «GMT+05:00» приходил как «GMT 05:00».
     nonisolated static func query(_ value: String) -> String {
-        value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
     func start() async {
