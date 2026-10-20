@@ -332,6 +332,12 @@ commits that sit on `master` locally but not on `origin`:
   never shift a page. `page`/`page_size` is the web app's own path.
 - Soft delete: `with_deleted=1` returns tombstones with `is_deleted` and
   `deleted_at`, kept for 30 days.
+- **A tombstone takes up a place in the page.** The app reads the whole feed
+  with `with_deleted=1`, because that is the contract: the client drops the
+  deleted records from its own copy. So a page of a hundred holds fewer live
+  records, and on a pet whose records were deleted many times «Загрузить ещё»
+  can bring nothing new. The stand collects such trash by itself: every UI
+  run creates and deletes a record.
 
 Own event types (`/api/event-types`, key `custom_…`, `category: null`):
 - The **key** is the server's to assign; `icon` and `color` are not — without
@@ -434,6 +440,22 @@ nothing:
 When checking session restore, clear `launchArguments` before the relaunch. Left
 set, `-uiTestSignedOut` wipes the tokens itself and the test silently checks a
 cold start instead.
+
+### A UI test inherits the pet the previous test picked
+
+The selected pet lives in `UserDefaults`, so it survives a relaunch and the
+next UI test starts on the same pet. A check that holds for one pet but not for
+another then passes in one order and fails in another: the medical card test
+looked for the field «Что беспокоит» by its hint, and the complaint from the
+note «К приёму» is put into that field beforehand, so the hint is gone.
+
+Two rules follow:
+
+- A UI test must not depend on the data of a particular pet. Look for what
+  every pet has (a section header, a button), not for a hint or a value.
+- The pet comes from the stand, and the stand's data changes under the tests:
+  `TestLaunch.petWithCourse`, `petWithPhoto` and `petWithNextFeedPage` ask the
+  server which pet fits the check.
 
 ### A flag in `UserDefaults` does not redraw the screen
 

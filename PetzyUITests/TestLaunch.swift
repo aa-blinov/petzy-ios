@@ -68,11 +68,12 @@ enum TestLaunch {
         return app.buttons["Лента"].waitForExistence(timeout: timeout)
     }
 
-    /// Имя питомца, у которого лента не помещается в одну страницу, то есть у
-    /// которого кнопка догрузки вообще появится. Приложение берёт страницу по
-    /// сто записей, и у питомца с пятнадцатью записями догруживать нечего —
-    /// без такой справки проверка падала бы из-за накопленных на стенде данных,
-    /// а не из-за приложения.
+    /// Имя питомца, у которого кнопка догрузки дочитает страницу с новыми
+    /// записями. Запрос повторяет запрос приложения, вместе с надгробиями
+    /// (`with_deleted=1`): надгробия занимают место в странице, и у питомца,
+    /// чьи записи много раз удаляли, следующая страница может оказаться сплошь
+    /// из удалённых записей. Тогда догружать нечего, и проверка падала бы
+    /// впустую — из-за данных стенда, а не из-за приложения.
     static func petWithNextFeedPage() async -> String? {
         guard let base = URL(string: "http://localhost:5002"),
               let token = await token(),
@@ -82,14 +83,39 @@ enum TestLaunch {
         for pet in list {
             guard let name = pet["name"] as? String,
                   let petID = pet["_id"] as? String,
-                  let page = try? await get("/api/events?page_size=100&pet_id=\(petID)", base: base, token: token),
-                  let cursor = page["next_cursor"] as? String
+                  let page = try? await get(
+                      "/api/events?with_deleted=1&page_size=100&pet_id=\(petID)",
+                      base: base,
+                      token: token
+                  ),
+                  let cursor = page["next_cursor"] as? String, !cursor.isEmpty
             else { continue }
-            if !cursor.isEmpty {
-                return name
+            let first = liveDays(page["items"] as? [[String: Any]] ?? [])
+            guard let next = try? await get(
+                "/api/events?with_deleted=1&page_size=100&pet_id=\(petID)&before=\(escaped(cursor))",
+                base: base,
+                token: token
+            ) else { continue }
+            // Догрузка должна принести записи новых дней: только тогда её видно
+            // в ленте, и только тогда проверка что-то значит.
+            if liveDays(next["items"] as? [[String: Any]] ?? []).subtracting(first).isEmpty {
+                continue
             }
+            return name
         }
         return nil
+    }
+
+    /// Дни живых записей: удалённые в ленте не показываются.
+    private static func liveDays(_ events: [[String: Any]]) -> Set<String> {
+        Set(events.filter { ($0["is_deleted"] as? Bool) != true }.compactMap { event in
+            (event["date_time"] as? String)?.prefix(10).description
+        })
+    }
+
+    /// Курсор в строку запроса так же, как это делает приложение.
+    private static func escaped(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
     }
 
     /// Питомец с курсом лекарства и название этого курса. Спрашивается у

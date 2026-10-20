@@ -43,21 +43,38 @@ final class FeedUITests: XCTestCase {
         XCTAssertTrue(TestLaunch.logIn(app), "не удалось войти и открыть оболочку")
 
         guard let pet = await TestLaunch.petWithNextFeedPage() else {
-            throw XCTSkip("на стенде нет питомца с записями больше страницы, догружать нечего")
+            throw XCTSkip("на стенде нет питомца, чья следующая страница приносит новые записи, догружать нечего")
         }
         TestLaunch.selectPet(app, named: pet)
 
+        // Кнопка догрузки последняя в списке: пока она на экране, лента
+        // пролистана до конца.
         var seen: Set<String> = []
-        _ = scrollToEnd(of: app, collectingDaysInto: &seen)
+        for _ in 0 ..< 80 {
+            seen.formUnion(dateHeaders(app))
+            if app.buttons["Загрузить ещё"].isHittable {
+                break
+            }
+            app.swipeUp()
+        }
         XCTAssertTrue(
-            app.buttons["Загрузить ещё"].exists,
-            "сервер отдал курсор, а кнопки догрузки нет: \(app.debugDescription)"
+            app.buttons["Загрузить ещё"].isHittable,
+            "сервер отдал курсор, а кнопка догрузки не доехала до низа ленты: \(app.debugDescription)"
         )
 
         app.buttons["Загрузить ещё"].tap()
 
+        // Новая страница встаёт под старой, поэтому новые дни видны только
+        // после прокрутки: листаем, пока новый день не появится.
         var after = seen
-        _ = scrollToEnd(of: app, collectingDaysInto: &after)
+        for _ in 0 ..< 40 {
+            after.formUnion(dateHeaders(app))
+            if after.count > seen.count {
+                break
+            }
+            app.swipeUp()
+        }
+        after.formUnion(dateHeaders(app))
         XCTAssertTrue(
             after.count > seen.count,
             "после догрузки новых дней не появилось: было \(seen.count), стало \(after.count)"
@@ -172,21 +189,6 @@ final class FeedUITests: XCTestCase {
     private func recordRow(_ app: XCUIApplication) -> XCUIElement {
         let time = NSPredicate(format: "label MATCHES %@", ".*\\d{2}:\\d{2}.*")
         return app.buttons.matching(time).firstMatch
-    }
-
-    /// Листает до конца ленты, попутно собирая заголовки дней.
-    /// Возвращает то, что собрано, и заодно докладывает про кнопку догрузки.
-    private func scrollToEnd(of app: XCUIApplication, collectingDaysInto days: inout Set<String>) -> Set<String> {
-        // Страховка на 80 жестов: лента длинная, а бесконечно скроллить нельзя.
-        for _ in 0 ..< 80 {
-            days.formUnion(dateHeaders(app))
-            if app.buttons["Загрузить ещё"].exists {
-                return days
-            }
-            app.swipeUp()
-        }
-        days.formUnion(dateHeaders(app))
-        return days
     }
 
     /// Заголовки дней в виде «04.10.2026». Отбор идёт предикатом, а не

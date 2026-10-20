@@ -47,9 +47,11 @@ final class MedicalCardUITests: XCTestCase {
         XCTAssertTrue(add.waitForExistence(timeout: 10), "В разделе нет кнопки «+»")
         add.tap()
         // У визита свои поля: жалобы, диагноз, назначения. Остался бы вид
-        // прививки — их бы не было.
+        // прививки — их бы не было. Ищем по заголовку раздела, а не по
+        // подсказке поля: жалоба из заметки «К приёму» подставляется заранее,
+        // и подсказка тогда исчезает.
         XCTAssertTrue(
-            app.textFields["Что беспокоит"].waitForExistence(timeout: 20),
+            app.staticTexts["Жалобы"].waitForExistence(timeout: 20),
             "Форма открылась не с визитом: \(app.debugDescription)"
         )
     }
