@@ -54,18 +54,16 @@ struct DocumentsView: View {
                     pendingDelete = nil
                 }
             }),
-            titleVisibility: .visible
-        ) {
+            titleVisibility: .visible,
+            presenting: pendingDelete
+        ) { document in
             Button("Удалить", role: .destructive) {
-                if let document = pendingDelete {
-                    Task { await model.delete(document) }
-                }
-                pendingDelete = nil
+                Task { await model.delete(document) }
             }
             // Без роли `.cancel`: в iOS 26 такая кнопка выносится из карточки
             // и в поповере не рисуется, а закрыть диалог становится нечем.
             Button("Отмена") { pendingDelete = nil }
-        } message: {
+        } message: { _ in
             Text("Файл пропадёт из документов питомца")
         }
     }

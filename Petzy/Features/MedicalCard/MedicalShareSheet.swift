@@ -44,16 +44,14 @@ struct MedicalShareSheet: View {
                     pendingRevoke = nil
                 }
             }),
-            titleVisibility: .visible
-        ) {
+            titleVisibility: .visible,
+            presenting: pendingRevoke
+        ) { share in
             Button("Отозвать", role: .destructive) {
-                if let share = pendingRevoke {
-                    Task { await model.revoke(share) }
-                }
-                pendingRevoke = nil
+                Task { await model.revoke(share) }
             }
             Button("Отмена") { pendingRevoke = nil }
-        } message: {
+        } message: { _ in
             Text("Ссылка перестанет открывать медкарту сразу")
         }
     }

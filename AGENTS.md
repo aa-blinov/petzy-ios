@@ -541,9 +541,23 @@ response size for the two pets alternated one step behind the selection.
   fine and is the better choice.
 - **The dialog closes before its own action runs.** A handler that reads state
   the dialog was showing finds it already nil: `isPresented` is set to `false`
-  first, and a custom setter wired to `cancelDelete()` wipes it. Pass the id
-  into the action the way `AccessTokensView` does, or keep the key in the model
-  outside the displayed state.
+  first, and a custom setter wired to `cancelDelete()` wipes it. The native way
+  out is `presenting:` — the system hands the item to the action, and the
+  action never reads the state the dialog was showing:
+
+  ```swift
+  .confirmationDialog("Удалить запись?", isPresented: showing, presenting: pendingDelete) { event in
+      Button("Удалить", role: .destructive) { Task { await model.deleteEvent(id: event.id) } }
+      Button("Отмена") { pendingDelete = nil }
+  } message: { _ in
+      Text("Запись пропадёт из дневника")
+  }
+  ```
+
+  Two details cost time: the `message:` closure takes the item too, so it is
+  `{ _ in … }` and not `{ … }`; and there is no overload with `presenting:` and
+  a message that takes no argument. `CustomTypesView` keeps the key in the
+  model instead, because its alert has to show the record count.
 - **Several `NavigationLink`s in one row break the navigation.** A row of a
   `List` that holds a link becomes a link itself, and with a grid of four links
   in one row the row took the transition over: a tap on «Прививки» opened
@@ -554,6 +568,36 @@ response size for the two pets alternated one step behind the selection.
   `.navigationDestination(for:)`. `CustomTypesView` and `UsersView` already do
   it that way for the same family of reasons. The link's own chevron disappears
   with it, so the row draws its own.
+
+## SwiftUI practices
+
+Checked against Apple's own guidance (HIG, WWDC26) and what the SDK actually
+offers. The app was already native in most of it: system controls everywhere,
+`.searchable` instead of a hand-drawn search field, `ContentUnavailableView`
+for empty states, value-based navigation where a row holds several links.
+
+Three things were not, and are now rules:
+
+- **The layout has to survive the accessibility text sizes.** A two-column grid
+  of tiles breaks at the largest size: the titles wrap by letters and the
+  chevron lands on the text. `MedicalCardView.columns(for:)` switches to one
+  column when `dynamicTypeSize.isAccessibilitySize`, and the tile puts the
+  icon above the title so the title gets the whole width. Check it with:
+
+  ```bash
+  xcrun simctl ui <udid> content_size accessibility-extra-extra-extra-large
+  ```
+
+  and look at the screen, not at the code: a `List` scales on its own, a grid
+  does not.
+- **Return has to go somewhere.** A field with `.submitLabel(.next)` and no
+  `@FocusState` promises a transition and does nothing. Forms with more than
+  one field take a `@FocusState` with an enum of the fields and move the focus
+  in `.onSubmit`: login, registration, pet card, document.
+- **The keyboard hides itself on its own.** A `Form` and a `List` dismiss the
+  keyboard when the content scrolls, so `.scrollDismissesKeyboard` is not
+  needed. Only a number pad has no way out, and that is what the keyboard
+  toolbar is for.
 
 ## Swift conventions
 

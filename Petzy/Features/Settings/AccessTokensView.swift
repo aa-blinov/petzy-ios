@@ -26,16 +26,14 @@ struct AccessTokensView: View {
                     pendingRevoke = nil
                 }
             }),
-            titleVisibility: .visible
-        ) {
+            titleVisibility: .visible,
+            presenting: pendingRevoke
+        ) { token in
             Button("Отозвать", role: .destructive) {
-                if let token = pendingRevoke {
-                    Task { await model.revoke(id: token.id) }
-                }
-                pendingRevoke = nil
+                Task { await model.revoke(id: token.id) }
             }
             Button("Отмена") { pendingRevoke = nil }
-        } message: {
+        } message: { _ in
             Text("Тот, кому он выдан, работать перестанет сразу")
         }
     }

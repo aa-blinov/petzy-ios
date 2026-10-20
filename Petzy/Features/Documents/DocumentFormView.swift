@@ -20,6 +20,15 @@ struct DocumentFormView: View {
     @State private var hasExpiry: Bool
     @State private var expiryDate: Date
     @State private var picked: UploadFile?
+
+    /// Какое поле в фокусе: Return ведёт по полям по порядку.
+    @FocusState private var focus: Field?
+
+    private enum Field: Hashable {
+        case title
+        case note
+    }
+
     @State private var photo: PhotosPickerItem?
     @State private var importing = false
     @State private var isSaving = false
@@ -53,8 +62,14 @@ struct DocumentFormView: View {
                         ForEach(DocumentCategory.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     TextField("Название", text: $title)
+                        .submitLabel(.next)
+                        .focused($focus, equals: .title)
+                        .onSubmit { focus = .note }
                     TextField("Заметка", text: $note, axis: .vertical)
                         .lineLimit(1 ... 4)
+                        .submitLabel(.done)
+                        .focused($focus, equals: .note)
+                        .onSubmit { focus = nil }
                 }
                 Section {
                     Toggle("Задать срок", isOn: $hasExpiry)

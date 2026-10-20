@@ -53,16 +53,14 @@ struct FeedView: View {
                     }
                 }
             ),
-            titleVisibility: .visible
-        ) {
+            titleVisibility: .visible,
+            presenting: pendingDelete
+        ) { event in
             Button("Удалить", role: .destructive) {
-                if let event = pendingDelete {
-                    Task { await model.deleteEvent(id: event.id) }
-                }
-                pendingDelete = nil
+                Task { await model.deleteEvent(id: event.id) }
             }
             Button("Отмена") { pendingDelete = nil }
-        } message: {
+        } message: { _ in
             Text("Запись пропадёт из дневника")
         }
         .alert("Запись сохранена", isPresented: noticeBinding) {

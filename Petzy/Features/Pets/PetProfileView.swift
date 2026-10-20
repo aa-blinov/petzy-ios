@@ -21,6 +21,15 @@ struct PetProfileView: View {
     @State private var isSaving = false
     @State private var askingDelete = false
 
+    /// Какое поле в фокусе: Return ведёт по полям по порядку.
+    @FocusState private var focus: Field?
+
+    private enum Field: Hashable {
+        case name
+        case breed
+        case notes
+    }
+
     init(client: APIClient, petID: String?, app: AppModel) {
         self.app = app
         _model = State(initialValue: PetProfileModel(client: client, petID: petID, offline: app.offline))
@@ -42,6 +51,9 @@ struct PetProfileView: View {
                 // «Рекс» без слова «Имя» на экране ничего не значит.
                 LabeledContent("Имя") { TextField("", text: $model.draft.name) }
                     .accessibilityIdentifier("petName")
+                    .submitLabel(.next)
+                    .focused($focus, equals: .name)
+                    .onSubmit { focus = .breed }
                 Picker("Вид", selection: $model.draft.species) {
                     Text("Не указан").tag(String?.none)
                     ForEach(model.speciesKinds) { kind in
@@ -50,12 +62,18 @@ struct PetProfileView: View {
                 }
                 LabeledContent(PetSpecies.breedTitle(for: model.draft.species)) {
                     TextField("", text: $model.draft.breed)
+                        .submitLabel(.next)
+                        .focused($focus, equals: .breed)
+                        .onSubmit { focus = .notes }
                 }
             }
             PetHealthSection(hasBirthDate: $hasBirthDate, birthDate: $birthDate, draft: $model.draft)
             Section("Заметки") {
                 TextField("Важная информация о здоровье", text: $model.draft.healthNotes, axis: .vertical)
                     .lineLimit(2 ... 5)
+                    .submitLabel(.done)
+                    .focused($focus, equals: .notes)
+                    .onSubmit { focus = nil }
             }
             if model.profile?.currentUserIsOwner == true {
                 Section {

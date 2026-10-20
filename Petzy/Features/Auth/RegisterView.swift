@@ -11,6 +11,18 @@ struct RegisterView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isSaving = false
 
+    /// Какое поле в фокусе. Return ведёт по полям по порядку, как в системных
+    /// формах: подпись «Далее» на клавиатуре обещает переход, и он должен
+    /// быть.
+    @FocusState private var focus: Field?
+
+    private enum Field: Hashable {
+        case username
+        case fullName
+        case password
+        case email
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -26,17 +38,26 @@ struct RegisterView: View {
                         TextField("Логин", text: $model.draft.username)
                             .textContentType(.username)
                             .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled(),
+                            .autocorrectionDisabled()
+                            .submitLabel(.next)
+                            .focused($focus, equals: .username)
+                            .onSubmit { focus = .fullName },
                         problem: .username
                     )
                     field(
                         TextField("Как к вам обращаться", text: $model.draft.fullName)
-                            .textContentType(.name),
+                            .textContentType(.name)
+                            .submitLabel(.next)
+                            .focused($focus, equals: .fullName)
+                            .onSubmit { focus = .password },
                         problem: .fullName
                     )
                     field(
                         SecureField("Пароль", text: $model.draft.password)
-                            .textContentType(.newPassword),
+                            .textContentType(.newPassword)
+                            .submitLabel(.next)
+                            .focused($focus, equals: .password)
+                            .onSubmit { focus = .email },
                         problem: .password
                     )
                     TextField("Почта для восстановления пароля", text: $model.draft.email)
@@ -44,6 +65,9 @@ struct RegisterView: View {
                         .textInputAutocapitalization(.never)
                         .keyboardType(.emailAddress)
                         .autocorrectionDisabled()
+                        .submitLabel(.done)
+                        .focused($focus, equals: .email)
+                        .onSubmit { focus = nil }
                 } header: {
                     Text("Аккаунт")
                 } footer: {

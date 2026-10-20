@@ -86,18 +86,16 @@ struct MedicationsView: View {
                     pendingDelete = nil
                 }
             }),
-            titleVisibility: .visible
-        ) {
+            titleVisibility: .visible,
+            presenting: pendingDelete
+        ) { med in
             Button("Удалить", role: .destructive) {
-                if let med = pendingDelete {
-                    Task { await model.delete(med) }
-                }
-                pendingDelete = nil
+                Task { await model.delete(med) }
             }
             // Без роли `.cancel`: в iOS 26 такая кнопка выносится из карточки
             // и в поповере не рисуется, а закрыть диалог становится нечем.
             Button("Отмена") { pendingDelete = nil }
-        } message: {
+        } message: { _ in
             Text("Курс и его отметки о приёмах пропадут")
         }
     }

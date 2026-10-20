@@ -69,16 +69,14 @@ struct MedicalKindSectionView: View {
                     pendingDelete = nil
                 }
             }),
-            titleVisibility: .visible
-        ) {
+            titleVisibility: .visible,
+            presenting: pendingDelete
+        ) { record in
             Button("Удалить", role: .destructive) {
-                if let record = pendingDelete {
-                    Task { await model.delete(record) }
-                }
-                pendingDelete = nil
+                Task { await model.delete(record) }
             }
             Button("Отмена") { pendingDelete = nil }
-        } message: {
+        } message: { _ in
             Text("Запись пропадёт из медкарты")
         }
     }

@@ -14,6 +14,16 @@ struct LoginView: View {
     @State private var forgot = false
     @State private var policy = false
 
+    /// Какое поле сейчас в фокусе. Return в «Логине» ведёт в «Пароль»:
+    /// без этого подпись «Далее» на клавиатуре обещает переход, а ничего не
+    /// делает.
+    @FocusState private var focus: Field?
+
+    private enum Field: Hashable {
+        case login
+        case password
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -53,6 +63,8 @@ struct LoginView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.next)
+                    .focused($focus, equals: .login)
+                    .onSubmit { focus = .password }
 
                 SecureField("Пароль", text: $password)
                     .textContentType(.password)
@@ -61,6 +73,7 @@ struct LoginView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.go)
+                    .focused($focus, equals: .password)
                     .onSubmit(submit)
             }
 

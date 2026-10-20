@@ -77,6 +77,23 @@ final class LoginAndShellUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Лента"].exists, "Оболочка открылась с чужим паролем")
     }
 
+    /// Return в «Логине» ведёт в «Пароль»: клавиатура обещает «Далее», и
+    /// обещание должно выполняться.
+    func testReturnMovesToPasswordField() {
+        let app = TestLaunch.signedOut()
+        let login = app.textFields["Логин"]
+        XCTAssertTrue(login.waitForExistence(timeout: 30), "поля логина нет: \(app.debugDescription)")
+
+        login.tap()
+        login.typeText("\n")
+
+        let password = app.secureTextFields.firstMatch
+        XCTAssertTrue(
+            (password.value(forKey: "hasKeyboardFocus") as? Bool) == true,
+            "Return не перевёл фокус в «Пароль»: \(app.debugDescription)"
+        )
+    }
+
     /// Знакомство спрашивает один раз и уходит в форму входа. Раньше оно
     /// оставалось на экране до перезапуска: запись в UserDefaults экран не
     /// перерисовывает.

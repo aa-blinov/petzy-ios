@@ -16,6 +16,18 @@ struct MedicalCardView: View {
     /// чужой раздел, а «назад» вёл к следующему разделу вместо медкарты.
     @State private var path: [MedicalKind] = []
 
+    /// Крупный шрифт человека. Плитки на нём перестраиваются: см. `columns`.
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Сколько колонок у плиток разделов. На крупном шрифте две плитки в ряд не
+    /// помещаются: заголовок переносится по буквам и наезжает на стрелку.
+    /// Тогда колонка одна, и заголовку достаётся вся ширина.
+    static func columns(for size: DynamicTypeSize) -> [GridItem] {
+        size.isAccessibilitySize
+            ? [GridItem(.flexible())]
+            : [GridItem(.flexible()), GridItem(.flexible())]
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             content
@@ -75,16 +87,14 @@ struct MedicalCardView: View {
                     pendingDelete = nil
                 }
             }),
-            titleVisibility: .visible
-        ) {
+            titleVisibility: .visible,
+            presenting: pendingDelete
+        ) { record in
             Button("Удалить", role: .destructive) {
-                if let record = pendingDelete {
-                    Task { await model.delete(record) }
-                }
-                pendingDelete = nil
+                Task { await model.delete(record) }
             }
             Button("Отмена") { pendingDelete = nil }
-        } message: {
+        } message: { _ in
             Text("Запись пропадёт из медкарты")
         }
         .alert("Медкарта не открылась", isPresented: Binding(
@@ -143,7 +153,7 @@ struct MedicalCardView: View {
             }
             header(card)
             Section("Разделы") {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                LazyVGrid(columns: MedicalCardView.columns(for: typeSize), spacing: 12) {
                     ForEach(card.tiles) { tile in
                         Button {
                             path.append(tile.kind)
@@ -251,12 +261,12 @@ struct MedicalCardView: View {
 private struct CardTileView: View {
     let tile: CardTile
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 6) {
-                Label(tile.kind.title, systemImage: tile.kind.symbol)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
+                title
                 Text(tile
                     .count == 0 ? "Нет записей" :
                     "\(tile.count) \(Words.pick(tile.count, one: "запись", few: "записи", many: "записей"))")
@@ -277,6 +287,26 @@ private struct CardTileView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(12)
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// На крупном шрифте значок встаёт над названием: рядом с ним названию
+    /// достаётся меньше ширины, чем букве, и слово рвётся посередине.
+    @ViewBuilder
+    private var title: some View {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                Image(systemName: tile.kind.symbol)
+                    .font(.title3)
+                    .foregroundStyle(.primary)
+                Text(tile.kind.title)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+            }
+        } else {
+            Label(tile.kind.title, systemImage: tile.kind.symbol)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+        }
     }
 }
 
