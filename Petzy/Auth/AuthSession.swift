@@ -61,10 +61,23 @@ actor AuthSession {
         try store(StoredTokens(accessToken: access, refreshToken: refresh))
     }
 
-    /// Обновляет access-токен. Возвращает false, если обновиться не вышло:
-    /// токены тогда стёрты, и клиенту надо вернуть человека на экран входа.
-    func refreshAccessToken() async -> Bool {
-        guard let current = tokens else { return false }
+    /// Чем закончилось обновление токена. Различать приходится, потому что
+    /// обрыв сети и отказ сервера значат разное: при обрыве сессия жива, и
+    /// стирать токены из-за моргнувшей сети нельзя.
+    enum RefreshOutcome: Sendable, Equatable {
+        /// Токен обновлён, запрос можно повторить.
+        case refreshed
+        /// Сети нет: сессия жива, но запрос не ушёл.
+        case offline
+        /// Сервер отказал: сессия кончилась, человеку нужен вход.
+        case expired
+    }
+
+    /// Обновляет access-токен. Токены стираются только когда сессия правда
+    /// кончилась: обрыв сети оставляет сессию живой, иначе человек в метро
+    /// вылетал бы из приложения и вводил пароль заново.
+    func refreshAccessToken() async -> RefreshOutcome {
+        guard let current = tokens else { return .expired }
         do {
             let body = try JSONEncoder().encode(RefreshRequest(refreshToken: current.refreshToken))
             let (data, response) = try await HTTP.send(
@@ -73,7 +86,7 @@ actor AuthSession {
             )
             guard (200 ..< 300).contains(response.statusCode) else {
                 signOut()
-                return false
+                return .expired
             }
 
             let fresh = try JSONDecoder().decode(AuthRefreshResponse.self, from: data)
@@ -81,10 +94,15 @@ actor AuthSession {
                 accessToken: fresh.accessToken,
                 refreshToken: fresh.refreshToken ?? current.refreshToken
             ))
-            return true
+            return .refreshed
         } catch {
+            // Сети не было: refresh-токен жив ещё семь дней, и стирать его
+            // из-за обрыва нельзя.
+            if (error as? APIError)?.isTransport == true {
+                return .offline
+            }
             signOut()
-            return false
+            return .expired
         }
     }
 

@@ -45,8 +45,8 @@ struct AuthSessionTests {
         let auth = makeSession(storage: storage)
         await auth.restore()
 
-        let refreshed = await auth.refreshAccessToken()
-        #expect(refreshed)
+        let outcome = await auth.refreshAccessToken()
+        #expect(outcome == .refreshed)
         #expect(try storage.read() == StoredTokens(accessToken: "access-2", refreshToken: "refresh-2"))
         #expect(StubURLProtocol.requestedPaths == ["/api/auth/refresh"])
     }
@@ -61,8 +61,8 @@ struct AuthSessionTests {
         let auth = makeSession(storage: storage)
         await auth.restore()
 
-        let refreshed = await auth.refreshAccessToken()
-        #expect(refreshed)
+        let outcome = await auth.refreshAccessToken()
+        #expect(outcome == .refreshed)
         #expect(try storage.read() == StoredTokens(accessToken: "access-2", refreshToken: "refresh-1"))
     }
 
@@ -76,9 +76,9 @@ struct AuthSessionTests {
         let auth = makeSession(storage: storage)
         await auth.restore()
 
-        let refreshed = await auth.refreshAccessToken()
+        let outcome = await auth.refreshAccessToken()
         let signedIn = await auth.isSignedIn
-        #expect(refreshed == false)
+        #expect(outcome == .expired)
         #expect(signedIn == false)
         #expect(try storage.read() == nil)
     }
@@ -102,6 +102,25 @@ struct AuthSessionTests {
         }
         let signedIn = await auth.isSignedIn
         #expect(signedIn == false)
+    }
+
+    /// Сети не было: токены живут ещё семь дней, и стирать их из-за обрыва
+    /// нельзя. Человек в метро не должен вылетать из приложения.
+    @Test("Обрыв сети при обновлении не стирает живую сессию")
+    func offlineRefreshKeepsTokens() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stubOffline()
+        let storage = InMemoryTokenStorage(
+            tokens: StoredTokens(accessToken: "access-1", refreshToken: "refresh-1")
+        )
+        let auth = makeSession(storage: storage)
+        await auth.restore()
+
+        let outcome = await auth.refreshAccessToken()
+
+        #expect(outcome == .offline, "обрыв связи — это не отказ сервера")
+        #expect(await auth.isSignedIn, "обрыв связи не должен стирать живую сессию")
+        #expect(try storage.read() == StoredTokens(accessToken: "access-1", refreshToken: "refresh-1"))
     }
 
     @Test("Выход стирает токены только на устройстве")

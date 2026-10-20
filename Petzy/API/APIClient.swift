@@ -150,10 +150,18 @@ struct APIClient: Sendable {
             return try await perform(request, token: nil)
         }
         let first = try await perform(request, token: auth.accessToken())
-        if first.1.statusCode == 401, await auth.refreshAccessToken() {
+        guard first.1.statusCode == 401 else { return first }
+        switch await auth.refreshAccessToken() {
+        case .refreshed:
             return try await perform(request, token: auth.accessToken())
+        case .offline:
+            // Сети нет: сессия жива, но запрос не ушёл. Пусть это будет обрыв
+            // связи: без связи приложение показывает сохранённые данные, а с
+            // отказом выбрасывает человека на экран входа.
+            throw APIError.transport("нет связи")
+        case .expired:
+            return first
         }
-        return first
     }
 
     private func send<T: Decodable & Sendable>(_ request: APIRequest, as type: T.Type) async throws -> T {
@@ -169,13 +177,20 @@ struct APIClient: Sendable {
         as type: T.Type
     ) async throws -> T {
         let first = try await performMultipart(request, body: body, contentType: contentType, token: auth.accessToken())
-        if first.1.statusCode == 401, await auth.refreshAccessToken() {
+        guard first.1.statusCode == 401 else {
+            return try Self.decode(first, as: type)
+        }
+        switch await auth.refreshAccessToken() {
+        case .refreshed:
             return try await Self.decode(
                 performMultipart(request, body: body, contentType: contentType, token: auth.accessToken()),
                 as: type
             )
+        case .offline:
+            throw APIError.transport("нет связи")
+        case .expired:
+            return try Self.decode(first, as: type)
         }
-        return try Self.decode(first, as: type)
     }
 
     private func perform(_ request: APIRequest, token: String?) async throws -> (Data, HTTPURLResponse) {

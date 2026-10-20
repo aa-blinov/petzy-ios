@@ -134,6 +134,27 @@ struct APIClientTests {
         }
     }
 
+    /// Сети нет в момент обновления: сессия жива, и запрос падает как обрыв
+    /// связи. Без этого человек вылетал бы из приложения из-за плохой сети и
+    /// вводил бы пароль заново.
+    @Test("Обрыв сети при обновлении токена не закрывает сессию")
+    func offlineRefreshKeepsSessionAlive() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 401, json: ["error": "Нет токена или он истёк"])
+        StubURLProtocol.stubOffline()
+        let storage = signedInStorage()
+        let client = await makeClient(storage: storage)
+
+        do {
+            _ = try await client.get("/api/pets", as: PetsResponse.self)
+            Issue.record("ожидался обрыв связи")
+        } catch let error as APIError {
+            #expect(error.isTransport, "обрыв связи должен выглядеть как обрыв, а не как отказ: \(error)")
+            #expect(error.isAuthProblem == false, "обрыв связи не должен выкидывать человека из приложения")
+        }
+        #expect(try storage.read() != nil, "токены стёрты, а сеть просто моргнула")
+    }
+
     @Test("Без входа клиент не ходит в сеть")
     func refusesRequestWithoutTokens() async throws {
         StubURLProtocol.reset()
