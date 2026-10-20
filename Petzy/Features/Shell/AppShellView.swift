@@ -286,7 +286,9 @@ struct PetSwitcher: View {
                 // `.labelStyle(.titleAndIcon)` не помогает: имя питомца
                 // пропадало, и по одному знаку не видно, чей дневник открыт.
                 HStack(spacing: 4) {
-                    Image(systemName: "pawprint")
+                    // Значок вида, а не лапа: у кота и собаки свои, и по ним
+                    // видно, чей дневник открыт, не открывая переключатель.
+                    Image(systemName: PetSpecies.icon(for: model.selectedPet?.species))
                     Text(model.selectedPet?.name ?? "Питомец")
                 }
             }

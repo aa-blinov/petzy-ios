@@ -131,7 +131,9 @@ struct MedicalCardView: View {
         } else if let card = model.card {
             list(card)
         } else {
-            ContentUnavailableView("Медкарта не открылась", systemImage: "cross.case")
+            // Как в ленте и истории: неудача выглядит как неудача, а не как
+            // значок раздела, в котором она случилась.
+            ContentUnavailableView("Медкарта не открылась", systemImage: "exclamationmark.triangle")
         }
     }
 

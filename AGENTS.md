@@ -378,6 +378,7 @@ Petzy/App/         @main, AppConfig (base URL), AppModel (session state), RootVi
 Petzy/API/         HTTP (one request builder), APIClient (authed routes), models
 Petzy/Auth/        AuthSession (login, refresh), TokenStorage, KeychainTokenStorage
 Petzy/Features/    one directory per screen: Login, Pets
+Petzy/Resources/   Assets.xcassets with the app icon
 PetzyTests/        Swift Testing suites, StubURLProtocol for the fake network
 PetzyUITests/      XCUITest flows against the live local stack
 docs/PORT-PLAN.md  what is being ported from the web app, in which order
@@ -499,6 +500,24 @@ reasoning and the sources are in `docs/PORT-PLAN.md`.
   gives the leading edge to back and title, common actions to the trailing one
   ([HIG Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)),
   and in iOS 26 the button gets Liquid Glass on its own.
+- **A sign shows the thing, and a failure looks like a failure.** The pet
+  switcher shows the species sign (`PetSpecies.icon`), so a dog is a dog and not
+  a paw; the medical card's failure shows the warning triangle, like the feed
+  and the history. One meaning has one sign: `plus` for creating,
+  `square.and.arrow.up` for sharing, `arrow.down.doc` for export, `clock` for
+  «waits to be sent».
+- **The app icon is the petzy brand icon.** It comes from the web app
+  (`frontend/public/icon.svg`, a copy in `docs/app-icon.svg`) and is rendered to
+  a 1024×1024 PNG without transparency and without rounded corners: iOS cuts
+  the shape itself. Re-render it when the brand changes:
+
+  ```bash
+  sed 's/width="512" height="512"/width="1024" height="1024"/' docs/app-icon.svg > /tmp/icon.svg
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu \
+    --hide-scrollbars --window-size=1024,1024 \
+    --screenshot=Petzy/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png \
+    "file:///tmp/icon.svg"
+  ```
 - **Row actions are `swipeActions`**, not web-style swipe-left-to-delete, and the delete
   goes through a confirm dialog. One exception, made because the list crashed:
   «Свои типы записей» has a red trash button in the row instead, as the web does.

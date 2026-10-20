@@ -34,6 +34,8 @@ targets:
         PRODUCT_NAME: Petzy
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: NO
+        # Иконка приложения лежит в каталоге ресурсов рядом с исходниками.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: Petzy/Resources/Info.plist
       properties:
