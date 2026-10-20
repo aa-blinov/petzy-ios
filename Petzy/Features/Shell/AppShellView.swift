@@ -102,141 +102,174 @@ private struct SettingsSection: View {
     var body: some View {
         NavigationStack {
             List {
-                NavigationLink {
-                    PetProfileView(client: model.client, petID: model.selectedPetID, app: model)
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("О питомце", systemImage: "pawprint")
-                        Text(model.selectedPet?.name ?? "Имя, фото, порода и заметки")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Button {
-                    addingPet = true
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("Добавить питомца", systemImage: "plus.circle")
-                        Text("Второй питомец для того же аккаунта")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                // Без `.plain` вся строка красится в акцент и читается как
-                // ссылка, а не как пункт настроек рядом с «Историей».
-                .buttonStyle(.plain)
-                // Питомец, заведённый без связи, ждёт здесь своей отправки.
-                // Рядом с кнопкой «Добавить питомца» он и виден: иначе человек
-                // не понял бы, куда делся его новый питомец.
-                if !model.offline.pendingPets.isEmpty {
-                    Section {
-                        ForEach(model.offline.pendingPets) { write in
-                            PendingRow(write: write) { model.offline.removePending(write.localID) }
-                        }
-                    } header: {
-                        Text("Не отправлено")
-                    }
-                }
-                NavigationLink {
-                    HelpView()
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("Справка", systemImage: "questionmark.circle")
-                        Text("Как всё устроено и что делать, если что-то не выходит")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                NavigationLink {
-                    PrivacyView(model: flow, showsAgree: false) {}
-                } label: {
-                    Label("Политика обработки данных", systemImage: "hand.raised")
-                        .font(.subheadline)
-                }
-                NavigationLink {
-                    AccountView(client: model.client, auth: model.auth, app: model)
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("Аккаунт", systemImage: "person.crop.circle")
-                        Text("Почта, пароль и удаление аккаунта")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                NavigationLink {
-                    AccessTokensView(model: AccessTokensModel(client: model.client))
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("Доступы для ассистентов", systemImage: "key")
-                        Text("Токен вместо пароля для человека или скрипта")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                NavigationLink {
-                    FormDefaultsView(
-                        model: FormDefaultsModel(
-                            client: model.client,
-                            petID: model.selectedPetID ?? "",
-                            defaults: model.formDefaults,
-                            app: model
-                        ),
-                        app: model
-                    )
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("Значения по умолчанию", systemImage: "text.badge.checkmark")
-                        Text("Чем новая запись открывается уже заполненной")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                NavigationLink {
-                    CustomTypesView(model: CustomTypesModel(client: model.client))
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("Свои типы записей", systemImage: "square.stack.3d.up")
-                        Text("Своё название и свои поля вместо готовых")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                if model.isAdmin {
+                // Порядок и группы — как в веб-версии (`frontend/src/pages/
+                // Settings.tsx`): питомец, записи, новые записи, аккаунт,
+                // приложение, администрирование, выход. Плоский список
+                // вперемешку сбивал с толку: «Справка» стояла между питомцем и
+                // аккаунтом, и было не видно, что это вообще разные вещи.
+                Section {
                     NavigationLink {
-                        UsersView(model: UsersModel(client: model.client))
+                        PetProfileView(client: model.client, petID: model.selectedPetID, app: model)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Label("Пользователи", systemImage: "person.2.badge.gearshape")
-                            Text("Список людей, отключение и сброс пароля")
+                            Label("О питомце", systemImage: "pawprint")
+                            Text(model.selectedPet?.name ?? "Имя, фото, порода и заметки")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    Button {
+                        addingPet = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Добавить питомца", systemImage: "plus.circle")
+                            Text("Второй питомец для того же аккаунта")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    // Без `.plain` вся строка красится в акцент и читается как
+                    // ссылка, а не как пункт настроек рядом с «Историей».
+                    .buttonStyle(.plain)
+                    // Питомец, заведённый без связи, ждёт здесь своей отправки.
+                    // Рядом с кнопкой «Добавить питомца» он и виден: иначе человек
+                    // не понял бы, куда делся его новый питомец.
+                    if !model.offline.pendingPets.isEmpty {
+                        Section {
+                            ForEach(model.offline.pendingPets) { write in
+                                PendingRow(write: write) { model.offline.removePending(write.localID) }
+                            }
+                        } header: {
+                            Text("Не отправлено")
+                        }
+                    }
+                    NavigationLink {
+                        FormDefaultsView(
+                            model: FormDefaultsModel(
+                                client: model.client,
+                                petID: model.selectedPetID ?? "",
+                                defaults: model.formDefaults,
+                                app: model
+                            ),
+                            app: model
+                        )
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Значения по умолчанию", systemImage: "text.badge.checkmark")
+                            Text("Чем новая запись открывается уже заполненной")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Питомцы")
                 }
-                NavigationLink {
-                    HistoryView(model: model)
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("История записей", systemImage: "clock.arrow.circlepath")
-                        Text("Всё за всё время, фильтр по типу и графики")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                Section {
+                    NavigationLink {
+                        HistoryView(model: model)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("История записей", systemImage: "clock.arrow.circlepath")
+                            Text("Всё за всё время, фильтр по типу и графики")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Button {
+                        exporting = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Экспорт записей", systemImage: "arrow.down.doc")
+                            Text("Скачать записи питомца таблицей")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    // Без `.plain` вся строка красится в акцент и читается как
+                    // ссылка, а не как пункт настроек рядом с «Историей».
+                    .buttonStyle(.plain)
+                } header: {
+                    Text("Записи")
+                }
+                Section {
+                    NavigationLink {
+                        CustomTypesView(model: CustomTypesModel(client: model.client))
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Свои типы записей", systemImage: "square.stack.3d.up")
+                            Text("Своё название и свои поля вместо готовых")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Новые записи")
+                }
+                Section {
+                    NavigationLink {
+                        AccountView(client: model.client, auth: model.auth, app: model)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Аккаунт", systemImage: "person.crop.circle")
+                            Text("Почта, пароль и удаление аккаунта")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    NavigationLink {
+                        AccessTokensView(model: AccessTokensModel(client: model.client))
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Доступы для ассистентов", systemImage: "key")
+                            Text("Токен вместо пароля для человека или скрипта")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Аккаунт")
+                }
+                Section {
+                    NavigationLink {
+                        HelpView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Справка", systemImage: "questionmark.circle")
+                            Text("Как всё устроено и что делать, если что-то не выходит")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    NavigationLink {
+                        PrivacyView(model: flow, showsAgree: false) {}
+                    } label: {
+                        Label("Политика обработки данных", systemImage: "hand.raised")
+                            .font(.subheadline)
+                    }
+                } header: {
+                    Text("О приложении")
+                }
+                if model.isAdmin {
+                    Section {
+                        NavigationLink {
+                            UsersView(model: UsersModel(client: model.client))
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Label("Пользователи", systemImage: "person.2.badge.gearshape")
+                                Text("Список людей, отключение и сброс пароля")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } header: {
+                        Text("Администрирование")
                     }
                 }
-                Button {
-                    exporting = true
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("Экспорт записей", systemImage: "arrow.down.doc")
-                        Text("Скачать записи питомца таблицей")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+                Section {
+                    Button("Выйти", role: .destructive, action: model.signOut)
+                } header: {
+                    Text("Выход")
                 }
-                // Без `.plain` вся строка красится в акцент и читается как
-                // ссылка, а не как пункт настроек рядом с «Историей».
-                .buttonStyle(.plain)
-                Button("Выйти", role: .destructive, action: model.signOut)
             }
             .navigationTitle("Настройки")
             .toolbar {

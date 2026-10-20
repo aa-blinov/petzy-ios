@@ -396,6 +396,12 @@ behaviour and for Russian wording. The route map is
 and `frontend/src/styles/globals.css`, and the API truth is `/api/openapi.json`
 of a running stand.
 
+The settings screen follows the web's grouping (`frontend/src/pages/
+Settings.tsx`): «Питомцы», «Записи», «Новые записи», «Аккаунт»,
+«О приложении», «Администрирование» (у админа) и «Выход». A flat list mixed
+them up: «Справка» stood between the pet and the account, and it was not clear
+that these were different things at all.
+
 ## Auth
 
 The backend is already prepared for a native client: **a request without an
