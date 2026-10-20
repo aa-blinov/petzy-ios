@@ -250,18 +250,33 @@ private struct ProfileBody: Encodable {
 
     /// Клиника без имени — не клиника, и сервер такой объект не примет.
     private static func clinics(of profile: MedicalProfileDraft) -> [ClinicEntryBody] {
+        // Основная клиника — та, что правит форма: её имя, телефон и врач.
+        // Остальные приходят из профиля как есть: сервер заменяет профиль
+        // целиком, и клиники, которых в форме нет, стёрлись бы.
         let main = ProfileClinic(
             name: profile.clinicName,
             phone: profile.clinicPhone?.isEmpty == false ? profile.clinicPhone : nil,
-            doctors: [ProfileDoctor(
-                name: profile.vetName?.isEmpty == false ? profile.vetName : nil,
-                specialty: profile.clinics.first?.doctors.first?.specialty
-            )]
+            doctors: mainDoctors(of: profile)
         )
         let all = [main] + profile.clinics.dropFirst()
         return all
             .filter { ($0.name?.isEmpty == false) }
             .map(ClinicEntryBody.init(clinic:))
+    }
+
+    /// Врачи основной клиники: сперва тот, кого правит форма, потом остальные
+    /// как были — иначе они стёрлись бы при сохранении.
+    private static func mainDoctors(of profile: MedicalProfileDraft) -> [ProfileDoctor] {
+        let saved = profile.clinics.first?.doctors ?? []
+        let edited = ProfileDoctor(
+            name: profile.vetName?.isEmpty == false ? profile.vetName : nil,
+            specialty: saved.first?.specialty
+        )
+        let rest = saved.dropFirst().map { ProfileDoctor(name: $0.name, specialty: $0.specialty) }
+        let all = [edited] + rest
+        // Врач без имени и без специализации — это не врач, и сервер такой
+        // объект не примет.
+        return all.filter { !($0.name ?? "").isEmpty || !($0.specialty ?? "").isEmpty }
     }
 
     enum CodingKeys: String, CodingKey {

@@ -23,6 +23,56 @@ struct MedicalProfileTests {
         #expect(body["blood_type"] as? String == "DEA 1.1+")
     }
 
+    /// Сервер заменяет профиль целиком, и клиника, которой в форме нет, ушла
+    /// бы молча: человек правил аллергию, а из профиля исчезла вторая клиника
+    /// с её врачами.
+    @Test("Сохранение профиля не стирает остальные клиники")
+    func savingKeepsOtherClinics() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: ["success": true])
+        let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
+        // Профиль от сервера: в нём две клиники, а правит человек только
+        // первую. Черновик собирается из профиля — как это делает форма.
+        let profile = MedicalProfile(
+            baseVersion: "v1",
+            allergies: [],
+            allergiesNoneKnown: false,
+            bloodType: nil,
+            chipNumber: nil,
+            clinicName: "Ортовет",
+            clinicPhone: "+7 727 555 03 04",
+            vetName: "Каримов Д.",
+            clinics: [
+                ProfileClinic(
+                    name: "Ортовет",
+                    phone: "+7 727 555 03 04",
+                    doctors: [ProfileDoctor(name: "Каримов Д.", specialty: "кардиолог")]
+                ),
+                ProfileClinic(
+                    name: "Ветклиника Айболит",
+                    phone: "+7 727 000 00 00",
+                    doctors: [ProfileDoctor(name: "Иванова А.", specialty: "хирург")]
+                )
+            ],
+            conditions: [],
+            diet: nil,
+            living: nil,
+            reproduction: nil
+        )
+        let draft = MedicalProfileDraft(baseVersion: profile.baseVersion, profile: profile)
+
+        try await MedicalCardAPI.saveProfile(client, petID: "p1", profile: draft)
+
+        let body = TestSupport.body(of: StubURLProtocol.requests.last)
+        let clinics = body["clinics"] as? [[String: Any]] ?? []
+        #expect(clinics.count == 2, "клиника пропала при сохранении: \(clinics)")
+        let second = clinics.last ?? [:]
+        #expect(second["name"] as? String == "Ветклиника Айболит")
+        let doctors = second["doctors"] as? [[String: Any]] ?? []
+        #expect(doctors.first?["name"] as? String == "Иванова А.")
+        #expect(doctors.first?["specialty"] as? String == "хирург")
+    }
+
     @Test("«Аллергий нет» уходит отдельным флагом и пустым списком")
     func allergiesNoneKnownIsExplicit() async throws {
         StubURLProtocol.reset()

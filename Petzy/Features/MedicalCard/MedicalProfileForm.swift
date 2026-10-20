@@ -134,6 +134,10 @@ struct MedicalProfileDraft: Sendable {
     /// Профиль из ответа сервера, готовый к правке.
     init(baseVersion: String?, profile: MedicalProfile) {
         self.init(
+            // Клиники едут в черновик как есть: сервер заменяет профиль
+            // целиком, и клиника, которой в форме нет, стёрлась бы при
+            // сохранении молча.
+            clinics: profile.clinics,
             baseVersion: baseVersion,
             allergies: profile.allergies,
             allergiesNoneKnown: profile.allergiesNoneKnown,
