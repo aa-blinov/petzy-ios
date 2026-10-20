@@ -111,6 +111,14 @@ struct MedicalCardDocumentView: View {
                     actions.readinessStep(next.step)
                 }
                 .font(.subheadline)
+                // Пока карта пуста, передавать её врачу нечем, и кнопка
+                // «Передать врачу» в панели не нажмётся. Об этом сказано
+                // здесь, а не отказом.
+                if card.readinessDone < 2 {
+                    Text("Карта почти пуста. Заполните её, и её можно будет передать врачу")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 Label("Главное для врача заполнено", systemImage: "checkmark.circle")
                     .font(.subheadline)

@@ -37,6 +37,7 @@ struct MedicalCardView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) { PetSwitcher(model: app) }
                     ToolbarItem(placement: .topBarTrailing) { newRecordMenu }
+                    ToolbarItem(placement: .topBarTrailing) { handOver }
                 }
         }
         // Ключ здесь — сама модель, а не выбранный питомец: оболочка
@@ -131,7 +132,6 @@ struct MedicalCardView: View {
         }
         .listStyle(.plain)
         .refreshable { await model.load() }
-        .safeAreaInset(edge: .bottom) { handover(card) }
     }
 
     /// Кнопки документа. Документ сам никуда не ведёт: он знает, что
@@ -184,64 +184,42 @@ struct MedicalCardView: View {
         .disabled(model.card?.canEdit != true)
     }
 
-    /// PDF и ссылка для врача: то, ради чего карту и ведут. Показываются, когда
-    /// заполнено хотя бы два пункта из пяти: на пустой карте отдавать нечего,
-    /// и об этом сказано словами внизу.
-    private func handover(_ card: MedicalCard) -> some View {
-        VStack(spacing: 0) {
-            Divider()
-            if card.readinessDone >= 2 {
-                HStack(spacing: 8) {
-                    pdfButton
-                    if card.canEdit {
-                        Button {
-                            sharing = true
-                        } label: {
-                            Label("Ссылка для врача", systemImage: "link")
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.75)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
+    /// Передать карту врачу: файлом или ссылкой. Отдельной полосы внизу нет:
+    /// на телефоне документ передают кнопкой «Поделиться», а полоса из двух
+    /// кнопок под последним блоком — это веб, на телефоне она закрывает
+    /// половину экрана и ничего не добавляет.
+    @ViewBuilder
+    private var handOver: some View {
+        if model.isPreparingPDF {
+            ProgressView()
+        } else {
+            Menu {
+                if let file = model.pdfFile {
+                    ShareLink(item: file) {
+                        Label("Поделиться файлом", systemImage: "square.and.arrow.up")
+                    }
+                } else {
+                    Button {
+                        Task { await model.downloadPDF() }
+                    } label: {
+                        Label("Скачать PDF", systemImage: "arrow.down.doc")
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-            } else {
-                Text("Карта почти пуста. Заполните её, и появятся PDF и ссылка для врача")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-            }
-        }
-        .background(.bar)
-    }
-
-    /// Кнопка PDF. Когда файл готов, она превращается в системное меню
-    /// «Поделиться»: открывать файл руками не нужно.
-    @ViewBuilder
-    private var pdfButton: some View {
-        if let file = model.pdfFile {
-            ShareLink(item: file) {
-                Label("Поделиться файлом", systemImage: "square.and.arrow.up")
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-        } else {
-            Button {
-                Task { await model.downloadPDF() }
+                // Ссылку может выдать только владелец: она открывает карту
+                // тому, кому адрес дали.
+                if model.card?.canEdit == true {
+                    Button {
+                        sharing = true
+                    } label: {
+                        Label("Ссылка для врача", systemImage: "link")
+                    }
+                }
             } label: {
-                Label(model.isPreparingPDF ? "Готовим файл" : "Скачать PDF", systemImage: "arrow.down.doc")
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .frame(maxWidth: .infinity)
+                Label("Передать врачу", systemImage: "square.and.arrow.up")
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(model.isPreparingPDF)
+            // Пока карта пуста, передавать нечем: об этом сказано в блоке
+            // готовности, а не отказом в нажатии.
+            .disabled((model.card?.readinessDone ?? 0) < 2)
         }
     }
 }

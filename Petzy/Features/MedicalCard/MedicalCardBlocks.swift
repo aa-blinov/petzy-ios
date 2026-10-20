@@ -158,6 +158,9 @@ struct MedicalCardBlocks: View {
                 if let summary = MedicalCardWeight.summary(card.weightSeries) {
                     Text(summary).font(.caption).foregroundStyle(.secondary)
                 }
+                if let byYear = MedicalCardWeight.byYear(card.weightSeries) {
+                    Text("По годам: \(byYear)").font(.caption).foregroundStyle(.secondary)
+                }
             }
             door("Записать вес", action: { actions.newRecord(.vaccination) })
         } header: {

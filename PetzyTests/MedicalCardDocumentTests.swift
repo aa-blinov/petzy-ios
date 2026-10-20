@@ -108,6 +108,73 @@ struct MedicalCardDocumentTests {
         #expect(card.attention.first?.record?.status == .overdue)
     }
 
+    /// Вес говорит словами: «+0,4 кг с 03.10.2026» — как он двигался.
+    @Test("Вес говорит, как он менялся")
+    func weightDeltaReadsInWords() {
+        let series = [
+            WeightPoint(date: "2026-10-03", value: 28.9),
+            WeightPoint(date: "2026-10-04", value: 29.3)
+        ]
+        #expect(MedicalCardWeight.delta(series) == "+0,4 кг с 03.10.2026")
+    }
+
+    /// Один замер сравнивать не с чем, и молчать тут правильно.
+    @Test("Один замер — это ещё не изменение")
+    func singleWeighingHasNoDelta() {
+        #expect(MedicalCardWeight.delta([WeightPoint(date: "2026-10-04", value: 29.3)]) == nil)
+    }
+
+    /// Вес не менялся — это тоже изменение, и о нём говорят словами.
+    @Test("Вес без изменений говорит об этом")
+    func unchangedWeightSaysSo() {
+        let series = [
+            WeightPoint(date: "2026-10-03", value: 29.3),
+            WeightPoint(date: "2026-10-04", value: 29.3)
+        ]
+        #expect(MedicalCardWeight.delta(series) == "Без изменений с 03.10.2026")
+    }
+
+    /// Сводка: сколько замеров, с какого дня и какой разброс.
+    @Test("Сводка говорит, сколько замеров и какой разброс")
+    func weightSummaryReadsInWords() {
+        let series = [
+            WeightPoint(date: "2026-08-08", value: 28.4),
+            WeightPoint(date: "2026-10-04", value: 29.3)
+        ]
+        #expect(MedicalCardWeight.summary(series) == "2 замера с 08.08.2026, диапазон от 28,4 до 29,3 кг")
+    }
+
+    /// Одинаковый вес разбросом не считается: «от 29,3 до 29,3 кг» — мусор.
+    @Test("Одинаковый вес разбросом не называется")
+    func evenWeightHasNoRange() {
+        let series = [
+            WeightPoint(date: "2026-08-08", value: 29.3),
+            WeightPoint(date: "2026-10-04", value: 29.3)
+        ]
+        #expect(MedicalCardWeight.summary(series) == "2 замера с 08.08.2026")
+    }
+
+    /// По годам: замеры за разные годы — строка «2025: …, 2026: …». За один год
+    /// она повторяла бы сводку и только занимала бы место.
+    @Test("Разброс по годам говорит словами")
+    func weightByYearReadsInWords() {
+        let series = [
+            WeightPoint(date: "2025-12-01", value: 28.4),
+            WeightPoint(date: "2025-12-20", value: 28.9),
+            WeightPoint(date: "2026-10-04", value: 29.3)
+        ]
+        #expect(MedicalCardWeight.byYear(series) == "2025: от 28,4 до 28,9 кг, 2026: 29,3 кг")
+    }
+
+    @Test("За один год разброс по годам не нужен")
+    func weightByYearIsSkippedForOneYear() {
+        let series = [
+            WeightPoint(date: "2026-08-08", value: 28.4),
+            WeightPoint(date: "2026-10-04", value: 29.3)
+        ]
+        #expect(MedicalCardWeight.byYear(series) == nil)
+    }
+
     // MARK: - Заготовки
 
     static func record(
