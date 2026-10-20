@@ -171,6 +171,9 @@ struct MedicalCardRecords: View {
     private func door(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
             .font(.subheadline)
+            // Дверь — это ссылка, и она должна выглядеть ссылкой: акцентным
+            // цветом, как ссылки в iOS, а не обычным текстом.
+            .foregroundStyle(.tint)
     }
 }
 

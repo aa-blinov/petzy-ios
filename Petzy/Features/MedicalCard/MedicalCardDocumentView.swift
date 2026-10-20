@@ -111,6 +111,7 @@ struct MedicalCardDocumentView: View {
                     actions.readinessStep(next.step)
                 }
                 .font(.subheadline)
+                .foregroundStyle(.tint)
                 // Пока карта пуста, передавать её врачу нечем, и кнопка
                 // «Передать врачу» в панели не нажмётся. Об этом сказано
                 // здесь, а не отказом.

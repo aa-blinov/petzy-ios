@@ -130,7 +130,10 @@ struct MedicalCardView: View {
             MedicalCardBlocks(card: card, actions: actions)
             MedicalCardRecords(card: card, actions: actions)
         }
-        .listStyle(.plain)
+        // Секции-карточки: медкарта читается как документ, и плоский список с
+        // линейками разбирал бы её на куски. Остальные экраны приложения
+        // остаются плоскими — там список строк, а здесь девять блоков.
+        .listStyle(.insetGrouped)
         .refreshable { await model.load() }
     }
 
