@@ -175,14 +175,15 @@ struct MedicalProfileTests {
         ])
         let client = await MedicationsTests.client(session: StubURLProtocol.makeSession())
 
-        let share = try await MedicalCardAPI.createShare(client, petID: "p1", days: 7)
+        let site = try #require(URL(string: "http://localhost:3000"))
+        let share = try await MedicalCardAPI.createShare(client, petID: "p1", days: 7, webBase: site)
 
         #expect(StubURLProtocol.requestedPaths == ["/api/pets/p1/medical-card/shares"])
         #expect(TestSupport.body(of: StubURLProtocol.requests.last)["days"] as? Int == 7)
         #expect(share.token == "abc123")
         // Ссылка открывается без входа, поэтому это адрес, а не путь внутри
         // приложения: поделиться ею можно прямо из системного меню.
-        #expect(share.url?.absoluteString == "http://localhost:5002/share/medical/abc123")
+        #expect(share.url?.absoluteString == "http://localhost:3000/share/medical/abc123")
     }
 
     @Test("Создание ссылки отдаёт дату, до которой она живёт")
