@@ -72,6 +72,23 @@ struct PetProfileView: View {
                     .focused($focus, equals: .notes)
                     .onSubmit { focus = nil }
             }
+            if !model.isNew {
+                Section {
+                    NavigationLink {
+                        TileSettingsView(
+                            initial: model.draft.tiles,
+                            catalog: app.typeCatalog,
+                            onCommit: { model.draft.tiles = $0 }
+                        )
+                    } label: {
+                        LabeledContent("Типы на «+»", value: "\(tilesShown)")
+                    }
+                } header: {
+                    Text("Записи")
+                } footer: {
+                    Text("Что показывать на «+» и в каком порядке")
+                }
+            }
             PetAccessSection(profile: model.profile, isNew: model.isNew, model: model, app: app)
             if model.profile?.currentUserIsOwner == true {
                 Section {
@@ -134,6 +151,11 @@ struct PetProfileView: View {
         } message: {
             Text(model.notice ?? "")
         }
+    }
+
+    /// Сколько типов сейчас на «+»: число рядом со строкой настроек.
+    private var tilesShown: Int {
+        app.typeCatalog.filter { model.draft.tiles.isShown($0.key) }.count
     }
 
     private var canSave: Bool {

@@ -74,7 +74,8 @@ final class PetProfileModel {
                 birthDate: loaded.birthDate.flatMap(MomentText.date(from:)),
                 gender: loaded.gender,
                 neutering: loaded.neutering,
-                healthNotes: loaded.healthNotes
+                healthNotes: loaded.healthNotes,
+                tiles: loaded.tiles
             )
             errorText = nil
             loadFailed = false

@@ -34,7 +34,7 @@ struct FeedView: View {
         }
         .sheet(isPresented: $pickingType) {
             NavigationStack {
-                EventCatalogView(model: model) { type in
+                QuickAddView(model: model) { type in
                     pickingType = false
                     form = EventFormTarget(draft: model.newDraft(for: type), recordID: nil)
                 }

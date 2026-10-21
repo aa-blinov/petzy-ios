@@ -232,6 +232,17 @@ with CI, and that is the usual source of "works here, fails in CI".
   'View'". Write `@ToolbarContentBuilder`. When CI is red while `make ci` is
   green, this is the first thing to check: fetch the failing run's log rather
   than rebuilding locally.
+- **A `Binding(get:set:)` that writes into the model can write nothing.** A
+  pushed screen bound its toggles straight into `@Observable` model state:
+  `Binding(get: { model.draft.tiles.isShown(key) }, set: { model.draft.tiles.visible[key] = $0 })`.
+  The switch took the new position and kept it, the model never changed, the
+  parent's counter stayed, and the save sent the old value. Nothing failed and
+  no test noticed until one checked the saved result. Give such a screen its
+  own `@State`, and hand the result back with a closure in `onDisappear`.
+- **A permanently active `editMode` swallows taps on the row controls.** With
+  `.environment(\.editMode, .constant(.active))` the toggles in the list stop
+  responding; `EditButton()` in the toolbar does not, and reordering still
+  works through `.onMove`.
 - **A tap on a `StaticText` inside a `Button` with `.plain` does nothing.**
   The text has no hit area of its own. Use
   `app.buttons.containing(.staticText, identifier: title).firstMatch`.
