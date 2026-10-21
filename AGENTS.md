@@ -225,6 +225,13 @@ with CI, and that is the usual source of "works here, fails in CI".
   rows is fine, a `Picker` menu is not. Look a picker value up with
   `app.descendants(matching: .any).matching(identifier: label)`:
   `app.buttons[label]` does not find it.
+- **The runner's Xcode is older than the one in this checkout.** CI is on
+  `macos-26` with `latest-stable`, which is not 27.1: a `@ViewBuilder` on a
+  property of type `some ToolbarContent` compiles here and fails there with
+  "static method 'buildExpression' requires that 'ToolbarItem<...>' conform to
+  'View'". Write `@ToolbarContentBuilder`. When CI is red while `make ci` is
+  green, this is the first thing to check: fetch the failing run's log rather
+  than rebuilding locally.
 - **A tap on a `StaticText` inside a `Button` with `.plain` does nothing.**
   The text has no hit area of its own. Use
   `app.buttons.containing(.staticText, identifier: title).firstMatch`.

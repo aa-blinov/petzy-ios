@@ -108,7 +108,10 @@ struct DocumentFormView: View {
         }
     }
 
-    @ViewBuilder
+    /// Именно `@ToolbarContentBuilder`, а не `@ViewBuilder`: с вторым Xcode на
+    /// CI (26.x) считает элементы тулбара обычными видами и отказывается
+    /// собирать, хотя локальный 27.1 это принимает.
+    @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
             Button("Отмена") { dismiss() }
