@@ -58,8 +58,13 @@ jobs:
       # Версия swiftformat закреплена, чтобы новый не переписал код иначе.
       - name: Проверить форматирование
         run: |
-          brew install swiftformat
-          swiftformat Petzy PetzyTests PetzyUITests --lint
+          # The version is pinned, as the comment above says it should be.
+          # Homebrew's copy on the runner was 0.63.1 and its indent rule
+          # differs from the one this code is written against.
+          curl -fsSL -o "$RUNNER_TEMP/swiftformat.zip" \
+            https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.0/swiftformat.zip
+          unzip -q "$RUNNER_TEMP/swiftformat.zip" -d "$RUNNER_TEMP/swiftformat"
+          "$RUNNER_TEMP/swiftformat/swiftformat" Petzy PetzyTests PetzyUITests --lint
 
       - name: Собрать
         run: |
