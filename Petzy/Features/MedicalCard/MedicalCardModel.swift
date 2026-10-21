@@ -20,23 +20,32 @@ final class MedicalCardModel {
     /// Документ, открытый из медкарты в системном просмотрщике.
     var documentFile: URL?
     /// Только что выданная ссылка на медкарту.
-    private(set) var share: MedicalShare?
+    internal(set) var share: MedicalShare?
     /// Ссылки, которые сейчас открывают карту.
-    private(set) var shares: [LiveShare] = []
+    internal(set) var shares: [LiveShare] = []
     /// Справочник прививок: один и тот же для всех, поэтому читается один раз.
     private(set) var catalog: [VaccineGroup] = []
     private(set) var isPreparingPDF = false
 
-    // Клиент, питомец и очередь нужны соседнему файлу с заметкой «К приёму»,
-    // поэтому без `private`.
+    /// Клиент, питомец и очередь нужны соседнему файлу с заметкой «К приёму»,
+    /// поэтому без `private`.
     let client: APIClient
+    /// Адрес сайта: от него строится ссылка для врача. В проде он тот же, что у
+    /// API, на стенде — другой порт.
+    let webBase: URL
     let petID: String
     private let offline: OfflineState
 
     /// На экране копия, а не сеть.
     private(set) var isShowingCached = false
 
-    init(client: APIClient, petID: String, offline: OfflineState) {
+    init(
+        client: APIClient,
+        petID: String,
+        offline: OfflineState,
+        webBase: URL = AppConfig.webBaseURL
+    ) {
+        self.webBase = webBase
         self.client = client
         self.petID = petID
         self.offline = offline
@@ -225,48 +234,6 @@ final class MedicalCardModel {
         } catch {
             errorText = Self.text(of: error)
             return false
-        }
-    }
-
-    /// Ссылка для врача. Секрет приходит один раз и больше не хранится,
-    /// поэтому адрес держится в модели, пока человек его не отправит.
-    /// Уведомления тут нет намеренно: оно висит на экране медкарты и закрыло
-    /// бы лист, а секрет из ссылки показывают один раз.
-    func createShare(days: Int) async {
-        errorText = nil
-        do {
-            share = try await MedicalCardAPI.createShare(client, petID: petID, days: days)
-            // Без перечитывания список врал бы: ссылка есть, а в нём пусто.
-            await loadShares()
-        } catch {
-            errorText = Self.text(of: error)
-        }
-    }
-
-    /// Какие ссылки сейчас работают. Отозванные и истёкшие сервер сам не
-    /// присылает, поэтому список всегда про то, что ещё открывает карту.
-    func loadShares() async {
-        do {
-            shares = try await MedicalCardAPI.shares(client, petID: petID)
-        } catch {
-            errorText = Self.text(of: error)
-        }
-    }
-
-    /// Отзыв ссылки: адрес перестаёт открывать карту сразу, а сам список
-    /// перечитывается, чтобы у человека не осталось мысли, что он работает.
-    func revoke(_ share: LiveShare) async {
-        errorText = nil
-        do {
-            try await MedicalCardAPI.revokeShare(client, petID: petID, shareID: share.id)
-            // Готовый адрес тоже убираем: поделиться отозванной ссылкой
-            // человек может прямо с этого экрана, а она уже ничего не открывает.
-            if self.share?.id == share.id {
-                self.share = nil
-            }
-            await loadShares()
-        } catch {
-            errorText = Self.text(of: error)
         }
     }
 

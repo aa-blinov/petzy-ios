@@ -79,7 +79,12 @@ enum MedicalCardAPI {
 
     /// Создать ссылку для врача. Секрет приходит один раз и больше не
     /// хранится, поэтому адрес показывается сразу и его надо сохранить.
-    static func createShare(_ client: APIClient, petID: String, days: Int) async throws -> MedicalShare {
+    static func createShare(
+        _ client: APIClient,
+        petID: String,
+        days: Int,
+        webBase: URL = AppConfig.webBaseURL
+    ) async throws -> MedicalShare {
         let response: ShareResponse = try await client.post(
             "/api/pets/\(AppModel.query(petID))/medical-card/shares",
             body: ShareBody(days: days)
@@ -90,7 +95,7 @@ enum MedicalCardAPI {
             token: response.token,
             // Ссылка открывается без входа, поэтому это адрес, а не путь
             // внутри приложения: поделиться ею можно прямо из системного меню.
-            url: URL(string: path, relativeTo: client.baseURL)?.absoluteURL,
+            url: URL(string: path, relativeTo: webBase)?.absoluteURL,
             expiresAt: response.share.expiresAt
         )
     }
