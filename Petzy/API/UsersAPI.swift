@@ -4,6 +4,12 @@ import Foundation
 /// администратору, остальным приходит `forbidden_admin_only`, поэтому
 /// приложение и не показывает этот экран никому другому.
 enum UsersAPI {
+    /// Профиль другого человека. Доступен соседу по питомцу: этим и объясняется
+    /// «кто это» в разделе доступа.
+    static func profile(_ client: APIClient, username: String) async throws -> UserProfile {
+        try await client.get("/api/users/\(AppModel.query(username))/profile")
+    }
+
     static func list(_ client: APIClient, page: Int, query: String) async throws -> UsersPage {
         var path = "/api/users?page=\(max(1, page))"
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)

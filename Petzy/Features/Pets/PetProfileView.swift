@@ -72,7 +72,7 @@ struct PetProfileView: View {
                     .focused($focus, equals: .notes)
                     .onSubmit { focus = nil }
             }
-            PetAccessSection(profile: model.profile, isNew: model.isNew, model: model)
+            PetAccessSection(profile: model.profile, isNew: model.isNew, model: model, app: app)
             if model.profile?.currentUserIsOwner == true {
                 Section {
                     Button("Удалить питомца", role: .destructive) {

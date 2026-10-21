@@ -11,6 +11,7 @@ struct PetAccessSection: View {
     let profile: PetProfile?
     let isNew: Bool
     let model: PetProfileModel
+    let app: AppModel
 
     @State private var inviting = false
     @State private var inviteName = ""
@@ -98,9 +99,13 @@ struct PetAccessSection: View {
         run: @escaping () -> Void
     ) -> some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(username).font(.subheadline)
-                Text(note).font(.caption).foregroundStyle(.secondary)
+            NavigationLink {
+                UserProfileView(client: app.client, username: username, app: app)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(username).font(.subheadline)
+                    Text(note).font(.caption).foregroundStyle(.secondary)
+                }
             }
             Spacer()
             Button(action, action: run)
