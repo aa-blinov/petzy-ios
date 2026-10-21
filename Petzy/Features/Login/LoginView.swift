@@ -52,23 +52,36 @@ struct LoginView: View {
     private var form: some View {
         Form {
             Section {
-                TextField("Логин", text: $username)
-                    .textContentType(.username)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.next)
-                    .focused($focus, equals: .login)
-                    .onSubmit { focus = .password }
+                // Подпись стоит рядом с полем, а не вместо него: плейсхолдер
+                // исчезает от первого символа, и поле оставалось без ничего, а
+                // строка ошибки под ним повторяла ту же фразу. Подсказка —
+                // пример, а не указание.
+                LabeledContent("Логин") {
+                    TextField("например, demo", text: $username)
+                        .textContentType(.username)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .multilineTextAlignment(.trailing)
+                        .submitLabel(.next)
+                        .focused($focus, equals: .login)
+                        .onSubmit { focus = .password }
+                }
 
-                SecureField("Пароль", text: $password)
-                    .textContentType(.password)
-                    // Пароль нельзя начинать с заглавной и нельзя «исправлять»
-                    // по словарю: иначе введённое не совпадёт с настоящим.
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.go)
-                    .focused($focus, equals: .password)
-                    .onSubmit(submit)
+                LabeledContent("Пароль") {
+                    // Плейсхолдера нет вовсе: подпись и ошибка говорят всё, а
+                    // пустая подсказка оставила бы строку без единого слова.
+                    SecureField("", text: $password)
+                        .textContentType(.password)
+                        // Пароль нельзя начинать с заглавной и нельзя
+                        // «исправлять» по словарю: иначе введённое не совпадёт с
+                        // настоящим.
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .multilineTextAlignment(.trailing)
+                        .submitLabel(.go)
+                        .focused($focus, equals: .password)
+                        .onSubmit(submit)
+                }
             }
 
             if let errorText = model.errorText {

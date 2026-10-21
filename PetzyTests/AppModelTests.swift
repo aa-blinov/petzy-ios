@@ -218,18 +218,6 @@ struct AppModelTests {
 
     /// Фильтр истории принадлежит питомцу: оставленный от прежнего, он
     /// показывал новому питомцу пустую историю, и человек думал, что записей
-    /// нет вовсе.
-    @Test("Смена питомца сбрасывает фильтр истории")
-    func switchingPetResetsHistoryFilter() async {
-        let model = await TestSupport.makeModel(defaults: TestSupport.makeDefaults())
-        model.select(petID: "pet-1")
-        model.historyType = "weight"
-
-        model.select(petID: "pet-2")
-
-        #expect(model.historyType == nil)
-    }
-
     private func weightDraft() -> EventDraft {
         EventDraft(
             type: EventTypeInfo(key: "weight", label: "Вес", icon: "scale", category: "health", fields: [

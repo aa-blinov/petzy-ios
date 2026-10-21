@@ -165,16 +165,6 @@ private struct SettingsSection: View {
                     Text("Питомцы")
                 }
                 Section {
-                    NavigationLink {
-                        HistoryView(model: model)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Label("История записей", systemImage: "clock.arrow.circlepath")
-                            Text("Всё за всё время, фильтр по типу и графики")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
                     Button {
                         exporting = true
                     } label: {
