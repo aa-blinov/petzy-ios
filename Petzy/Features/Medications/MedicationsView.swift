@@ -13,6 +13,7 @@ struct MedicationsView: View {
     @State private var pendingDelete: Medication?
     @State private var restocking: Medication?
     @State private var dosing: Medication?
+    @State private var pickedIntake: MedicationIntake?
 
     var body: some View {
         NavigationStack {
@@ -42,9 +43,11 @@ struct MedicationsView: View {
             // поверх копии.
             guard app.queueFlushCount > 0 else { return }
             await model.load()
+            await model.loadIntakes()
         }
         .task(id: ObjectIdentifier(model)) {
             await model.load()
+            await model.loadIntakes()
         }
         .sheet(item: $editing) { target in
             MedicationFormView(app: app, model: model, target: target)
@@ -54,6 +57,9 @@ struct MedicationsView: View {
         }
         .sheet(item: $dosing) { med in
             DoseSheet(model: model, medication: med)
+        }
+        .sheet(item: $pickedIntake) { intake in
+            IntakeSheet(model: model, intake: intake)
         }
         .alert(
             "Не получилось",
@@ -170,6 +176,22 @@ struct MedicationsView: View {
                         .tint(.red)
                 }
             }
+            if model.search.isEmpty, !model.intakes.isEmpty {
+                Section {
+                    ForEach(model.intakes.prefix(10)) { intake in
+                        Button {
+                            pickedIntake = intake
+                        } label: {
+                            IntakeRow(intake: intake)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    Text("Последние приёмы")
+                } footer: {
+                    Text("Тап по приёму меняет его время или отменяет его")
+                }
+            }
             if model.search.isEmpty, model.endedCount > 0, model.endedCount < model.medications.count {
                 Button(model.showsEnded ? "Скрыть завершённые" : "Завершённые курсы: \(model.endedCount)") {
                     model.showsEnded.toggle()
@@ -183,6 +205,39 @@ struct MedicationsView: View {
     static var nowTime: String {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: Date())
         return String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
+    }
+}
+
+/// Строка отмеченного приёма: что дали, когда и сколько. Тап открывает
+/// правку времени.
+private struct IntakeRow: View {
+    let intake: MedicationIntake
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "pills")
+                .foregroundStyle(.tint)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(intake.skipped ? "Пропущенный приём" : intake.medicationName)
+                    .font(.subheadline)
+                Text(
+                    intake.skipped
+                        ? "\(MomentText.humanDay(intake.day)), \(intake.time)"
+                        : "\(MomentText.humanDay(intake.day)) в \(intake.time)"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if intake.dose > 0 {
+                Text(Amount.text(intake.dose)).font(.subheadline).foregroundStyle(.secondary)
+            }
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .contentShape(.rect)
     }
 }
 
