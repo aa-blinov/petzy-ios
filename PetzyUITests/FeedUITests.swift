@@ -81,6 +81,12 @@ final class FeedUITests: XCTestCase {
         XCTAssertTrue(TestLaunch.logIn(app), "не удалось войти и открыть оболочку")
 
         app.buttons["Новая запись"].tap()
+        // «+» открывает свой набор питомца; полный каталог — за «Все типы».
+        XCTAssertTrue(
+            app.navigationBars["Что записать"].waitForExistence(timeout: 20),
+            "набор типов не открылся: \(app.debugDescription)"
+        )
+        app.buttons["Все типы"].tap()
         XCTAssertTrue(
             app.navigationBars["Добавить запись"].waitForExistence(timeout: 20),
             "каталог типов не открылся: \(app.debugDescription)"
