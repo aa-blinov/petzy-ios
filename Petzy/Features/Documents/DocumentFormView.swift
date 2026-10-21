@@ -89,12 +89,17 @@ struct DocumentFormView: View {
             .navigationTitle(document == nil ? "Документ" : "Правка документа")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
-            .fileImporter(isPresented: $importing, allowedContentTypes: Self.allowedTypes, onCompletion: imported)
+            .fileImporter(
+                isPresented: $importing,
+                allowedContentTypes: Self.allowedTypes(scans: model.scanStatus?.scansEnabled == true),
+                onCompletion: imported
+            )
             // Фотографию читаем сразу после выбора: пока она грузится, человек
             // видит, что файл уже выбран, и может назвать документ.
             .onChange(of: photo) { _, item in
                 Task { await loadPhoto(item) }
             }
+            .task { await model.loadScanStatus() }
             .photosPicker(isPresented: $choosingPhoto, selection: $photo, matching: .images)
             .fullScreenCover(isPresented: $shooting) {
                 CameraPicker(onCapture: takePhoto)
@@ -153,6 +158,11 @@ struct DocumentFormView: View {
             } label: {
                 Label("Выбрать файл", systemImage: "folder")
             }
+            if model.scanStatus?.scansEnabled == true {
+                Text("Снимки МРТ и КТ принимаются архивом: ZIP, 7Z, RAR, TAR, GZ, DICOM, ISO")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -203,8 +213,16 @@ struct DocumentFormView: View {
         }
     }
 
-    /// Что пустить в «Файлы»: ровно типы сервера.
-    static let allowedTypes: [UTType] = [.pdf, .jpeg, .png, .webP, .heic, .heif]
+    /// Что пустить в «Файлы»: ровно типы сервера, плюс архивы снимков, если
+    /// сервер их принимает.
+    static func allowedTypes(scans: Bool) -> [UTType] {
+        let base: [UTType] = [.pdf, .jpeg, .png, .webP, .heic, .heif]
+        guard scans else { return base }
+        let archives = ["zip", "7z", "rar", "tar", "gz", "dcm", "iso"].compactMap {
+            UTType(filenameExtension: $0)
+        }
+        return base + archives
+    }
 
     /// Снимок камеры: всегда JPEG, и в форму он приходит тем же файлом, что и
     /// выбранный из галереи.

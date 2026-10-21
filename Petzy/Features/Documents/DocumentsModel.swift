@@ -8,6 +8,17 @@ import Observation
 @Observable
 final class DocumentsModel {
     private(set) var documents: [PetDocument] = []
+    /// Что сервер разрешает по сканам: включены ли они и какой файл велик.
+    /// `nil` — не спрашивали или сервер не ответил, и тогда архивы не обещаем.
+    private(set) var scanStatus: ScanStatus?
+
+    /// Спросить у сервера про сканы. Молча: без ответа форма просто не
+    /// предлагает архивы. Спрашивается формой, а не чтением списка: списку это
+    /// не нужно, а лишний запрос на каждое открытие раздела — плата ни за что.
+    func loadScanStatus() async {
+        scanStatus = try? await DocumentsAPI.scanStatus(client)
+    }
+
     private(set) var isLoading = false
     /// Что ответил сервер, по-русски.
     var errorText: String?
@@ -81,15 +92,28 @@ final class DocumentsModel {
             errorText = problem
             return false
         }
+        // Архив идёт другим путём: файл кладётся прямо в хранилище, а не
+        // проходит через сервер. Размер проверяется до запроса — теми же
+        // словами, что ответил бы сервер.
+        if DocumentsAPI.isScan(upload.name) {
+            if let problem = scanStatus?.problem(for: upload.name, size: upload.data.count) {
+                errorText = problem
+                return false
+            }
+        }
         errorText = nil
         do {
-            try await DocumentsAPI.upload(
-                client,
-                petID: petID,
-                draft: draft,
-                file: upload,
-                zone: Self.zone
-            )
+            if DocumentsAPI.isScan(upload.name) {
+                try await DocumentsAPI.uploadScan(client, draft: draft, file: upload)
+            } else {
+                try await DocumentsAPI.upload(
+                    client,
+                    petID: petID,
+                    draft: draft,
+                    file: upload,
+                    zone: Self.zone
+                )
+            }
             notice = "Документ добавлен"
             await load()
             return true
