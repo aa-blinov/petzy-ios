@@ -16,9 +16,18 @@ struct QuickAddView: View {
 
     var body: some View {
         List {
-            if tiles.isEmpty {
+            // Каталог приходит запросом: до него плиток нет, и пустой экран
+            // выглядел бы как «на «+» ничего не выбрано».
+            if catalogIsLoading {
                 Section {
-                    Text("На «+» пока ничего нет. Выберите типы в «О питомце»")
+                    HStack {
+                        ProgressView()
+                        Text("Загрузка типов").foregroundStyle(.secondary)
+                    }
+                }
+            } else if tiles.isEmpty {
+                Section {
+                    Text("На «+» пока ничего нет. Добавьте типы в «Других событиях»")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -37,7 +46,9 @@ struct QuickAddView: View {
                     .padding(.vertical, 4)
                 }
             }
-            if !tiles.isEmpty, model.selectedPet?.isOwner != false {
+            // Дверь не зависит от загрузки каталога: иначе она пропадала на
+            // первой секунде, и человек оставался с пустым листом.
+            if model.selectedPet?.isOwner != false {
                 Section {
                     Button {
                         editing = true
@@ -92,6 +103,11 @@ struct QuickAddView: View {
         .padding(12)
         .background(.quaternary, in: .rect(cornerRadius: 12))
         .contentShape(.rect)
+    }
+
+    /// Каталог типов ещё едет.
+    private var catalogIsLoading: Bool {
+        model.typeCatalog.isEmpty
     }
 
     /// Набор питомца как он есть: его правит «Другие события».
