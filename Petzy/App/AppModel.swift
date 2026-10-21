@@ -33,6 +33,7 @@ final class AppModel {
     /// Показывалось ли первое знакомство с приложением. Ключ в UserDefaults:
     /// это не секрет, Keychain тут не нужен.
     static let onboardingKey = "seenOnboarding"
+    static let remindersKey = "petzyRemindersEnabled"
 
     /// Логин человека, чей дневник открыт. В UserDefaults: логин не секрет, а
     /// знать его надо и без сети — по нему приложение понимает, чья это копия
@@ -167,6 +168,16 @@ final class AppModel {
 
     /// Адрес и сеанс принимаются параметрами, а не берутся из `AppConfig`
     /// внутри: иначе модель нельзя проверить, запросы уходят мимо заглушки.
+    /// Напоминания о приёмах включены. Читается из `UserDefaults` один раз в
+    /// `init`: значение из настроек в вычисляемом свойстве не перерисовывает
+    /// экран, и переключатель оставался бы в прежнем положении.
+    internal(set) var remindersEnabled = false
+    /// Почему напоминаний нет, если их просили. Экран говорит это словами.
+    internal(set) var remindersProblem: String?
+    /// Когда ближайшее напоминание: у уведомлений нет экрана, и другого
+    /// способа увидеть, что план поставлен, у человека нет.
+    internal(set) var nextReminderText: String?
+
     init(
         auth: AuthSession,
         baseURL: URL = AppConfig.baseURL,
@@ -180,6 +191,7 @@ final class AppModel {
         selectedPetID = defaults.string(forKey: Self.selectedPetKey)
         needsOnboarding = !defaults.bool(forKey: Self.onboardingKey)
         currentUser = defaults.string(forKey: Self.currentUserKey)
+        remindersEnabled = defaults.bool(forKey: Self.remindersKey)
         client = APIClient(baseURL: baseURL, urlSession: urlSession, auth: auth)
     }
 

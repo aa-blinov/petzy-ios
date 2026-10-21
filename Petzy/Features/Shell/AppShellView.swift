@@ -97,6 +97,17 @@ private struct SettingsSection: View {
     let flow: AuthFlowModel
 
     @State private var exporting = false
+    /// Переключатель напоминаний: включение спрашивает разрешение у системы,
+    /// поэтому одного `Toggle` на состоянии мало.
+    private var remindersBinding: Binding<Bool> {
+        Binding(
+            get: { model.remindersEnabled },
+            set: { enabled in
+                Task { await model.setReminders(enabled) }
+            }
+        )
+    }
+
     @State private var addingPet = false
 
     var body: some View {
@@ -163,6 +174,33 @@ private struct SettingsSection: View {
                     }
                 } header: {
                     Text("Питомцы")
+                }
+                Section {
+                    // Напоминания — локальные, по расписанию курсов: сервер
+                    // шлёт их браузеру, а телефону нужен свой путь.
+                    Toggle(isOn: remindersBinding) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Напоминать о приёмах", systemImage: "bell")
+                            Text("Уведомление в назначенное время, без интернета")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    // Подпись у переключателя склеена из двух строк, и по ней
+                    // его в тесте не найти.
+                    .accessibilityIdentifier("remindersToggle")
+                    if let problem = model.remindersProblem {
+                        Label(problem, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let next = model.nextReminderText, model.remindersEnabled {
+                        Text("Ближайшее: \(next)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Напоминания")
                 }
                 Section {
                     Button {

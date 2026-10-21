@@ -48,6 +48,9 @@ struct MedicationsView: View {
         .task(id: ObjectIdentifier(model)) {
             await model.load()
             await model.loadIntakes()
+            // Расписание пришло — по нему ставится план напоминаний. Без
+            // разрешения и при выключенном переключателе это ничего не делает.
+            await app.refreshReminders(courses: model.medications, petName: app.selectedPet?.name)
         }
         .sheet(item: $editing) { target in
             MedicationFormView(app: app, model: model, target: target)
