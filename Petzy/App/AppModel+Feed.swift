@@ -84,7 +84,6 @@ extension AppModel {
             let request = EventRequest.create(draft, petID: petID)
             let saved = try await client.post("/api/events", body: request, as: EventSavedResponse.self)
             await loadFeed()
-            await reloadHistory()
             showSaved(saved.id, date: draft.date)
         } catch {
             // Запись без сети это не ошибка, а очередь: человек сделал её в
@@ -131,7 +130,6 @@ extension AppModel {
             let request = EventRequest.update(draft, baseVersion: version(of: id))
             _ = try await client.put("/api/events/\(id)", body: request, as: EventSavedResponse.self)
             await loadFeed()
-            await reloadHistory()
         } catch {
             // Правка без сети не теряется: она ждёт в очереди и уходит сама.
             if (error as? APIError)?.isTransport == true {

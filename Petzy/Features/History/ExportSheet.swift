@@ -26,7 +26,7 @@ struct ExportSheet: View {
                 Section {
                     Picker("Записи", selection: $model.exportType) {
                         Text("Все").tag("all")
-                        ForEach(model.historyFilterTypes) { type in
+                        ForEach(model.exportTypeOptions) { type in
                             Text(type.label).tag(type.key)
                         }
                     }
