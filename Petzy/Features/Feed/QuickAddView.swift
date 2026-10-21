@@ -8,7 +8,9 @@ struct QuickAddView: View {
     let onPick: (EventTypeInfo) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var showingAll = false
+    @State private var editing = false
+    @State private var saving = false
+    @State private var errorText: String?
 
     private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
 
@@ -35,18 +37,38 @@ struct QuickAddView: View {
                     .padding(.vertical, 4)
                 }
             }
-            Section {
-                Button {
-                    showingAll = true
-                } label: {
-                    Label("Все типы", systemImage: "square.grid.2x2")
+            if !tiles.isEmpty, model.selectedPet?.isOwner != false {
+                Section {
+                    Button {
+                        editing = true
+                    } label: {
+                        Label("Другие события", systemImage: "square.grid.2x2")
+                    }
+                } footer: {
+                    Text("Остальное — в правке набора: записать можно то, что на «+»")
+                }
+            }
+            if let errorText {
+                Section {
+                    Label(errorText, systemImage: "exclamationmark.triangle")
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
                 }
             }
         }
         .navigationTitle("Что записать")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(isPresented: $showingAll) {
-            EventCatalogView(model: model, onPick: onPick)
+        .navigationDestination(isPresented: $editing) {
+            // Как на вебе: дверь ведёт не в каталог записей, а в набор питомца.
+            // Записать можно ровно то, что на «+», и набор сначала пополняют.
+            TileSettingsView(initial: tilesSettings, catalog: model.typeCatalog) { updated in
+                Task { await save(updated) }
+            }
+        }
+        .overlay {
+            if saving {
+                ProgressView("Сохранение")
+            }
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -72,11 +94,31 @@ struct QuickAddView: View {
         .contentShape(.rect)
     }
 
+    /// Набор питомца как он есть: его правит «Другие события».
+    private var tilesSettings: TileSettings {
+        model.selectedPet?.tiles ?? TileSettings()
+    }
+
+    /// Сохранение набора прямо из листа: формы питомца здесь нет, поэтому
+    /// карточка читается и отправляется целиком (см. `PetTilesAPI`).
+    private func save(_ updated: TileSettings) async {
+        guard let petID = model.selectedPetID else { return }
+        saving = true
+        defer { saving = false }
+        do {
+            try await PetTilesAPI.save(model.client, petID: petID, tiles: updated)
+            errorText = nil
+            await model.loadPets()
+        } catch {
+            errorText = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
     /// Что на «+»: видимые типы питомца в его порядке.
     private var tiles: [EventTypeInfo] {
         let catalog = model.typeCatalog
-        let visible = catalog.filter { model.selectedPet?.tiles.isShown($0.key) ?? true }
-        let ordered = model.selectedPet?.tiles.ordered(visible.map(\.key)) ?? visible.map(\.key)
+        let visible = catalog.filter { tilesSettings.isShown($0.key) }
+        let ordered = tilesSettings.ordered(visible.map(\.key))
         let byKey = Dictionary(uniqueKeysWithValues: visible.map { ($0.key, $0) })
         return ordered.compactMap { byKey[$0] }
     }

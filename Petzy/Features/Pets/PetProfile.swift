@@ -124,6 +124,27 @@ struct PetDraft: Sendable {
     }
 }
 
+extension PetDraft {
+    /// Черновик из карточки: так форма наполняется при открытии, и так же
+    /// собирается тело записи, когда набор типов правят не из формы.
+    ///
+    /// Фабрика, а не инициализатор: собственный `init` забрал бы у структуры
+    /// memberwise, и все, кто собирает черновик по полям, перестали бы
+    /// компилироваться.
+    static func from(profile: PetProfile) -> PetDraft {
+        var draft = PetDraft()
+        draft.name = profile.name
+        draft.species = profile.species
+        draft.breed = profile.breed
+        draft.birthDate = profile.birthDate.flatMap(MomentText.date(from:))
+        draft.gender = profile.gender
+        draft.neutering = profile.neutering
+        draft.healthNotes = profile.healthNotes
+        draft.tiles = profile.tiles
+        return draft
+    }
+}
+
 /// Что пропадёт вместе с питомцем. Числа приходят с сервера, а словами
 /// читаются здесь: человек должен видеть цену удаления до того, как нажал.
 struct PetDeletionImpact: Sendable, Equatable {
