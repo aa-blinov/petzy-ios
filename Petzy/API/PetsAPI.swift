@@ -174,6 +174,10 @@ private struct PetDTO: Decodable {
     let healthNotes: String?
     let photoURL: String?
     let currentUserIsOwner: Bool?
+    /// С кем питомец поделён и кого пригласили. Не-владельцу сервер этих
+    /// полей не отдаёт.
+    let sharedWith: [String]?
+    let shareInvites: [String]?
     let formDefaults: FormDefaults?
     let updatedAt: String?
 
@@ -185,6 +189,8 @@ private struct PetDTO: Decodable {
         case healthNotes = "health_notes"
         case photoURL = "photo_url"
         case currentUserIsOwner = "current_user_is_owner"
+        case sharedWith = "shared_with"
+        case shareInvites = "share_invites"
         case formDefaults = "form_defaults"
         case updatedAt = "updated_at"
     }
@@ -204,6 +210,8 @@ private struct PetDTO: Decodable {
             healthNotes: healthNotes ?? "",
             photoURL: photoURL.flatMap(URL.init(string:)),
             currentUserIsOwner: currentUserIsOwner ?? false,
+            sharedWith: sharedWith ?? [],
+            shareInvites: shareInvites ?? [],
             updatedAt: updatedAt
         )
     }

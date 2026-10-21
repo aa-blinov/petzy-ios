@@ -9,6 +9,9 @@ extension AppModel {
         guard let session = try? await AccountAPI.session(client) else { return }
         isAdmin = session.isAdmin
         bindUser(session.username)
+        // Приглашения к чужим питомцам приходят с сессией: они не про
+        // выбранного питомца, а про человека.
+        await loadInvites()
     }
 }
 

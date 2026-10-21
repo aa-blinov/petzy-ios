@@ -40,41 +40,6 @@ struct AuthRefreshResponse: Decodable, Sendable {
     }
 }
 
-struct PetsResponse: Decodable, Sendable {
-    let pets: [Pet]
-}
-
-/// Питомец. Набор полей пока неполный: `/api/pets` отдаёт ещё `look`,
-/// `tiles_settings`, `health_notes` и другие. Добавляем поле по мере надобности.
-struct Pet: Codable, Sendable, Identifiable, Equatable {
-    let id: String
-    let name: String
-    let species: String?
-    let breed: String?
-    let birthDate: String?
-    let gender: String?
-    /// Подписанный адрес фотографии питомца. Список питомцев отдаёт его
-    /// вместе с остальным, и телефон ходит по нему сам, без токена: подпись
-    /// в самой ссылке.
-    ///
-    /// Ограничение: адрес живёт час-два, и когда он протухает, фото в карточке
-    /// надо перезапросить. Пока это незаметно: список питомцев перечитывается
-    /// при запуске приложения, а загруженная картинка остаётся в памяти.
-    let photoURL: URL?
-    /// Версия питомца: когда его меняли в последний раз. Её приложение
-    /// отправляет при правке, и сервер отвечает отказом, если питомца поменяли
-    /// с тех пор.
-    let updatedAt: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id = "_id"
-        case name, species, breed, gender
-        case birthDate = "birth_date"
-        case photoURL = "photo_url"
-        case updatedAt = "updated_at"
-    }
-}
-
 /// Значение поля записи. У разных типов записи поля разные, и в одном и том же
 /// поле встречаются и числа, и текст, поэтому единого типа здесь не будет.
 /// Число и текст различаем при разборе, а не догадываемся при показе.

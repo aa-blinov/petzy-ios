@@ -13,8 +13,11 @@ struct AuthFlowModelTests {
             "message": "Аккаунт создан", "access_token": "access-9", "refresh_token": "refresh-9"
         ])
         // После регистрации приложение спрашивает сессию: кто вошёл и какие у
-        // него права. По логину копия дневника становится его.
+        // него права. По логину копия дневника становится его. Вместе с
+        // сессией оно спрашивает приглашения к чужим питомцам: они про
+        // человека, а не про выбранного питомца.
         StubURLProtocol.stub(status: 200, json: ["is_admin": false, "username": "anna"])
+        StubURLProtocol.stub(status: 200, json: ["invites": []])
         let storage = InMemoryTokenStorage(tokens: nil)
         let model = await makeModel(storage: storage)
         var draft = RegistrationDraft()
@@ -27,7 +30,11 @@ struct AuthFlowModelTests {
         let registered = await model.register()
 
         #expect(registered)
-        #expect(StubURLProtocol.requestedPaths == ["/api/auth/register", "/api/auth/session"])
+        #expect(StubURLProtocol.requestedPaths == [
+            "/api/auth/register",
+            "/api/auth/session",
+            "/api/pets/invites"
+        ])
         #expect(try storage.read() == StoredTokens(accessToken: "access-9", refreshToken: "refresh-9"))
         #expect(model.app.state == .signedIn)
     }
@@ -88,8 +95,9 @@ struct AuthFlowModelTests {
             "message": "Пароль обновлён", "access_token": "access-7", "refresh_token": "refresh-7"
         ])
         // Сессия после смены пароля: логин узнаётся у сервера, по нему копия
-        // дневника становится его.
+        // дневника становится его. Вместе с ней — приглашения к чужим питомцам.
         StubURLProtocol.stub(status: 200, json: ["is_admin": false, "username": "anna"])
+        StubURLProtocol.stub(status: 200, json: ["invites": []])
         let storage = InMemoryTokenStorage(tokens: nil)
         let model = await makeModel(storage: storage)
 
@@ -101,7 +109,8 @@ struct AuthFlowModelTests {
         #expect(StubURLProtocol.requestedPaths == [
             "/api/auth/password/reset/check",
             "/api/auth/password/reset",
-            "/api/auth/session"
+            "/api/auth/session",
+            "/api/pets/invites"
         ])
         #expect(try storage.read() == StoredTokens(accessToken: "access-7", refreshToken: "refresh-7"))
         #expect(model.app.state == .signedIn)

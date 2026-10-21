@@ -57,6 +57,9 @@ final class AppModel {
 
     /// Сеттер не `private`: список питомцев грузится в файле питомцев.
     internal(set) var petsState: PetsState = .loading
+    /// Приглашения к чужим питомцам: их показывают в ленте, пока человек не
+    /// ответил. Приглашение — не доступ: до ответа питомца у него нет.
+    internal(set) var invites: [PetInvite] = []
     private(set) var selectedPetID: String?
 
     /// Дни ленты выбранного питомца. Сами записи лежат в `rawEvents`: дни

@@ -11,11 +11,8 @@ struct PetProfileView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var photo: PhotosPickerItem?
     @State private var picked: UploadFile?
-    @State private var preview: Data?
     @State private var removePhoto = false
-    @State private var importing = false
     @State private var hasBirthDate = false
     @State private var birthDate = Date.now
     @State private var isSaving = false
@@ -44,7 +41,7 @@ struct PetProfileView: View {
                         .foregroundStyle(.red)
                 }
             }
-            Section { picture }
+            Section { PetPhotoField(model: model, picked: $picked, removePhoto: $removePhoto) }
             Section("Питомец") {
                 // Подпись живёт в `LabeledContent`, а не в плейсхолдере поля:
                 // плейсхолдер исчезает, как только человек что-то ввёл, и
@@ -75,6 +72,7 @@ struct PetProfileView: View {
                     .focused($focus, equals: .notes)
                     .onSubmit { focus = nil }
             }
+            PetAccessSection(profile: model.profile, isNew: model.isNew, model: model)
             if model.profile?.currentUserIsOwner == true {
                 Section {
                     Button("Удалить питомца", role: .destructive) {
@@ -111,14 +109,6 @@ struct PetProfileView: View {
             await model.load()
             syncDateControls()
         }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.image]) { result in
-            if case let .success(url) = result {
-                load(url: url)
-            }
-        }
-        .onChange(of: photo) { _, item in
-            Task { await loadPhoto(item) }
-        }
         .alert("Удалить питомца?", isPresented: $askingDelete) {
             Button("Удалить", role: .destructive) { delete() }
             Button("Отмена", role: .cancel) {}
@@ -148,113 +138,6 @@ struct PetProfileView: View {
 
     private var canSave: Bool {
         !isSaving && !model.isQueued && !model.draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    // MARK: - Фото
-
-    /// Фото питомца. Показывается подписанная ссылка: она открыта без входа и
-    /// живёт 1–2 часа, а токен в заголовок обычная загрузка картинок не
-    /// подставит и показала бы пустое место.
-    private var picture: some View {
-        HStack(spacing: 16) {
-            photoView
-                .frame(width: 96, height: 96)
-                .clipShape(.rect(cornerRadius: 16))
-            VStack(alignment: .leading, spacing: 8) {
-                if picked == nil {
-                    PhotosPicker(selection: $photo, matching: .images) {
-                        Label(serverPhoto ? "Заменить фото" : "Выбрать фото", systemImage: "photo")
-                    }
-                    Button {
-                        importing = true
-                    } label: {
-                        Label("Выбрать файл", systemImage: "folder")
-                    }
-                    .buttonStyle(.borderless)
-                }
-                if picked != nil || removePhoto || serverPhoto {
-                    // Пока выбрано новое фото, кнопка отменяет именно выбор;
-                    // когда на сервере лежит своё, она помечает фото на
-                    // удаление и тем же нажатием отменяет пометку.
-                    Button(picked != nil || !removePhoto ? "Убрать фото" : "Оставить фото", role: .destructive) {
-                        if picked != nil {
-                            picked = nil
-                            preview = nil
-                            photo = nil
-                            removePhoto = false
-                        } else {
-                            removePhoto.toggle()
-                        }
-                    }
-                    .buttonStyle(.borderless)
-                }
-            }
-            .font(.subheadline)
-        }
-        .padding(.vertical, 4)
-    }
-
-    /// Фото, лежащее на сервере: его показывает подписанная ссылка, пока
-    /// человек не выбрал своё.
-    private var serverPhoto: Bool {
-        model.profile?.photoURL != nil
-    }
-
-    @ViewBuilder
-    private var photoView: some View {
-        if let preview, let image = UIImage(data: preview) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-        } else if let url = model.profile?.photoURL {
-            AsyncImage(url: url) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                ProgressView()
-            }
-        } else {
-            Image(systemName: "pawprint.fill")
-                .resizable()
-                .scaledToFit()
-                .padding(20)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    /// Файл из «Файлов»: он лежит в песочнице приложения, и пока не сказано
-    /// системе, что он нужен, до него не добраться.
-    private func load(url: URL) {
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer {
-            if accessed {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-        do {
-            let data = try Data(contentsOf: url)
-            picked = UploadFile(
-                name: url.lastPathComponent,
-                contentType: UploadFile.contentType(of: url),
-                data: data
-            )
-            preview = data
-            removePhoto = false
-        } catch {
-            model.errorText = "Файл не прочитался"
-        }
-    }
-
-    private func loadPhoto(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
-        do {
-            guard let data = try await item.loadTransferable(type: Data.self) else { return }
-            let type = item.supportedContentTypes.first?.preferredMIMEType ?? "image/jpeg"
-            picked = UploadFile(name: "фото.jpg", contentType: type, data: data)
-            preview = data
-            removePhoto = false
-        } catch {
-            model.errorText = "Фотография не загрузилась"
-        }
     }
 
     // MARK: - Сохранение

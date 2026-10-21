@@ -18,6 +18,9 @@ final class PetProfileModel {
     /// её нельзя, сервер заменяет карточку целиком.
     private(set) var loadFailed = false
     var errorText: String?
+    /// Ошибка доступа: приглашение и отзыв показывают её рядом с собой, а не
+    /// вверху формы, куда человек уже не смотрит.
+    private(set) var accessError: String?
     /// Питомец записан в телефон и ждёт связи. Пока это так, форма закрывается
     /// по кнопке «Понятно», а не сама.
     var notice: String?
@@ -184,6 +187,62 @@ final class PetProfileModel {
 
     /// Удаление. Отмены на сервере нет, поэтому вопрос задаётся заранее и с
     /// цифрами, а не после нажатия.
+    /// Пригласить человека логином. Ответ сервера показываем как есть: он
+    /// один и тот же для «нет такого» и «аккаунт выключен», и это нарочно.
+    @discardableResult
+    func invite(username: String) async -> Bool {
+        guard let petID, let profile else { return false }
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            accessError = "Введите логин"
+            return false
+        }
+        do {
+            try await PetSharingAPI.invite(client, petID: petID, username: trimmed)
+            accessError = nil
+            await reload(profile)
+            return true
+        } catch {
+            accessError = Self.text(of: error)
+            return false
+        }
+    }
+
+    /// Забрать доступ или непрочитанное приглашение.
+    func revoke(username: String) async {
+        guard let petID, let profile else { return }
+        do {
+            try await PetSharingAPI.revoke(client, petID: petID, username: username)
+            accessError = nil
+            await reload(profile)
+        } catch {
+            accessError = Self.text(of: error)
+        }
+    }
+
+    /// Выйти из чужого питомца: он пропадёт из списка, у владельца останется.
+    /// Экран закрывается так же, как после удаления, — питомца у человека
+    /// больше нет.
+    func leave() async {
+        guard let petID else { return }
+        accessError = nil
+        do {
+            try await PetSharingAPI.leave(client, petID: petID)
+            isDeleted = true
+        } catch {
+            accessError = Self.text(of: error)
+        }
+    }
+
+    /// Перечитать карточку после правки доступа: список людей приходит с ней.
+    private func reload(_ previous: PetProfile) async {
+        guard let petID, let card = try? await PetsAPI.card(client, id: petID) else { return }
+        profile = card
+        // Черновик формы не трогаем: человек мог править имя, и затирать его
+        // из-за приглашения нельзя.
+        _ = previous
+    }
+
     func delete() async {
         guard let petID else { return }
         errorText = nil

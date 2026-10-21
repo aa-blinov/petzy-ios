@@ -104,10 +104,48 @@ struct FeedView: View {
         }
     }
 
+    /// Приглашения к чужим питомцам. Стоят над лентой, потому что ответить на
+    /// них больше негде, а без ответа питомца у человека нет.
+    @ViewBuilder
+    private var invites: some View {
+        if !model.invites.isEmpty {
+            Section {
+                ForEach(model.invites) { invite in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(
+                            "Вас пригласили к питомцу «\(invite.petName)»",
+                            systemImage: PetSpecies.icon(for: invite.species)
+                        )
+                        .font(.subheadline.weight(.medium))
+                        Text("Владелец: \(invite.owner)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 12) {
+                            Button("Принять") {
+                                Task { await model.acceptInvite(invite) }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            Button("Отклонить") {
+                                Task { await model.declineInvite(invite) }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            } header: {
+                Text("Приглашения")
+            }
+        }
+    }
+
     private var list: some View {
         ScrollViewReader { proxy in
             List {
                 card
+                invites
                 if model.offline.isShowingCached {
                     Section {
                         Label("Нет связи, показаны сохранённые записи", systemImage: "wifi.slash")
