@@ -67,16 +67,7 @@ final class PetProfileModel {
         do {
             let loaded = try await PetsAPI.card(client, id: petID)
             profile = loaded
-            draft = PetDraft(
-                name: loaded.name,
-                species: loaded.species,
-                breed: loaded.breed,
-                birthDate: loaded.birthDate.flatMap(MomentText.date(from:)),
-                gender: loaded.gender,
-                neutering: loaded.neutering,
-                healthNotes: loaded.healthNotes,
-                tiles: loaded.tiles
-            )
+            draft = PetDraft.from(profile: loaded)
             errorText = nil
             loadFailed = false
         } catch {

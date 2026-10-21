@@ -80,25 +80,15 @@ final class FeedUITests: XCTestCase {
         let app = TestLaunch.signedOut()
         XCTAssertTrue(TestLaunch.logIn(app), "не удалось войти и открыть оболочку")
 
-        app.buttons["Новая запись"].tap()
-        // «+» открывает свой набор питомца; полный каталог — за «Все типы».
+        // «+» открывает набор питомца, а не каталог: записать можно только то,
+        // что на «+», поэтому «Кашель или чихание» сначала добавляют в набор.
+        setTile(app, named: "Кашель или чихание", on: true)
+        let tile = app.buttons.containing(.staticText, identifier: "Кашель или чихание").firstMatch
         XCTAssertTrue(
-            app.navigationBars["Что записать"].waitForExistence(timeout: 20),
-            "набор типов не открылся: \(app.debugDescription)"
+            tile.waitForExistence(timeout: 30),
+            "тип не появился на «+» после правки набора: \(app.debugDescription)"
         )
-        app.buttons["Все типы"].tap()
-        XCTAssertTrue(
-            app.navigationBars["Добавить запись"].waitForExistence(timeout: 20),
-            "каталог типов не открылся: \(app.debugDescription)"
-        )
-        // Тип взят из третьей группы: на узком экране он ниже первого экрана и
-        // в дереве доступности появляется только после прокрутки.
-        let cough = app.staticTexts["Кашель или чихание"]
-        for _ in 0 ..< 6 where !cough.exists {
-            app.swipeUp()
-        }
-        XCTAssertTrue(cough.waitForExistence(timeout: 20), "в каталоге нет типа записи: \(app.debugDescription)")
-        cough.tap()
+        tile.tap()
 
         // Заголовок формы — название типа записи: «Правка» и «Новая запись»
         // ничего не говорили о том, что человек правит.
@@ -132,6 +122,47 @@ final class FeedUITests: XCTestCase {
         let gone = NSPredicate(format: "exists == false")
         expectation(for: gone, evaluatedWith: row)
         waitForExpectations(timeout: 30)
+
+        // Набор питомца возвращаем как был: тест добавил в него тип, и оставлять
+        // стенд с лишней плиткой нельзя.
+        setTile(app, named: "Кашель или чихание", on: false)
+        if app.buttons["Отмена"].waitForExistence(timeout: 20) {
+            app.buttons["Отмена"].tap()
+        }
+    }
+
+    /// Поставить тип на «+» или снять его оттуда. Оставляет открытым лист «Что
+    /// записать»: оттуда берут плитку или закрывают лист.
+    ///
+    /// Переключатель трогают, только если он ещё не в нужном положении: прогон
+    /// не должен зависеть от того, что осталось на стенде.
+    private func setTile(_ app: XCUIApplication, named name: String, on wanted: Bool) {
+        app.buttons["Новая запись"].tap()
+        guard app.buttons["Другие события"].waitForExistence(timeout: 20) else {
+            XCTFail("в «Что записать» нет «Других событий»: \(app.debugDescription)")
+            return
+        }
+        app.buttons["Другие события"].tap()
+        let tiles = app.navigationBars["Типы на «+»"]
+        guard tiles.waitForExistence(timeout: 20) else {
+            XCTFail("правка набора не открылась: \(app.debugDescription)")
+            return
+        }
+        let toggle = app.switches[name]
+        for _ in 0 ..< 8 where !toggle.exists {
+            app.swipeUp()
+        }
+        guard toggle.exists else {
+            XCTFail("в наборе нет типа «\(name)»: \(app.debugDescription)")
+            return
+        }
+        if ((toggle.value as? String) == "1") != wanted {
+            // Выключатель лежит у правого края строки: центр — это подпись.
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        }
+        tiles.buttons.element(boundBy: 0).tap()
+        // Сохранение уходит при выходе с экрана: ждём, пока лист вернётся.
+        XCTAssertTrue(app.navigationBars["Что записать"].waitForExistence(timeout: 20), "лист не вернулся")
     }
 
     /// Тап по записи открывает правку с её значениями: пустая форма выглядела бы
