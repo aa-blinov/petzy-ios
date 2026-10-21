@@ -118,6 +118,12 @@ enum PetsAPI {
         if let flag = draft.neutering.flag {
             body.addField(name: "is_neutered", value: flag)
         }
+        // Своё поле питомца: набор типов на «+» и их порядок. Уходит строкой
+        // JSON, как его отправляет и веб; сервер разбирает её в схему.
+        let tiles = try? JSONEncoder().encode(draft.tiles)
+        if let tiles, let json = String(data: tiles, encoding: .utf8) {
+            body.addField(name: "tiles_settings", value: json)
+        }
         if removePhoto {
             body.addField(name: "remove_photo", value: "true")
         }
@@ -178,6 +184,7 @@ private struct PetDTO: Decodable {
     /// полей не отдаёт.
     let sharedWith: [String]?
     let shareInvites: [String]?
+    let tilesSettings: TileSettings?
     let formDefaults: FormDefaults?
     let updatedAt: String?
 
@@ -191,6 +198,7 @@ private struct PetDTO: Decodable {
         case currentUserIsOwner = "current_user_is_owner"
         case sharedWith = "shared_with"
         case shareInvites = "share_invites"
+        case tilesSettings = "tiles_settings"
         case formDefaults = "form_defaults"
         case updatedAt = "updated_at"
     }
@@ -212,6 +220,7 @@ private struct PetDTO: Decodable {
             currentUserIsOwner: currentUserIsOwner ?? false,
             sharedWith: sharedWith ?? [],
             shareInvites: shareInvites ?? [],
+            tiles: tilesSettings ?? TileSettings(),
             updatedAt: updatedAt
         )
     }

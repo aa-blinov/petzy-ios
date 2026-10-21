@@ -33,6 +33,9 @@ struct Pet: Codable, Sendable, Identifiable, Equatable {
     let sharedWith: [String]
     /// Кого пригласили, но кто ещё не ответил. Видит только владелец.
     let shareInvites: [String]
+    /// Что на «+» у этого питомца и в каком порядке. Приходит с сервера; без
+    /// ключа — умолчание, и «+» показывает восемь изначальных типов.
+    let tiles: TileSettings
 
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -43,6 +46,7 @@ struct Pet: Codable, Sendable, Identifiable, Equatable {
         case isOwner = "current_user_is_owner"
         case sharedWith = "shared_with"
         case shareInvites = "share_invites"
+        case tiles = "tiles_settings"
     }
 
     /// Обычный инициализатор нужен тестам и копии для офлайна: свой
@@ -58,7 +62,8 @@ struct Pet: Codable, Sendable, Identifiable, Equatable {
         updatedAt: String?,
         isOwner: Bool = true,
         sharedWith: [String] = [],
-        shareInvites: [String] = []
+        shareInvites: [String] = [],
+        tiles: TileSettings = TileSettings()
     ) {
         self.id = id
         self.name = name
@@ -71,6 +76,7 @@ struct Pet: Codable, Sendable, Identifiable, Equatable {
         self.isOwner = isOwner
         self.sharedWith = sharedWith
         self.shareInvites = shareInvites
+        self.tiles = tiles
     }
 
     /// Разбор руками: ключа владения может не быть вовсе (старый ответ или
@@ -88,5 +94,6 @@ struct Pet: Codable, Sendable, Identifiable, Equatable {
         isOwner = try container.decodeIfPresent(Bool.self, forKey: .isOwner) ?? true
         sharedWith = try container.decodeIfPresent([String].self, forKey: .sharedWith) ?? []
         shareInvites = try container.decodeIfPresent([String].self, forKey: .shareInvites) ?? []
+        tiles = try container.decodeIfPresent(TileSettings.self, forKey: .tiles) ?? TileSettings()
     }
 }

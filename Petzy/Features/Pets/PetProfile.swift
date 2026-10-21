@@ -84,6 +84,8 @@ struct PetProfile: Sendable, Equatable {
     let sharedWith: [String]
     /// Кого пригласили, но кто ещё не ответил. Видит только владелец.
     let shareInvites: [String]
+    /// Что на «+» у этого питомца и в каком порядке.
+    let tiles: TileSettings
     /// Версия питомца, которую человек видел. Её приложение отправляет при
     /// правке: сервер отвечает отказом, если питомца поменяли с тех пор.
     let updatedAt: String?
@@ -108,6 +110,9 @@ struct PetDraft: Sendable {
     var gender: PetGender = .unknown
     var neutering: Neutering = .unknown
     var healthNotes = ""
+    /// Что на «+» у питомца. Хранится здесь, потому что сохраняется вместе с
+    /// питомцем: отдельного запроса у сервера нет.
+    var tiles = TileSettings()
 
     /// Что человек должен поправить до запроса, своими словами. `nil` — можно
     /// отправлять.
