@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import UniformTypeIdentifiers
 
 /// Категория документа. Сервер зовёт её ключом, человек читает словом, и без
@@ -121,5 +122,42 @@ struct UploadFile: Sendable {
     static func contentType(of url: URL) -> String {
         let type = UTType(filenameExtension: url.pathExtension)
         return type?.preferredMIMEType ?? "application/octet-stream"
+    }
+
+    /// Что сервер берёт: ровно этот набор (`ALLOWED_CONTENT_TYPES` в
+    /// `web/documents.py`). Всё остальное он отвергает ответом 422, и узнать
+    /// об этом после загрузки — потерянное время человека.
+    static let accepted: Set<String> = [
+        "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"
+    ]
+
+    /// Подойдёт ли файл серверу. Регистр не наш, и `IMAGE/JPEG` — не отказ.
+    static func isAccepted(_ contentType: String) -> Bool {
+        accepted.contains(contentType.lowercased())
+    }
+
+    /// Фото из галереи или с камеры в том виде, в каком его примет сервер.
+    /// Библиотека умеет отдать GIF или TIFF, а сервер их не берёт: отказать
+    /// человеку после съёмки хуже, чем перегнать картинку в JPEG.
+    static func normalizedImage(_ data: Data, type: String) -> UploadFile? {
+        if isAccepted(type) {
+            return UploadFile(name: "фото.\(fileExtension(of: type))", contentType: type, data: data)
+        }
+        guard let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.9) else { return nil }
+        return UploadFile(name: "фото.jpg", contentType: "image/jpeg", data: jpeg)
+    }
+
+    /// Расширение по типу: имя файла должно кончаться на то, чем он является,
+    /// иначе сервер и «Файлы» будут спорить о нём.
+    private static func fileExtension(of contentType: String) -> String {
+        switch contentType.lowercased() {
+        case "image/jpeg": "jpg"
+        case "image/png": "png"
+        case "image/webp": "webp"
+        case "image/heic": "heic"
+        case "image/heif": "heif"
+        case "application/pdf": "pdf"
+        default: "jpg"
+        }
     }
 }

@@ -7,9 +7,7 @@ import SwiftUI
 struct MedicalCardView: View {
     let model: MedicalCardModel
     let app: AppModel
-    /// Переключить вкладку: лекарства и документы живут на своих вкладках.
-    var showMedications: () -> Void = {}
-    var showDocuments: () -> Void = {}
+    // Переключить вкладку: лекарства и документы живут на своих вкладках.
 
     @State private var form: MedicalFormTarget?
     @State private var weightForm: EventFormTarget?
@@ -126,14 +124,13 @@ struct MedicalCardView: View {
                     Text("Не отправлено")
                 }
             }
-            MedicalCardDocumentView(card: card, actions: actions)
+            MedicalCardDocumentView(card: card, pet: app.selectedPet, app: app, actions: actions)
             MedicalCardBlocks(card: card, actions: actions)
             MedicalCardRecords(card: card, actions: actions)
         }
-        // Секции-карточки: медкарта читается как документ, и плоский список с
-        // линейками разбирал бы её на куски. Остальные экраны приложения
-        // остаются плоскими — там список строк, а здесь девять блоков.
-        .listStyle(.insetGrouped)
+        // Плоский список, как в ленте, истории и документах: медкарта — это
+        // список записей, и разбивать её на карточки как веб-страницу незачем.
+        .listStyle(.plain)
         .refreshable { await model.load() }
     }
 
@@ -142,13 +139,11 @@ struct MedicalCardView: View {
     private var actions: MedicalCardActions {
         MedicalCardActions(
             newRecord: { form = .new(app: app, kind: $0) },
-            openSection: { path.append($0) },
             openProfile: { profile = true },
             openVisitPrep: { prep = true },
             readinessStep: readinessStep,
-            showMedications: showMedications,
-            showDocuments: showDocuments,
-            editRecord: { form = .edit(app: app, record: $0) }
+            editRecord: { form = .edit(app: app, record: $0) },
+            recordWeight: recordWeight
         )
     }
 

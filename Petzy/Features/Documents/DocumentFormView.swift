@@ -32,6 +32,10 @@ struct DocumentFormView: View {
     @State private var photo: PhotosPickerItem?
     @State private var importing = false
     @State private var isSaving = false
+    /// Галерея и камера открываются по отдельности: у камеры своя форма
+    /// представления, и в меню она ведёт себя иначе, чем выбор фото.
+    @State private var choosingPhoto = false
+    @State private var shooting = false
 
     init(model: DocumentsModel, app: AppModel, document: PetDocument? = nil) {
         self.model = model
@@ -84,25 +88,38 @@ struct DocumentFormView: View {
             }
             .navigationTitle(document == nil ? "Документ" : "Правка документа")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Отмена") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Сохранить") { save() }
-                        .disabled(!canSave)
-                }
-            }
-            .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf, .image]) { result in
-                if case let .success(url) = result {
-                    load(url: url)
-                }
-            }
+            .toolbar { toolbar }
+            .fileImporter(isPresented: $importing, allowedContentTypes: Self.allowedTypes, onCompletion: imported)
             // Фотографию читаем сразу после выбора: пока она грузится, человек
             // видит, что файл уже выбран, и может назвать документ.
             .onChange(of: photo) { _, item in
                 Task { await loadPhoto(item) }
             }
+            .photosPicker(isPresented: $choosingPhoto, selection: $photo, matching: .images)
+            .fullScreenCover(isPresented: $shooting) {
+                CameraPicker(onCapture: takePhoto)
+                    .ignoresSafeArea()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Отмена") { dismiss() }
+        }
+        ToolbarItem(placement: .confirmationAction) {
+            Button("Сохранить") { save() }
+                .disabled(!canSave)
+        }
+    }
+
+    /// Выбор файла из «Файлов». Ровно то, что берёт сервер: «любая картинка»
+    /// пускала в форму GIF и SVG, а сервер отвечает на них 422 уже после
+    /// загрузки.
+    private func imported(_ result: Result<URL, Error>) {
+        if case let .success(url) = result {
+            load(url: url)
         }
     }
 
@@ -113,8 +130,23 @@ struct DocumentFormView: View {
             } else if let document {
                 fileRow(name: document.title, size: document.sizeText, action: "Заменить")
             }
-            PhotosPicker(selection: $photo, matching: .images) {
-                Label("Выбрать фотографию", systemImage: "photo")
+            // Камера и галерея — одно действие «приложить фотографию»: в меню
+            // они рядом, как в системных приложениях.
+            Menu {
+                if CameraPicker.isAvailable {
+                    Button {
+                        shooting = true
+                    } label: {
+                        Label("Снять фото", systemImage: "camera")
+                    }
+                }
+                Button {
+                    choosingPhoto = true
+                } label: {
+                    Label("Выбрать из галереи", systemImage: "photo")
+                }
+            } label: {
+                Label("Приложить фотографию", systemImage: "photo")
             }
             Button {
                 importing = true
@@ -171,12 +203,34 @@ struct DocumentFormView: View {
         }
     }
 
+    /// Что пустить в «Файлы»: ровно типы сервера.
+    static let allowedTypes: [UTType] = [.pdf, .jpeg, .png, .webP, .heic, .heif]
+
+    /// Снимок камеры: всегда JPEG, и в форму он приходит тем же файлом, что и
+    /// выбранный из галереи.
+    private func takePhoto(_ image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.9) else {
+            model.errorText = "Фотография не сохранилась"
+            return
+        }
+        picked = UploadFile(name: "фото.jpg", contentType: "image/jpeg", data: data)
+        if title.isEmpty {
+            title = "Фото документа"
+        }
+    }
+
     private func loadPhoto(_ item: PhotosPickerItem?) async {
         guard let item else { return }
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else { return }
             let type = item.supportedContentTypes.first?.preferredMIMEType ?? "image/jpeg"
-            picked = UploadFile(name: "фото.jpg", contentType: type, data: data)
+            // Библиотека умеет отдать GIF или TIFF, а сервер их не берёт:
+            // перегоняем в JPEG вместо отказа после выбора.
+            guard let ready = UploadFile.normalizedImage(data, type: type) else {
+                model.errorText = "Фотография не загрузилась"
+                return
+            }
+            picked = ready
             if title.isEmpty {
                 title = "Фото документа"
             }

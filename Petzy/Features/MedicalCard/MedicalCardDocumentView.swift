@@ -1,62 +1,41 @@
 import SwiftUI
 
-/// Медкарта как документ: паспорт, то, что требует внимания, и готовность к
-/// приёму. Плиток больше нет — на вебе карту переписали в документ, и
-/// приложение идёт следом, но по-русски и по-нативному.
+/// Медкарта как документ: кто это, что требует внимания и насколько карта
+/// готова. Порядок и содержание — по iOS: сначала питомец, потом тревога,
+/// потом готовность, и только потом записи по видам.
 struct MedicalCardDocumentView: View {
     let card: MedicalCard
+    /// Питомец, чья карта открыта: из него карточка в шапке.
+    let pet: Pet?
+    let app: AppModel
     /// Куда ведут кнопки документа.
     let actions: MedicalCardActions
 
     var body: some View {
-        passport
+        petCard
         attention
         readiness
     }
 
-    /// Паспорт: кто это. Вид и порода крупно, остальное — мелкой строкой, как
-    /// на вебе. Имя питомца здесь не повторяется: оно уже в заголовке и в
-    /// переключателе.
-    private var passport: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(identity).font(.title3.weight(.semibold))
-                if !facts.isEmpty {
-                    Text(facts).font(.subheadline).foregroundStyle(.secondary)
-                }
-            }
-            .padding(.vertical, 2)
-            if let birth = card.pet.birthDate, !birth.isEmpty {
-                LabeledContent("Дата рождения", value: MedicalCardDates.russian(birth))
-            }
-            if let weight = card.weightLine {
-                LabeledContent("Вес", value: weight)
-            }
-            if let blood = card.profile?.bloodType, !blood.isEmpty {
-                LabeledContent("Группа крови", value: blood)
-            }
-            if let chip = card.profile?.chipNumber, !chip.isEmpty {
-                // Номер чипа копируется по нажатию: его диктуют по телефону.
-                Button {
-                    UIPasteboard.general.string = chip
+    /// Карточка питомца в шапке: фото, имя и строка «возраст, порода, пол» —
+    /// та же, что в ленте. Отдельного паспорта не нужно: личность питомца
+    /// видна и так, а его данные живут в «О питомце», куда карточка ведёт.
+    @ViewBuilder
+    private var petCard: some View {
+        if let pet {
+            Section {
+                NavigationLink {
+                    PetProfileView(client: app.client, petID: pet.id, app: app)
                 } label: {
-                    HStack {
-                        Label("Чип", systemImage: "doc.on.doc")
-                        Spacer()
-                        Text(chip)
-                    }
-                    .contentShape(Rectangle())
+                    PetSummaryCard(pet: pet)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Скопировать номер чипа")
+                .accessibilityIdentifier("petCard")
             }
-        } header: {
-            Text("Паспорт")
         }
     }
 
-    /// Что требует внимания: красным и первым. Врач спрашивает об этом
-    /// раньше всего, и молчать об этом хуже, чем показать тревогу.
+    /// Что требует внимания: врач спрашивает об этом раньше всего, и молчать
+    /// об этом хуже, чем показать тревогу.
     @ViewBuilder
     private var attention: some View {
         if !card.attention.isEmpty {
@@ -81,7 +60,8 @@ struct MedicalCardDocumentView: View {
                 Button("Записать повторную \(kind.repeated)") {
                     actions.newRecord(kind)
                 }
-                .font(.caption)
+                .font(.subheadline)
+                .foregroundStyle(.tint)
             }
         }
         .padding(.vertical, 2)
@@ -128,21 +108,6 @@ struct MedicalCardDocumentView: View {
         } header: {
             Text("Готовность к приёму")
         }
-    }
-
-    /// «Собака, лабрадор»: вид открывает строку, порода идёт в строчных.
-    private var identity: String {
-        [card.pet.species, card.pet.breed.lowercased()]
-            .filter { !$0.isEmpty }
-            .joined(separator: ", ")
-    }
-
-    /// «5 лет, мальчик, кастрирован»: остальные факты о питомце.
-    private var facts: String {
-        [card.pet.ageText, card.pet.gender?.lowercased(), card.pet.neuteredText]
-            .compactMap(\.self)
-            .filter { !$0.isEmpty }
-            .joined(separator: ", ")
     }
 }
 

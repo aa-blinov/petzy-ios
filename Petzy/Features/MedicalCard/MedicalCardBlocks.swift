@@ -5,41 +5,39 @@ import SwiftUI
 struct MedicalCardActions {
     /// Новая запись своего вида.
     var newRecord: (MedicalKind) -> Void
-    /// Раздел со всеми записями вида.
-    var openSection: (MedicalKind) -> Void
     /// Профиль для врача.
     var openProfile: () -> Void
     /// «К приёму».
     var openVisitPrep: () -> Void
     /// Пункт готовности: что человек должен заполнить.
     var readinessStep: (MedicalReadiness) -> Void
-    /// Экран лекарств.
-    var showMedications: () -> Void
-    /// Экран документов.
-    var showDocuments: () -> Void
     /// Правка записи: тап по строке в документе открывает её, как на вебе.
     var editRecord: (MedicalRecord) -> Void
+    /// Записать вес: это запись в дневнике, а не в медкарте, и форма у неё
+    /// общая с лентой.
+    var recordWeight: () -> Void
 }
 
-/// Блоки медкарты в порядке, в каком спрашивает врач: здоровье, приём,
-/// лекарства, вес, прививки, визиты, документы, клиника, условия.
+/// Блоки медкарты о самом питомце: данные для врача, приём, лекарства и вес.
+/// Записи по видам — в следующем файле.
 struct MedicalCardBlocks: View {
     let card: MedicalCard
     let actions: MedicalCardActions
 
-    /// Сколько записей блок показывает, прежде чем предложить пойти в раздел.
-    static let shown = 4
-
     var body: some View {
-        health
+        vetData
         visitPrep
         medications
         weight
     }
 
-    // MARK: - Здоровье и аллергии
+    // MARK: - Данные для врача
 
-    private var health: some View {
+    /// Всё, что врач спрашивает о питомце, в одном месте: аллергии, хронические
+    /// состояния, группа крови, чип, клиники и условия жизни. На вебе это три
+    /// отдельных блока, но на телефоне один список читается быстрее, и правка
+    /// одна, а не три.
+    private var vetData: some View {
         Section {
             if card.profile?.allergies.isEmpty == false {
                 ForEach(card.profile?.allergies ?? [], id: \.substance) { allergy in
@@ -59,10 +57,65 @@ struct MedicalCardBlocks: View {
                     }
                 }
             }
-            door("Изменить", action: actions.openProfile)
+            if let blood = card.profile?.bloodType, !blood.isEmpty {
+                LabeledContent("Группа крови", value: blood)
+            }
+            if let chip = card.profile?.chipNumber, !chip.isEmpty {
+                // Номер чипа копируется по нажатию: его диктуют по телефону.
+                Button {
+                    UIPasteboard.general.string = chip
+                } label: {
+                    HStack {
+                        Label("Чип", systemImage: "doc.on.doc")
+                        Spacer()
+                        Text(chip)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Скопировать номер чипа")
+            }
+            ForEach(card.clinics, id: \.name) { clinic in
+                VStack(alignment: .leading, spacing: 2) {
+                    if let name = clinic.name, !name.isEmpty {
+                        Text(name).font(.subheadline.weight(.medium))
+                    }
+                    if let phone = clinic.phone, !phone.isEmpty {
+                        phoneLink(phone)
+                    }
+                    ForEach(Array(clinic.doctors.enumerated()), id: \.offset) { _, doctor in
+                        Text(doctorLine(doctor))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            ForEach(card.life, id: \.title) { row in
+                LabeledContent(row.title, value: row.value)
+            }
+            Button("Изменить", action: actions.openProfile)
+                .font(.subheadline)
+                .foregroundStyle(.tint)
         } header: {
-            Text("Здоровье и аллергии")
+            Text("Данные для врача")
         }
+    }
+
+    /// Телефон открывается как звонок: его диктуют по телефону, и искать его
+    /// вручную незачем.
+    private func phoneLink(_ phone: String) -> some View {
+        let number = phone.filter(\.isNumber)
+        return Link(destination: URL(string: "tel://\(number)") ?? URL(string: "tel:")!) {
+            Label(phone, systemImage: "phone")
+                .font(.subheadline)
+        }
+    }
+
+    /// «Каримов Д.» или «Каримов Д., кардиолог».
+    private func doctorLine(_ doctor: ProfileDoctor) -> String {
+        let name = doctor.name ?? ""
+        let specialty = doctor.specialty ?? ""
+        return specialty.isEmpty ? name : "\(name), \(specialty)"
     }
 
     // MARK: - К приёму
@@ -93,7 +146,9 @@ struct MedicalCardBlocks: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            door("Изменить", action: actions.openVisitPrep)
+            Button("Изменить", action: actions.openVisitPrep)
+                .font(.subheadline)
+                .foregroundStyle(.tint)
         } header: {
             Text("К приёму")
         }
@@ -131,7 +186,6 @@ struct MedicalCardBlocks: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            door("Все лекарства", action: actions.showMedications)
         } header: {
             Text("Лекарства")
         }
@@ -162,19 +216,11 @@ struct MedicalCardBlocks: View {
                     Text("По годам: \(byYear)").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            door("Записать вес", action: { actions.newRecord(.vaccination) })
+            Button("Записать вес", action: actions.recordWeight)
+                .font(.subheadline)
+                .foregroundStyle(.tint)
         } header: {
             Text("Вес")
         }
-    }
-
-    /// Тихая дверь внизу блока: «Изменить», «Все лекарства». Она не спорит с
-    /// содержимым блока, а просто ведёт дальше.
-    private func door(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
-            .font(.subheadline)
-            // Дверь — это ссылка, и она должна выглядеть ссылкой: акцентным
-            // цветом, как ссылки в iOS, а не обычным текстом.
-            .foregroundStyle(.tint)
     }
 }

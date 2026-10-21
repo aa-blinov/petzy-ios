@@ -1,8 +1,8 @@
 import XCTest
 
-/// Медкарта как документ: паспорт, тревога, готовность и блоки. Раздел
-/// открывается тихой дверью внизу блока, а не плиткой, и «назад» возвращает
-/// на медкарту, а не в соседний раздел.
+/// Медкарта как документ: карточка питомца, тревога, готовность и блоки.
+/// Раздел открывается строкой с шевроном внизу блока, а не плиткой, и «назад»
+/// возвращает на медкарту, а не в соседний раздел.
 @MainActor
 final class MedicalCardUITests: XCTestCase {
     override func setUp() {
@@ -22,20 +22,26 @@ final class MedicalCardUITests: XCTestCase {
         return button.exists
     }
 
-    func testCardShowsPassportAndReadiness() {
+    /// Верх документа: карточка питомца и готовность. Отдельного паспорта с
+    /// фактами больше нет: личность питомца показывает карточка, а его данные
+    /// живут в «О питомце», куда карточка ведёт.
+    func testCardShowsPetAndReadiness() {
         let app = TestLaunch.signedOut()
         XCTAssertTrue(TestLaunch.logIn(app), "Не удалось войти")
         app.buttons["Медкарта"].tap()
         XCTAssertTrue(app.buttons["petSwitcher"].waitForExistence(timeout: 20), "Медкарта не открылась")
 
-        // Паспорт: вид и порода, и вес с днём замера.
         XCTAssertTrue(
-            app.staticTexts["Паспорт"].waitForExistence(timeout: 20),
-            "В медкарте нет паспорта: \(app.debugDescription)"
+            app.buttons["petCard"].waitForExistence(timeout: 20),
+            "В медкарте нет карточки питомца: \(app.debugDescription)"
         )
         XCTAssertTrue(
-            app.staticTexts["Дата рождения"].exists || app.staticTexts["Вес"].exists,
-            "В паспорте нет фактов о питомце: \(app.debugDescription)"
+            app.staticTexts["Готовность к приёму"].exists,
+            "В медкарте нет готовности к приёму: \(app.debugDescription)"
+        )
+        XCTAssertTrue(
+            app.staticTexts["Данные для врача"].exists,
+            "В медкарте нет данных для врача: \(app.debugDescription)"
         )
     }
 

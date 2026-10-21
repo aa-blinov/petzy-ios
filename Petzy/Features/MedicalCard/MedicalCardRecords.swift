@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Блоки медкарты с записями: прививки и обработки, визиты и операции,
-/// документы, клиника и условия жизни. Идут после состояния питомца, в том
-/// же порядке, в каком спрашивает врач.
+/// документы. Идут после состояния питомца, в том же порядке, в каком
+/// спрашивает врач.
 struct MedicalCardRecords: View {
     let card: MedicalCard
     let actions: MedicalCardActions
@@ -11,8 +11,6 @@ struct MedicalCardRecords: View {
         prevention
         visits
         documents
-        clinic
-        life
     }
 
     // MARK: - Прививки и обработки
@@ -26,10 +24,14 @@ struct MedicalCardRecords: View {
                 recordButton(record)
             }
             if !(card.records[.vaccination] ?? []).isEmpty {
-                door("Все прививки", action: { actions.openSection(.vaccination) })
+                NavigationLink(value: MedicalKind.vaccination) {
+                    Text("Все прививки")
+                }
             }
             if !(card.records[.parasite] ?? []).isEmpty {
-                door("Все обработки", action: { actions.openSection(.parasite) })
+                NavigationLink(value: MedicalKind.parasite) {
+                    Text("Все обработки")
+                }
             }
             if (card.records[.vaccination] ?? []).isEmpty, (card.records[.parasite] ?? []).isEmpty {
                 Text("Прививок и обработок нет").foregroundStyle(.secondary)
@@ -58,10 +60,14 @@ struct MedicalCardRecords: View {
                 recordButton(record)
             }
             if !(card.records[.visit] ?? []).isEmpty {
-                door("Все визиты", action: { actions.openSection(.visit) })
+                NavigationLink(value: MedicalKind.visit) {
+                    Text("Все визиты")
+                }
             }
             if !(card.records[.procedure] ?? []).isEmpty {
-                door("Все операции", action: { actions.openSection(.procedure) })
+                NavigationLink(value: MedicalKind.procedure) {
+                    Text("Все операции")
+                }
             }
             if (card.records[.visit] ?? []).isEmpty, (card.records[.procedure] ?? []).isEmpty {
                 Text("Визитов и операций нет").foregroundStyle(.secondary)
@@ -86,73 +92,9 @@ struct MedicalCardRecords: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                door("Все документы", action: actions.showDocuments)
             }
         } header: {
             Text("Анализы и заключения")
-        }
-    }
-
-    // MARK: - Клиника и врачи
-
-    private var clinic: some View {
-        Section {
-            if card.clinics.isEmpty {
-                Text("Клиника не указана").foregroundStyle(.secondary)
-            } else {
-                ForEach(Array(card.clinics.enumerated()), id: \.offset) { _, entry in
-                    VStack(alignment: .leading, spacing: 2) {
-                        if let name = entry.name, !name.isEmpty {
-                            Text(name).font(.subheadline.weight(.medium))
-                        }
-                        if let phone = entry.phone, !phone.isEmpty {
-                            phoneLink(phone)
-                        }
-                        ForEach(Array(entry.doctors.enumerated()), id: \.offset) { _, doctor in
-                            Text(doctorLine(doctor))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-            door("Изменить", action: actions.openProfile)
-        } header: {
-            Text("Клиника и врачи")
-        }
-    }
-
-    /// Телефон открывается как звонок: его диктуют по телефону, и искать его
-    /// вручную незачем.
-    private func phoneLink(_ phone: String) -> some View {
-        let number = phone.filter(\.isNumber)
-        return Link(destination: URL(string: "tel://\(number)") ?? URL(string: "tel:")!) {
-            Label(phone, systemImage: "phone")
-                .font(.subheadline)
-        }
-    }
-
-    /// «Каримов Д.» или «Каримов Д., кардиолог».
-    private func doctorLine(_ doctor: ProfileDoctor) -> String {
-        let name = doctor.name ?? ""
-        let specialty = doctor.specialty ?? ""
-        return specialty.isEmpty ? name : "\(name), \(specialty)"
-    }
-
-    // MARK: - Питание и условия
-
-    private var life: some View {
-        Section {
-            if card.life.isEmpty {
-                Text("Ничего не записано").foregroundStyle(.secondary)
-            } else {
-                ForEach(card.life, id: \.title) { row in
-                    LabeledContent(row.title, value: row.value)
-                }
-            }
-            door("Изменить", action: actions.openProfile)
-        } header: {
-            Text("Питание и условия")
         }
     }
 
@@ -164,16 +106,6 @@ struct MedicalCardRecords: View {
             MedicalRecordRow(record: record)
         }
         .buttonStyle(.plain)
-    }
-
-    /// Тихая дверь внизу блока: «Изменить», «Все прививки». Она не спорит с
-    /// содержимым блока, а просто ведёт дальше.
-    private func door(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
-            .font(.subheadline)
-            // Дверь — это ссылка, и она должна выглядеть ссылкой: акцентным
-            // цветом, как ссылки в iOS, а не обычным текстом.
-            .foregroundStyle(.tint)
     }
 }
 

@@ -15,7 +15,9 @@ final class DocumentsModel {
     /// Категория, по которой фильтруют. `nil` — показывают все.
     var filter: DocumentCategory?
     /// Файл, готовый к отправке из системного меню «Поделиться».
-    private(set) var file: URL?
+    /// Файл, открытый в просмотрщике. Записывается и из модели, и из
+    /// просмотрщика: он закрывается сам и обнуляет это поле.
+    var file: URL?
 
     private let client: APIClient
     private let petID: String
@@ -128,7 +130,7 @@ final class DocumentsModel {
         do {
             let loaded = try await DocumentsAPI.file(client, id: document.id)
             let url = FileManager.default.temporaryDirectory.appendingPathComponent(
-                loaded.fileName ?? document.title
+                Self.fileName(title: document.title, serverName: loaded.fileName)
             )
             try loaded.data.write(to: url, options: .atomic)
             file = url
@@ -136,6 +138,17 @@ final class DocumentsModel {
         } catch {
             errorText = Self.text(of: error)
         }
+    }
+
+    /// Имя файла для просмотрщика. Он показывает имя, а не заголовок, а с
+    /// сервера приходит `insurance.pdf`: человек должен видеть «Страховка на
+    /// год». Расширение берём серверное — по нему просмотрщик выбирает, чем
+    /// открывать.
+    static func fileName(title: String, serverName: String?) -> String {
+        let ext = (serverName as NSString?)?.pathExtension ?? ""
+        // Слеш в заголовке сделал бы из имени путь.
+        let base = title.replacingOccurrences(of: "/", with: "-")
+        return ext.isEmpty ? base : "\(base).\(ext)"
     }
 
     func delete(_ document: PetDocument) async {

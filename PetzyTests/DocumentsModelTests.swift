@@ -250,4 +250,27 @@ struct DocumentsModelTests {
             offline: OfflineState(store: LocalStore(url: TestSupport.tempStoreURL()))
         )
     }
+
+    /// Просмотрщик показывает имя файла, а не заголовок документа: с сервера
+    /// приходит `insurance.pdf`, и человек видит «insurance» вместо «Страховка
+    /// на год». Расширение остаётся серверным — по нему просмотрщик и выбирает,
+    /// чем открывать.
+    @Test("Файл называется заголовком, а расширение остаётся серверным")
+    func fileIsNamedByTitle() {
+        #expect(DocumentsModel
+            .fileName(title: "Страховка на год", serverName: "insurance.pdf") == "Страховка на год.pdf")
+        #expect(DocumentsModel.fileName(title: "Анализ крови", serverName: "blood.png") == "Анализ крови.png")
+    }
+
+    /// Слеш в заголовке сделал бы из имени путь, и файл уехал бы в другую папку.
+    @Test("Слеш в заголовке не превращает имя в путь")
+    func slashInTitleIsSafe() {
+        #expect(DocumentsModel.fileName(title: "Анализ / кровь", serverName: "a.pdf") == "Анализ - кровь.pdf")
+    }
+
+    /// Имени от сервера может не быть вовсе.
+    @Test("Без имени сервера остаётся заголовок")
+    func noServerNameKeepsTitle() {
+        #expect(DocumentsModel.fileName(title: "Страховка", serverName: nil) == "Страховка")
+    }
 }

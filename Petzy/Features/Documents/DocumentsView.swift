@@ -1,3 +1,4 @@
+import QuickLook
 import SwiftUI
 
 /// Документы питомца: список с фильтром по категории и сроком. Срок важнее
@@ -111,16 +112,13 @@ struct DocumentsView: View {
                     pendingDelete = model.visible[safe: index]
                 }
             }
-            if let file = model.file {
-                Section {
-                    ShareLink(item: file) {
-                        Label("Поделиться файлом", systemImage: "square.and.arrow.up")
-                    }
-                }
-            }
         }
         .listStyle(.plain)
         .refreshable { await model.load() }
+        // Тап по документу открывает файл в системном просмотрщике: у него есть
+        // и «Поделиться», и печать, и увеличение. Скачать файл и не показать
+        // его — значит ничего не открыть.
+        .quickLookPreview(preview)
     }
 
     /// Фильтр по категориям. Показываются только те, в которых что-то есть:
@@ -138,6 +136,15 @@ struct DocumentsView: View {
             }
             .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
         }
+    }
+
+    /// Что показать в просмотрщике. Привязка нужна, потому что просмотрщик
+    /// закрывает себя сам и обнуляет файл.
+    private var preview: Binding<URL?> {
+        Binding(
+            get: { model.file },
+            set: { model.file = $0 }
+        )
     }
 
     private func chip(title: String, count: Int, category: DocumentCategory?) -> some View {
