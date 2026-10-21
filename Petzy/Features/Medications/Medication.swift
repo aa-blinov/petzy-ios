@@ -314,6 +314,9 @@ struct MedicationIntake: Identifiable, Sendable {
     let day: String
     let time: String
     let dose: Double
+    /// Приём пропущен: слот закрыт, а из остатка ничего не вычтено. Путать его
+    /// с данным нельзя, поэтому и в строке он называется иначе.
+    let skipped: Bool
     let author: String?
     let comment: String?
 }

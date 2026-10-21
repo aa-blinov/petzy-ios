@@ -11,6 +11,10 @@ import Observation
 final class MedicationsModel {
     private(set) var medications: [Medication] = []
     private(set) var upcoming: [UpcomingDose] = []
+    /// Отмеченные приёмы: по ним видно, что уже дали, и их можно поправить.
+    /// Приём — не форма и не запись дневника, поэтому он живёт здесь, а не в
+    /// ленте: лента про события, приёмы считает сервер своими слотами.
+    private(set) var intakes: [MedicationIntake] = []
     private(set) var isLoading = false
     /// Что ответил сервер, по-русски: «Остаток закончился» человеку полезнее
     /// «validation_error».
@@ -92,6 +96,48 @@ final class MedicationsModel {
                 isShowingCached = true
                 return
             }
+            errorText = Self.text(of: error)
+        }
+    }
+
+    /// Отмеченные приёмы. Читаются отдельно от курсов: они нужны одной секции
+    /// внизу раздела, и второй запрос на каждое перечитывание списка был бы
+    /// платой ни за что. Без ответа остаётся то, что уже есть.
+    func loadIntakes() async {
+        guard let found = try? await MedicationsAPI.intakes(client, petID: petID) else { return }
+        intakes = found
+    }
+
+    /// Перенести отмеченный приём на другое время: отметили «сейчас», а дали
+    /// утром, или ошиблись часом. Доза и остаток не трогаются.
+    func moveIntake(_ intake: MedicationIntake, to moment: Moment) async {
+        errorText = nil
+        do {
+            try await MedicationsAPI.moveIntake(
+                client,
+                intakeID: intake.id,
+                date: moment.day,
+                time: moment.time,
+                zone: Self.zone
+            )
+            notice = "Время приёма изменено"
+            await load()
+            await loadIntakes()
+        } catch {
+            errorText = Self.text(of: error)
+        }
+    }
+
+    /// Отменить отмеченный приём: ошибочную отметку не должно быть видно как
+    /// факт, а остаток должен вернуться.
+    func deleteIntake(id: String) async {
+        errorText = nil
+        do {
+            try await MedicationsAPI.deleteIntake(client, intakeID: id)
+            notice = "Приём отменён"
+            await load()
+            await loadIntakes()
+        } catch {
             errorText = Self.text(of: error)
         }
     }

@@ -106,11 +106,43 @@ enum MedicationsAPI {
         _ = ack
     }
 
+    /// Перенести отмеченный приём на другое время. Доза и остаток не
+    /// меняются: человек ошибся временем, а не дозой.
+    static func moveIntake(
+        _ client: APIClient,
+        intakeID: String,
+        date: String,
+        time: String,
+        zone: String
+    ) async throws {
+        let ack: WriteAck = try await client.put(
+            "/api/medications/intakes/\(AppModel.query(intakeID))",
+            body: IntakeTimeBody(date: date, time: time, tz: zone)
+        )
+        _ = ack
+    }
+
+    /// Удалить отмеченный приём: сервер возвращает в остаток то, что он
+    /// списал, и слот снова становится открытым.
+    static func deleteIntake(_ client: APIClient, intakeID: String) async throws {
+        try await client.delete("/api/medications/intakes/\(AppModel.query(intakeID))")
+    }
+
     static func intakes(_ client: APIClient, petID: String) async throws -> [MedicationIntake] {
         let path = "/api/medications/intakes?pet_id=\(AppModel.query(petID))&page=1&page_size=100"
         let response: IntakesResponse = try await client.get(path)
         return response.intakes.map(\.domain)
     }
+}
+
+/// Новое время отмеченного приёма. Пояс едет вместе с ним: приём переезжает
+/// на часы того, кто правит.
+private struct IntakeTimeBody: Encodable, Sendable {
+    let date: String
+    let time: String
+    // Имя ключа задаёт сервер: `tz`.
+    // swiftlint:disable:next identifier_name
+    let tz: String
 }
 
 /// Что сервер сказал об отмеченном приёме.
@@ -259,6 +291,7 @@ private struct IntakeDTO: Decodable {
     let medicationName: String
     let dateTime: String
     let doseTaken: Double
+    let skipped: Bool?
     let username: String?
     let comment: String?
 
@@ -268,6 +301,7 @@ private struct IntakeDTO: Decodable {
         case medicationName = "medication_name"
         case dateTime = "date_time"
         case doseTaken = "dose_taken"
+        case skipped
         case username, comment
     }
 
@@ -279,6 +313,7 @@ private struct IntakeDTO: Decodable {
             day: MomentText.day(of: dateTime),
             time: MomentText.time(of: dateTime),
             dose: doseTaken,
+            skipped: skipped ?? false,
             author: username,
             comment: comment
         )
