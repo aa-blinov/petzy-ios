@@ -169,6 +169,27 @@ struct MedicalCardModelTests {
         #expect(model.pdfFile == nil)
     }
 
+    /// Документ из медкарты открывается тем же просмотрщиком, что и на своей
+    /// вкладке: строка, которая ничего не делает, хуже её отсутствия.
+    @Test("Документ из медкарты открывается файлом")
+    func documentOpensFromCard() async throws {
+        StubURLProtocol.reset()
+        StubURLProtocol.stub(status: 200, json: LiveFixtures.medicalCard)
+        StubURLProtocol.stub(status: 200, data: Data("%PDF-1.7".utf8), headers: [
+            "Content-Disposition": "attachment; filename*=UTF-8''insurance.pdf",
+            "Content-Type": "application/pdf"
+        ])
+        let model = try await makeModel()
+        await model.load()
+
+        await model.openDocument(id: "d1", title: "Страховка на год", serverName: "insurance.pdf")
+
+        let url = try #require(model.documentFile)
+        // Имя — заголовок с серверным расширением: в просмотрщике видно его.
+        #expect(url.lastPathComponent == "Страховка на год.pdf")
+        #expect(try String(contentsOf: url, encoding: .utf8) == "%PDF-1.7")
+    }
+
     @Test("Сохранённый профиль перечитывает карту")
     func saveProfileReloads() async throws {
         StubURLProtocol.reset()

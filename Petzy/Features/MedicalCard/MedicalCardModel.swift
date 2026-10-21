@@ -17,6 +17,8 @@ final class MedicalCardModel {
     var allRecords: [MedicalKind: [MedicalRecord]] = [:]
     /// Готовый файл для врача: его открывает системное меню «Поделиться».
     private(set) var pdfFile: URL?
+    /// Документ, открытый из медкарты в системном просмотрщике.
+    var documentFile: URL?
     /// Только что выданная ссылка на медкарту.
     private(set) var share: MedicalShare?
     /// Ссылки, которые сейчас открывают карту.

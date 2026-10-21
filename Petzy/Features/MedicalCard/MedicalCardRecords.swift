@@ -85,12 +85,21 @@ struct MedicalCardRecords: View {
                 Text("Документов нет").foregroundStyle(.secondary)
             } else {
                 ForEach(card.documents) { document in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(document.title).font(.subheadline)
-                        Text(MedicalCardDocuments.category(document.category))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    // Строка открывает файл, а не просто сообщает название:
+                    // в медкарте документ нужен ради самого файла.
+                    Button {
+                        actions.openDocument(document)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(document.title).font(.subheadline)
+                            Text(MedicalCardDocuments.category(document.category))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
             }
         } header: {

@@ -1,3 +1,4 @@
+import QuickLook
 import SwiftUI
 
 /// Медкарта выбранного питомца как документ: читается сверху вниз, в том
@@ -132,6 +133,9 @@ struct MedicalCardView: View {
         // список записей, и разбивать её на карточки как веб-страницу незачем.
         .listStyle(.plain)
         .refreshable { await model.load() }
+        // Документ из медкарты открывается тем же системным просмотрщиком, что
+        // и на своей вкладке: у него есть «Поделиться» и печать.
+        .quickLookPreview(documentPreview)
     }
 
     /// Кнопки документа. Документ сам никуда не ведёт: он знает, что
@@ -143,7 +147,8 @@ struct MedicalCardView: View {
             openVisitPrep: { prep = true },
             readinessStep: readinessStep,
             editRecord: { form = .edit(app: app, record: $0) },
-            recordWeight: recordWeight
+            recordWeight: recordWeight,
+            openDocument: openDocument
         )
     }
 
@@ -180,6 +185,19 @@ struct MedicalCardView: View {
             Label("Новая запись", systemImage: "plus")
         }
         .disabled(model.card?.canEdit != true)
+    }
+
+    /// Что показать в просмотрщике документов медкарты.
+    private var documentPreview: Binding<URL?> {
+        Binding(
+            get: { model.documentFile },
+            set: { model.documentFile = $0 }
+        )
+    }
+
+    /// Документ открывается файлом: сначала скачивается, потом показывается.
+    private func openDocument(_ document: CardDocument) {
+        Task { await model.openDocument(id: document.id, title: document.title, serverName: nil) }
     }
 
     /// Передать карту врачу: файлом или ссылкой. Отдельной полосы внизу нет:
