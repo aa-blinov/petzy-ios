@@ -262,6 +262,14 @@ with CI, and that is the usual source of "works here, fails in CI".
   `.environment(\.editMode, .constant(.active))` the toggles in the list stop
   responding; `EditButton()` in the toolbar does not, and reordering still
   works through `.onMove`.
+- **A back tap can land inside the push animation and vanish.** The screen
+  stays put and the test fails on the next screen, looking like a wrong
+  route. Tap, wait, and tap again only while still on the source screen:
+  checking first protects against a double pop when the first tap was merely
+  late.
+- **QuickLook has no «Done» button.** Its close control carries the technical
+  identifier `QLOverlayDoneButtonAccessibilityIdentifier` with the label
+  `close`. Match the identifier, not the caption.
 - **A tap on a `StaticText` inside a `Button` with `.plain` does nothing.**
   The text has no hit area of its own. Use
   `app.buttons.containing(.staticText, identifier: title).firstMatch`.
