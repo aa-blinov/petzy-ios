@@ -11,6 +11,30 @@ All notable changes to petzy-ios. Versions are ordered newest first.
   works on the code next.
 -->
 
+## 1.0.1 — 2026-10-22
+
+Nothing changes in how the app works. This release is the codebase catching up
+with itself: dead code removed, and the quality of the code measured from now
+on instead of judged by eye.
+
+### Removed
+
+- Fourteen declarations nothing reached any more, found by Periphery rather
+  than by reading: an unused clinic body, a duplicated `isSignedIn`, two
+  offline getters, an unused initialiser of the record form and of the visit
+  note, a duplicated weight line, an unused readiness check, two route
+  properties, a leftover notification counter and a pet birthday formatter.
+
+### Changed
+
+- `make metrics` now reports the cyclomatic complexity of every function and
+  closure (315 of them: mean 1.93, median 1, maximum 7), the longest functions,
+  types and files, and the parameter counts. `make analyze` looks for unused
+  imports and declarations, and `make dead-code` runs Periphery.
+- `.swiftlint.yml` spells out the thresholds instead of relying on the
+  defaults: complexity 8 warns and 12 fails, a function of 50 lines warns, a
+  file of 400 warns.
+
 ## 1.0.0 — 2026-10-22
 
 The first release. A native client for the Petzy pet health diary, on the same
