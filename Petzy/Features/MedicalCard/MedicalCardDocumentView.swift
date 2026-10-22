@@ -25,7 +25,7 @@ struct MedicalCardDocumentView: View {
         if let pet {
             Section {
                 NavigationLink {
-                    PetProfileView(client: app.client, petID: pet.id, app: app)
+                    PetProfileView(app: app, petID: pet.id)
                 } label: {
                     PetSummaryCard(pet: pet)
                 }

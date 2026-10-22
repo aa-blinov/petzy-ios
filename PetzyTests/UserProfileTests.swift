@@ -40,6 +40,20 @@ struct UserProfileTests {
         #expect(StubURLProtocol.requestedPaths == ["/api/users/a%20b/profile"])
     }
 
+    /// Регистрация приходит полным моментом, а показывается днём: иначе на
+    /// экране было «03T07:52:47Z.10.2026».
+    @Test("Дата регистрации показывается днём")
+    func sinceIsADay() {
+        let profile = UserProfile(
+            username: "family",
+            fullName: "Иван",
+            createdAt: "2026-10-03T07:52:47Z",
+            sharedPets: []
+        )
+
+        #expect(profile.sinceText == "03.10.2026")
+    }
+
     /// Имени может не быть, и тогда в заголовке стоит логин: пустая строка
     /// выглядела бы поломкой.
     @Test("Без имени показывается логин")

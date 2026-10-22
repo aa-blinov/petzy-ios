@@ -100,7 +100,7 @@ struct PetAccessSection: View {
     ) -> some View {
         HStack {
             NavigationLink {
-                UserProfileView(client: app.client, username: username, app: app)
+                UserProfileView(app: app, username: username)
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(username).font(.subheadline)

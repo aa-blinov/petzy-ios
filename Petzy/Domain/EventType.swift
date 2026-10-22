@@ -1,15 +1,19 @@
 import Foundation
 
-/// Вариант выбора в поле. Появляется у полей вида `choice`.
+/// Типы записей в том виде, в каком их видит приложение: ярлыки,
+/// поля, значки. Ключи ответа сервера сюда не проникают, и разбор
+/// лежит в `EventTypesAPI`.
+///
 struct EventFieldOption: Codable, Sendable, Equatable {
     let text: String
     let value: String
 }
 
-/// Поле типа записи: как оно называется в записи и как подписано для человека.
-/// Подпись нужна для показа: ключ `weight` в ленте читаться не должен. Вид,
-/// обязательность и границы нужны форме добавления, чтобы собрать запись из
-/// того, что человек набрал, и не отправить на сервер ерунду.
+// Поле типа записи: как оно называется в записи и как подписано для человека.
+// Подпись нужна для показа: ключ `weight` в ленте читаться не должен. Вид,
+// обязательность и границы нужны форме добавления, чтобы собрать запись из
+// того, что человек набрал, и не отправить на сервер ерунду.
+
 struct EventFieldInfo: Codable, Sendable, Identifiable, Equatable {
     let name: String
     let label: String
@@ -26,10 +30,11 @@ struct EventFieldInfo: Codable, Sendable, Identifiable, Equatable {
     }
 }
 
-/// Тип записи: как она называется, каким значком рисуется и какие у неё поля.
-/// `category` приходит `null` у своих типов, их форма выбора не спрашивает.
-/// `color` есть только у своих: встроенным он не нужен, а правке своего типа
-/// без него цвет молча сбросился бы на первый в списке.
+// Тип записи: как она называется, каким значком рисуется и какие у неё поля.
+// `category` приходит `null` у своих типов, их форма выбора не спрашивает.
+// `color` есть только у своих: встроенным он не нужен, а правке своего типа
+// без него цвет молча сбросился бы на первый в списке.
+
 struct EventTypeInfo: Codable, Sendable, Identifiable {
     let key: String
     let label: String
@@ -64,9 +69,10 @@ struct EventTypeInfo: Codable, Sendable, Identifiable {
     }
 }
 
-/// Как рисуется график типа: `value` — линия по величине записи, `count` —
-/// столбцы по количеству записей. Без него график показывал бы среднее там,
-/// где нужен счёт.
+// Как рисуется график типа: `value` — линия по величине записи, `count` —
+// столбцы по количеству записей. Без него график показывал бы среднее там,
+// где нужен счёт.
+
 struct EventChart: Codable, Sendable, Equatable {
     let kind: String
     let valueField: String?
@@ -81,15 +87,4 @@ struct EventChart: Codable, Sendable, Equatable {
     }
 }
 
-/// Типы, записи о которых у питомца есть. Ими заполняется фильтр истории.
-struct UsedTypesResponse: Decodable, Sendable {
-    let types: [String]
-}
-
-struct EventTypesResponse: Decodable, Sendable {
-    let eventTypes: [EventTypeInfo]
-
-    enum CodingKeys: String, CodingKey {
-        case eventTypes = "event_types"
-    }
-}
+// Типы, записи о которых у питомца есть. Ими заполняется фильтр истории.

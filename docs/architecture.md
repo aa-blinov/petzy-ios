@@ -23,15 +23,17 @@ SwiftUI, and the views know nothing about HTTP.
 | `Petzy/API/HTTP.swift` | Builds a request to `/api/...` and reads the error body. It is the only place that knows about headers. |
 | `Petzy/API/APIClient.swift` | Adds the token, refreshes it after a 401 and repeats the request once. |
 | `Petzy/API/*API.swift` | The routes, one file per group of endpoints. |
-| `Petzy/API/Models.swift` and the other model files | The payloads, decoded with hand-written `CodingKeys`. |
+| `Petzy/API/*DTO.swift` and the payload files | The requests and the answers, decoded with hand-written `CodingKeys`. A DTO lives next to the route that sends or returns it. |
+| `Petzy/Domain/` | The models the screens use and the rules that belong to them: `PetEvent`, `EventType`, `UserProfile`, `PetSpecies`, `FieldValue`. No server keys, no network, no SwiftUI. |
+| `Petzy/Support/` | What three or more screens need: `MomentText` (the two `date_time` formats), `Amount` and `Words` (numbers and Russian plurals), `EventIcon` (Lucide names to SF Symbols), `KeyboardDone`. |
 | `Petzy/Auth/AuthSession.swift` | Signing in, refreshing and signing out. It is an actor, because the tokens are shared. |
 | `Petzy/Auth/TokenStorage.swift`, `KeychainTokenStorage.swift` | Where the tokens live: a protocol, and the Keychain behind it. |
-| The screen directories under `Petzy/` | One per screen, named after it: `Auth`, `Documents`, `Feed`, `History`, `Login`, `MedicalCard`, `Medications`, `Pets`, `Settings` and `Shell`. Each holds a model and a view, and the model talks to `APIClient` and never to the network. |
+| The screen directories under `Petzy/Features/` | One per screen, named after it: `Auth`, `Documents`, `Feed`, `Login`, `MedicalCard`, `Medications`, `Pets`, `Settings` and `Shell`. Each holds a model and a view: `XView` draws, `XModel` holds the state and calls `APIClient`, `X` is the screen's own data model when it has one. |
 | `Petzy/Resources/` | The asset catalogue, with the app icon. |
 | `PetzyTests/`, `PetzyUITests/` | The unit tests and the UI tests. |
 
-The screens are: Auth, Documents, Feed, History, Login, MedicalCard,
-Medications, Pets, Settings and Shell.
+The screens are: Auth, Documents, Feed, Login, MedicalCard, Medications,
+Pets, Settings and Shell.
 
 ## The data flow
 
@@ -132,3 +134,36 @@ the source, XcodeGen builds the project from it, and a file added under
   sends an action back to it.
 - `Petzy/App/` holds the state that outlives a screen: the session, the
   pets and the selected pet.
+- `Petzy/Domain/` holds no `CodingKeys` with the server's field names and
+  imports neither `SwiftUI` nor anything from `App/`. A model may own the
+  rule that shows it: `UserProfile.sinceText`, `Medication.scheduleText`.
+  A rule that only one screen needs stays in that screen's directory.
+- `Petzy/Support/` is for what is needed in three places or more. A helper
+  that one screen reads lives with that screen until the second reader
+  appears.
+- A view receives `AppModel` and builds its model from it in `init`, as
+  `PetProfileView` and `AccountView` do. `AppModel` already carries
+  `client`, `offline` and `auth`, so passing either of them a second time
+  would give one value two paths.
+
+## Where a new file goes
+
+1. Does it talk to the server? `Petzy/API/`.
+2. Is it a model or a rule a screen uses? `Petzy/Domain/` if several screens
+   use it, otherwise the directory of its screen.
+3. Is it a small thing three or more screens need? `Petzy/Support/`.
+4. Is it state that outlives a screen? `Petzy/App/`.
+5. Otherwise: the directory of its screen, named after its role, `XView`,
+   `XModel` or `X`.
+
+## What is deliberately not here
+
+- **A protocol per service.** There is one client and the screens receive
+  it. A protocol earns its place with a second implementation, and today the
+  only second one is a test double, which `StubURLProtocol` already is.
+- **A dependency container.** `AppModel` is the single object that builds
+  the rest.
+- **A view model per screen for symmetry.** `OnboardingView` and
+  `PrivacyView` decide nothing, so they have no model.
+- **A DTO in `Domain/`.** The shape of the answer belongs to `API/`; the
+  domain outlives a change of the contract.

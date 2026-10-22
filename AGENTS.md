@@ -43,12 +43,15 @@ with CI, and that is the usual source of "works here, fails in CI".
 | `project.yml` | The source of the Xcode project. XcodeGen builds `Petzy.xcodeproj` from it, and the project file is not in git. |
 | `Makefile` | Every command, plus the simulator, the bundle id and the derived data path. |
 | `Petzy/App/` | The entry point, `AppConfig`, `AppModel`, `RootView`, the shell, the offline layer. |
-| `Petzy/API/` | `HTTP` builds a request, `APIClient` signs it and refreshes the token, the rest are routes and models. |
+| `Petzy/API/` | `HTTP` builds a request, `APIClient` signs it and refreshes the token, the rest are routes and DTOs. |
+| `Petzy/Domain/` | The models the screens use, without server keys, network or SwiftUI. |
+| `Petzy/Support/` | The little things three or more screens need: dates, numbers, icons. |
 | `Petzy/Auth/` | `AuthSession`, the token storage, the Keychain. |
 | `Petzy/Resources/` | The asset catalogue with the app icon. |
-| The screen directories under `Petzy/` | One per screen, named after it: `Auth`, `Documents`, `Feed`, `History`, `Login`, `MedicalCard`, `Medications`, `Pets`, `Settings`, `Shell`. |
+| The screen directories under `Petzy/` | One per screen, named after it: `Auth`, `Documents`, `Feed`, `Login`, `MedicalCard`, `Medications`, `Pets`, `Settings`, `Shell`. |
 | `PetzyTests/` | The unit tests, Swift Testing, and `StubURLProtocol` for the fake network. |
 | `PetzyUITests/` | The UI tests, XCUITest, against the live local stack. |
+| `docs/architecture.md` | The layers, what belongs in each, and where a new file goes. Read it before adding one. |
 | `docs/PORT-PLAN.md` | The inventory of the 48 web routes and the 11 stages they were ported in. |
 | `docs/USER-CASES.md` | The user cases, with the test that covers each of them. |
 | `.githooks/` | The pre-commit and the pre-push hook. |
@@ -195,7 +198,11 @@ with CI, and that is the usual source of "works here, fails in CI".
   `2026-10-04 11:00`. Both go through `MomentText`, which also keeps the
   offset out of the shown time, because the person entered it on their own
   clock. Parsing only the second one shows "Сегодня" as
-  `18T13:01:00+05:00.10.2026` and breaks three UI tests at once.
+  `18T13:01:00+05:00.10.2026` and breaks three UI tests at once. `MomentText`
+  takes the day out of a full moment itself (`day(of:)`), so both
+  `russianDay` and `humanDay` accept either form: passing `created_at`
+  straight in was enough to print `03T07:52:47Z.10.2026` on the person
+  screen.
 - **The feed is read without `with_deleted=1`, and that is deliberate.** A
   deleted record is not in the normal answer anyway, and the app replaces
   its own copy wholesale after a full read. Asking for the tombstones only
