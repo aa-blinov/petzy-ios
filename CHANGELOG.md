@@ -39,6 +39,8 @@ without a browser.
   record types, and access tokens for assistants.
 - **Offline.** The last copy seen is readable without a network, and a write
   made without one waits in a queue that sends it when the network is back.
+- The version of the app in the settings: the number people are asked for when
+  they ask for help.
 - Signing in, the onboarding, the link from an e-mail, and the privacy policy.
 
 ### Changed

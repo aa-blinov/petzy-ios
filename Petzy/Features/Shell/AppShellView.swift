@@ -258,6 +258,15 @@ private struct SettingsSection: View {
                     Text("Аккаунт")
                 }
                 Section {
+                    // Версию спрашивают, когда просят помощи, и по ней видно,
+                    // та ли сборка установлена. Строка без перехода: показать
+                    // больше нечего.
+                    HStack {
+                        Label("Версия", systemImage: "info.circle")
+                        Spacer()
+                        Text(AppVersion.current)
+                            .foregroundStyle(.secondary)
+                    }
                     NavigationLink {
                         HelpView()
                     } label: {
