@@ -247,7 +247,13 @@ struct DocumentFormView: View {
             let type = item.supportedContentTypes.first?.preferredMIMEType ?? "image/jpeg"
             // Библиотека умеет отдать GIF или TIFF, а сервер их не берёт:
             // перегоняем в JPEG вместо отказа после выбора.
-            guard let ready = UploadFile.normalizedImage(data, type: type) else {
+            // Развёртка полного кадра и перепаковка — сотни миллисекунд, и на
+            // главном потоке это фриз на время выбора фото. Поэтому отдельная
+            // задача без actor: сюда возвращаемся только с готовым файлом.
+            let ready = await Task.detached(priority: .userInitiated) {
+                UploadFile.normalizedImage(data, type: type)
+            }.value
+            guard let ready else {
                 model.errorText = "Фотография не загрузилась"
                 return
             }
