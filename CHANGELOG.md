@@ -11,6 +11,15 @@ All notable changes to petzy-ios. Versions are ordered newest first.
   works on the code next.
 -->
 
+## [Unreleased]
+
+### Fixed
+
+- Pet photo loads once per session instead of on every appearance, and no
+  longer flashes a placeholder while the cached bytes are already there.
+- Document photo normalization moved off the main thread: picking a photo no
+  longer freezes the form while the full frame decodes and re-encodes.
+
 ## 1.1.0 — 2026-10-22
 
 ### Added

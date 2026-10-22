@@ -218,7 +218,8 @@ final class RoutesUITests: XCTestCase {
         let buttons = app.buttons.matching(identifier: "Изменить").allElementsBoundByIndex
             .filter { $0.frame.minY > top }
         guard let edit = buttons.first else {
-            throw XCTSkip("под «\(header)» нет кнопки правки")
+            XCTFail("под «\(header)» нет кнопки правки: \(app.debugDescription)")
+            return
         }
         edit.tap()
     }
