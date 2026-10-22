@@ -36,7 +36,12 @@ jobs:
       - name: Поставить xcodegen и swiftlint
         run: |
           brew install xcodegen
-          brew install swiftlint
+          # The release is pinned. Homebrew's copy is whatever was current on
+          # the runner that day, and SwiftLint's rules move between versions.
+          curl -fsSL -o "$RUNNER_TEMP/swiftlint.zip" \
+            https://github.com/realm/SwiftLint/releases/download/0.65.1/portable_swiftlint.zip
+          unzip -q "$RUNNER_TEMP/swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
+          echo "$RUNNER_TEMP/swiftlint" >> "$GITHUB_PATH"
 
       - name: Сгенерировать проект
         run: xcodegen generate
