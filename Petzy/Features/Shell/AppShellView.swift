@@ -120,7 +120,7 @@ private struct SettingsSection: View {
                 // аккаунтом, и было не видно, что это вообще разные вещи.
                 Section {
                     NavigationLink {
-                        PetProfileView(client: model.client, petID: model.selectedPetID, app: model)
+                        PetProfileView(app: model, petID: model.selectedPetID)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Label("О питомце", systemImage: "pawprint")
@@ -235,7 +235,7 @@ private struct SettingsSection: View {
                 }
                 Section {
                     NavigationLink {
-                        AccountView(client: model.client, auth: model.auth, app: model)
+                        AccountView(app: model)
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Label("Аккаунт", systemImage: "person.crop.circle")
@@ -311,7 +311,7 @@ private struct SettingsSection: View {
                 // с «Отмена» и «Сохранить» рисует именно она. Из «Настроек» тот
                 // же экран открывается ссылкой внутри их стека.
                 NavigationStack {
-                    PetProfileView(client: model.client, petID: nil, app: model)
+                    PetProfileView(app: model, petID: nil)
                 }
             }
         }

@@ -28,3 +28,11 @@ struct UserProfile: Decodable, Sendable, Equatable {
         case sharedPets = "shared_pets"
     }
 }
+
+extension UserProfile {
+    /// «На Petzy с»: день регистрации по-русски. Полный момент приходит
+    /// строкой, и день берётся из него там же, где и везде.
+    var sinceText: String {
+        MomentText.russianDay(createdAt)
+    }
+}

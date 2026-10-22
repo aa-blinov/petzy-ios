@@ -101,3 +101,17 @@ private struct DeletePreviewDTO: Decodable {
         case eventsCount = "events_count"
     }
 }
+
+/// Обёртки ответов: у сервера список приходит под именем ключа, и это
+/// единственное, что здесь есть.
+struct UsedTypesResponse: Decodable, Sendable {
+    let types: [String]
+}
+
+struct EventTypesResponse: Decodable, Sendable {
+    let eventTypes: [EventTypeInfo]
+
+    enum CodingKeys: String, CodingKey {
+        case eventTypes = "event_types"
+    }
+}

@@ -8,8 +8,8 @@ struct AccountView: View {
 
     @State private var askingDelete = false
 
-    init(client: APIClient, auth: AuthSession, app: AppModel) {
-        _model = State(initialValue: AccountModel(client: client, auth: auth, app: app))
+    init(app: AppModel) {
+        _model = State(initialValue: AccountModel(client: app.client, auth: app.auth, app: app))
     }
 
     var body: some View {

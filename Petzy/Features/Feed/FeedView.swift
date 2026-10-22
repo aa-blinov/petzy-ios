@@ -93,7 +93,7 @@ struct FeedView: View {
     private var card: some View {
         if let pet = model.selectedPet {
             NavigationLink {
-                PetProfileView(client: model.client, petID: pet.id, app: model)
+                PetProfileView(app: model, petID: pet.id)
             } label: {
                 PetSummaryCard(pet: pet)
             }

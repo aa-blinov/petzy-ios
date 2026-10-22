@@ -27,9 +27,11 @@ struct PetProfileView: View {
         case notes
     }
 
-    init(client: APIClient, petID: String?, app: AppModel) {
+    init(app: AppModel, petID: String?) {
         self.app = app
-        _model = State(initialValue: PetProfileModel(client: client, petID: petID, offline: app.offline))
+        // Клиент берётся у приложения: второй способ передать его сюда же
+        // означал бы, что где-то они могут разойтись.
+        _model = State(initialValue: PetProfileModel(client: app.client, petID: petID, offline: app.offline))
     }
 
     var body: some View {
