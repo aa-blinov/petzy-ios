@@ -11,6 +11,23 @@ All notable changes to petzy-ios. Versions are ordered newest first.
   works on the code next.
 -->
 
+## 1.1.0 — 2026-10-22
+
+### Added
+
+- **Doses of medication in the diary.** The feed is now what it is on the web:
+  records and the doses already given, one list, in the order the server
+  sends them. A dose opens the same sheet as in the medications section, so
+  its time can be moved or the dose cancelled from where it was noticed.
+- The diary without a network keeps doses too: they are part of the copy now,
+  not only of the medications section.
+
+### Changed
+
+- The feed reads `/api/history/timeline` instead of `/api/events`, which is
+  the route the web uses. The copy stored by 1.0.x is not read by this version:
+  the shape changed, and half a diary is worse than none.
+
 ## 1.0.1 — 2026-10-22
 
 Nothing changes in how the app works. This release is the codebase catching up

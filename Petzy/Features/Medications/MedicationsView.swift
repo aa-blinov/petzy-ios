@@ -62,7 +62,11 @@ struct MedicationsView: View {
             DoseSheet(model: model, medication: med)
         }
         .sheet(item: $pickedIntake) { intake in
-            IntakeSheet(model: model, intake: intake)
+            IntakeSheet(
+                intake: intake,
+                onMove: { intake, moment in await model.moveIntake(intake, to: moment) },
+                onCancel: { intake in await model.deleteIntake(id: intake.id) }
+            )
         }
         .alert(
             "Не получилось",

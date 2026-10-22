@@ -45,15 +45,15 @@ struct FeedTests {
     @Test("Записи собираются по дням, порядок внутри дня не меняется")
     func groupsByDayKeepingOrder() {
         let days = Feed.group([
-            event("a", dateTime: "2026-10-18 09:00"),
-            event("b", dateTime: "2026-10-17 21:00"),
-            event("c", dateTime: "2026-10-18 14:30"),
-            event("d", dateTime: "2026-10-18 07:15")
+            .event(event("a", dateTime: "2026-10-18 09:00")),
+            .event(event("b", dateTime: "2026-10-17 21:00")),
+            .event(event("c", dateTime: "2026-10-18 14:30")),
+            .event(event("d", dateTime: "2026-10-18 07:15"))
         ])
 
         #expect(days.map(\.date) == ["2026-10-18", "2026-10-17"])
-        #expect(days.first?.events.map(\.id) == ["a", "c", "d"])
-        #expect(days.last?.events.count == 1)
+        #expect(days.first?.items.compactMap(\.event).map(\.id) == ["a", "c", "d"])
+        #expect(days.last?.items.compactMap(\.event).count == 1)
     }
 
     @Test("Сегодня и вчера подписываются словами, остальное датой")
@@ -75,22 +75,22 @@ struct FeedTests {
     @Test("Запись типа, которого больше нет, в ленту не попадает")
     func unknownTypeIsHidden() {
         let days = Feed.group([
-            event("a", dateTime: "2026-10-18 09:00"),
-            event("b", dateTime: "2026-10-18 10:00", type: "удалённый_тип")
+            .event(event("a", dateTime: "2026-10-18 09:00")),
+            .event(event("b", dateTime: "2026-10-18 10:00", type: "удалённый_тип"))
         ], knownTypes: ["weight"])
 
         #expect(days.count == 1)
-        #expect(days.first?.events.map(\.id) == ["a"])
+        #expect(days.first?.items.compactMap(\.event).map(\.id) == ["a"])
     }
 
     @Test("Удалённая запись не показывается")
     func deletedRecordIsHidden() {
         let days = Feed.group([
-            event("a", dateTime: "2026-10-18 09:00"),
-            event("b", dateTime: "2026-10-18 10:00", isDeleted: true)
+            .event(event("a", dateTime: "2026-10-18 09:00")),
+            .event(event("b", dateTime: "2026-10-18 10:00", isDeleted: true))
         ], knownTypes: ["weight"])
 
-        #expect(days.first?.events.map(\.id) == ["a"])
+        #expect(days.first?.items.compactMap(\.event).map(\.id) == ["a"])
     }
 
     @Test("День и время достаются из date_time")

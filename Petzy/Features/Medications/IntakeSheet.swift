@@ -7,8 +7,12 @@ import SwiftUI
 /// Формой приём не правится: дозу и остаток двигает отдельный маршрут, а здесь
 /// меняется только время, как и на вебе.
 struct IntakeSheet: View {
-    let model: MedicationsModel
     let intake: MedicationIntake
+    /// Перенести время приёма. Замыкание, а не модель: лист открывается и из
+    /// раздела лекарств, и из ленты, а экраны после правки обновляются по-своему.
+    let onMove: (MedicationIntake, Moment) async -> Void
+    /// Отменить приём: отметка пропадёт, списанное вернётся в остаток.
+    let onCancel: (MedicationIntake) async -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var day = Date.now
@@ -53,7 +57,7 @@ struct IntakeSheet: View {
             .alert("Отменить приём?", isPresented: $askingDelete) {
                 Button("Отменить приём", role: .destructive) {
                     Task {
-                        await model.deleteIntake(id: intake.id)
+                        await onCancel(intake)
                         dismiss()
                     }
                 }
@@ -83,7 +87,7 @@ struct IntakeSheet: View {
     private func save() async {
         saving = true
         defer { saving = false }
-        await model.moveIntake(intake, to: Moment(day: day, time: time))
+        await onMove(intake, Moment(day: day, time: time))
         dismiss()
     }
 }

@@ -28,7 +28,7 @@ struct FeedPageTests {
 
         await model.loadFeed()
 
-        let query = StubURLProtocol.requests.first { $0.url?.path == "/api/events" }?.url?.query ?? ""
+        let query = StubURLProtocol.requests.first { $0.url?.path == "/api/history/timeline" }?.url?.query ?? ""
         #expect(!query.contains("with_deleted"), "страница ленты читается с надгробиями: \(query)")
     }
 
@@ -58,9 +58,9 @@ struct FeedPageTests {
         _ = await (first, second)
 
         let pages = StubURLProtocol.requests.filter {
-            $0.url?.path == "/api/events" && $0.url?.query?.contains("before=") == true
+            $0.url?.path == "/api/history/timeline" && $0.url?.query?.contains("before=") == true
         }
         #expect(pages.count == 1, "страница прочитана \(pages.count) раз")
-        #expect(model.days.flatMap(\.events).count == 2, "записи показались дважды")
+        #expect(model.days.flatMap(\.items).compactMap(\.event).count == 2, "записи показались дважды")
     }
 }

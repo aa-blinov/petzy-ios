@@ -1,6 +1,6 @@
 import Foundation
 
-struct PetEvent: Codable, Sendable, Identifiable {
+struct PetEvent: Codable, Sendable, Identifiable, Equatable {
     let id: String
     let type: String
     let dateTime: String

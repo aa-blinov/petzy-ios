@@ -24,14 +24,14 @@ struct FeedPlaceTests {
         model.select(petID: "pet-1")
         await model.loadFeed()
         await model.loadMore()
-        #expect(model.days.flatMap(\.events).count == 2)
+        #expect(model.days.flatMap(\.items).compactMap(\.event).count == 2)
 
         // Лента читается заново, и на этот раз сервер отвечает на всё, что
         // приложение запросит: заготовок ровно шесть запросов.
         stubTwoPageFeed()
         await model.loadFeed()
 
-        #expect(model.days.flatMap(\.events).count == 2, "догруженная страница потерялась")
+        #expect(model.days.flatMap(\.items).compactMap(\.event).count == 2, "догруженная страница потерялась")
         #expect(
             pages(of: "pet-1", before: "cur-1") == 2,
             "вторую страницу прочитали \(pages(of: "pet-1", before: "cur-1")) раз, а не два"
@@ -112,7 +112,8 @@ struct FeedPlaceTests {
     /// и чужие запросы из других сюит в него попадают.
     private func pages(of petID: String, before cursor: String) -> Int {
         StubURLProtocol.requests.filter { request in
-            guard let url = request.url, url.path == "/api/events", let query = url.query else { return false }
+            guard let url = request.url, url.path == "/api/history/timeline",
+                  let query = url.query else { return false }
             return query.contains("pet_id=\(petID)") && query.contains("before=\(cursor)")
         }.count
     }
@@ -121,7 +122,7 @@ struct FeedPlaceTests {
     /// нет» прошла бы, не проверив ничего.
     private func read(of petID: String) -> Bool {
         StubURLProtocol.requests.contains { request in
-            guard let url = request.url, url.path == "/api/events" else { return false }
+            guard let url = request.url, url.path == "/api/history/timeline" else { return false }
             return url.query?.contains("pet_id=\(petID)") == true
         }
     }
