@@ -193,6 +193,7 @@ struct DocumentsView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("document-" + document.id)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Удалить", role: .destructive) { pendingDelete = document }
                 .tint(.red)
