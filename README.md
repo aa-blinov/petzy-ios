@@ -11,14 +11,32 @@ Russian.
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://github.com/aa-blinov/petzy-ios/actions/workflows/ci.yml/badge.svg)](https://github.com/aa-blinov/petzy-ios/actions/workflows/ci.yml)
 
-| | | |
-| --- | --- | --- |
-| ![The feed](docs/screenshots/feed.png) | ![What to record](docs/screenshots/quick-add.png) | ![A record](docs/screenshots/record-form.png) |
-| The feed: records and the doses already given, one list | What to record: the pet's own set of types | A record, drawn from the description of its type |
-| ![Medications](docs/screenshots/medications.png) | ![A dose](docs/screenshots/intake.png) | ![The medical card](docs/screenshots/medical-card.png) |
-| Medication courses, the stock left, the last doses | A dose: move the time or cancel it | The medical card, ready for a visit |
-| ![Documents](docs/screenshots/documents.png) | ![The pet](docs/screenshots/pet.png) | ![Settings](docs/screenshots/settings.png) |
-| Documents in any format, with expiry dates | The pet: photo, breed, notes and access | Settings: reminders, export, the account, the version |
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="docs/screenshots/feed.png" width="240"><br><sub>The feed: records and doses, one list</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/quick-add.png" width="240"><br><sub>What to record: the pet's own types</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/record-form.png" width="240"><br><sub>A record, drawn from its type</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/intake.png" width="240"><br><sub>A dose: move the time or cancel it</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/screenshots/medications.png" width="240"><br><sub>Courses, stock left, last doses</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/medication-form.png" width="240"><br><sub>A new course and its schedule</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/medical-card.png" width="240"><br><sub>The card, ready for a visit</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/medical-card-details.png" width="240"><br><sub>For the doctor, for the visit, the courses</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/screenshots/vaccinations.png" width="240"><br><sub>One section: all the vaccinations</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/documents.png" width="240"><br><sub>Documents, any format, with expiry</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/pet.png" width="240"><br><sub>The pet: photo, breed, notes, access</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/settings.png" width="240"><br><sub>Settings: reminders, export, account</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/screenshots/form-defaults.png" width="240"><br><sub>Default values for new records</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/custom-types.png" width="240"><br><sub>Record types of your own</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/account.png" width="240"><br><sub>The account: address, password</sub></td>
+    <td align="center" valign="top"><img src="docs/screenshots/tokens.png" width="240"><br><sub>Assistant access by token</sub></td>
+  </tr>
+</table>
 
 ---
 
