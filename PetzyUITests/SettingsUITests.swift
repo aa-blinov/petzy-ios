@@ -32,5 +32,11 @@ final class SettingsUITests: XCTestCase {
         }
 
         XCTAssertEqual(seen, wanted, "секции настроек идут не по порядку: \(seen)")
+
+        // Версия стоит в «О приложении»: её называют, когда просят помощи.
+        XCTAssertTrue(
+            app.staticTexts["Версия"].exists,
+            "в настройках нет строки версии: \(app.debugDescription)"
+        )
     }
 }
