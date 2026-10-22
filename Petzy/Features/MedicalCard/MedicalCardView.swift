@@ -15,9 +15,11 @@ struct MedicalCardView: View {
     @State private var profile = false
     @State private var prep = false
     @State private var sharing = false
+    // periphery:ignore
     /// Какой раздел открыт. Переход идёт по пути, а не ссылкой: ссылка внутри
     /// строки списка отдавала переход самой строке, и тап по строке открывал
     /// чужой раздел, а «назад» вёл к следующему разделу вместо медкарты.
+    /// Метка выше: замер мёртвого кода не видит путь сквозь `@State`.
     @State private var path: [MedicalKind] = []
 
     var body: some View {
@@ -253,12 +255,6 @@ enum MedicalFormTarget: Identifiable {
             "new-\(kind.rawValue)"
         case let .edit(_, record):
             record.id
-        }
-    }
-
-    var app: AppModel {
-        switch self {
-        case let .new(app, _), let .edit(app, _): app
         }
     }
 }

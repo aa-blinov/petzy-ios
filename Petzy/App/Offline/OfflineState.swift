@@ -85,11 +85,6 @@ final class OfflineState {
         store.save(snapshot)
     }
 
-    /// Логин человека, которому принадлежит копия.
-    var owner: String? {
-        snapshot.owner
-    }
-
     /// Копию показывают только её владельцу. На общем устройстве следующий
     /// вошедший не должен видеть чужой дневник, а копия без владельца не
     /// принадлежит никому и не показывается тоже.
@@ -138,11 +133,6 @@ final class OfflineState {
     /// своё, а чужое ему видеть незачем.
     func pendingWrites(kind: PendingKind, petID: String) -> [PendingWrite] {
         snapshot.queue.filter { $0.kind == kind && $0.petID == petID }
-    }
-
-    /// Всё неотправленное, для списка в настройках.
-    var pending: [PendingWrite] {
-        snapshot.queue
     }
 
     /// Записи очереди выбранного питомца, готовые к показу. Только создания:

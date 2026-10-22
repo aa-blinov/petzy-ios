@@ -298,12 +298,6 @@ private struct AllergyBody: Encodable {
     let reaction: String?
 }
 
-private struct ClinicBody: Encodable {
-    let name: String
-    let phone: String?
-    let vet: String?
-}
-
 /// Клиника со списком врачей, как их держит сервер. Враг без имени сервер не
 /// примет, поэтому такие отбрасываются целиком.
 private struct ClinicEntryBody: Encodable {

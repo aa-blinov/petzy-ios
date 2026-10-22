@@ -256,10 +256,4 @@ enum MedicationFormTarget: Identifiable {
         case let .edit(_, med): med.id
         }
     }
-
-    var app: AppModel {
-        switch self {
-        case let .new(app), let .edit(app, _): app
-        }
-    }
 }

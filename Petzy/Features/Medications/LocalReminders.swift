@@ -59,9 +59,4 @@ enum LocalReminders {
             withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
         )
     }
-
-    /// Сколько стоит в очереди: это и проверяется на устройстве.
-    static func pendingCount() async -> Int {
-        await center.pendingNotificationRequests().filter { $0.identifier.hasPrefix(prefix) }.count
-    }
 }

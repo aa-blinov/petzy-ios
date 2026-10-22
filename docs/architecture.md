@@ -146,6 +146,29 @@ the source, XcodeGen builds the project from it, and a file added under
   `client`, `offline` and `auth`, so passing either of them a second time
   would give one value two paths.
 
+## How the code is measured
+
+Four tools, each with one question:
+
+| Command | Question |
+| --- | --- |
+| `make lint-strict` | Does it break the agreed shape? |
+| `make metrics` | Is it getting complicated or long? |
+| `make analyze` | Is anything imported or declared that nothing uses? |
+| `make dead-code` | Is there code nothing reaches at all? |
+
+`make metrics` reads `.swiftlint-metrics.yml`, where every threshold is zero
+so all 315 functions and closures are counted instead of the offenders only.
+It reports the mean, the median and the distribution of the cyclomatic
+complexity, then the longest functions, types and files. The same rule with
+real thresholds lives in `.swiftlint.yml`, so a function that grows past 8
+fails CI before it has to be untangled.
+
+`make dead-code` runs Periphery over the app target only: test targets are
+excluded, so a symbol used by tests alone shows up as unused. That is
+deliberate. Sometimes it means the test should go, sometimes the symbol.
+Every finding gets a decision, not a filter.
+
 ## Where a new file goes
 
 1. Does it talk to the server? `Petzy/API/`.

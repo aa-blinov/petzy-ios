@@ -1,0 +1,20 @@
+# Конфиг только для замера. Пороги опущены до нуля, чтобы в отчёт попали все
+# функции и типы, а не одни нарушители: иначе средняя считается по выжившим.
+# CI им не пользуется, его читает `make metrics`.
+included:
+  - Petzy
+  - PetzyTests
+  - PetzyUITests
+
+excluded:
+  - Petzy/Resources
+
+disabled_rules:
+  - trailing_comma
+  - line_length
+
+cyclomatic_complexity: 0
+function_body_length: 0
+type_body_length: 0
+file_length: 0
+function_parameter_count: 0
