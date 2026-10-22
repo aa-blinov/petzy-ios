@@ -33,13 +33,9 @@ struct PetSummaryCard: View {
                 .font(.system(size: 28))
                 .foregroundStyle(.secondary)
             if let url = pet.photoURL {
-                AsyncImage(url: url) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    // Пока фото едет, виден значок вида под ним.
-                    Color.clear
-                }
-                .accessibilityIdentifier("petPhoto")
+                CachedPetImage(url: url)
+                    .id(url)
+                    .accessibilityIdentifier("petPhoto")
             }
         }
         .frame(width: 72, height: 72)

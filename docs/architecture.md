@@ -25,7 +25,7 @@ SwiftUI, and the views know nothing about HTTP.
 | `Petzy/API/*API.swift` | The routes, one file per group of endpoints. |
 | `Petzy/API/*DTO.swift` and the payload files | The requests and the answers, decoded with hand-written `CodingKeys`. A DTO lives next to the route that sends or returns it. |
 | `Petzy/Domain/` | The models the screens use and the rules that belong to them: `PetEvent`, `EventType`, `UserProfile`, `PetSpecies`, `FieldValue`. No server keys, no network, no SwiftUI. |
-| `Petzy/Support/` | What three or more screens need: `MomentText` (the two `date_time` formats), `Amount` and `Words` (numbers and Russian plurals), `EventIcon` (Lucide names to SF Symbols), `KeyboardDone`. |
+| `Petzy/Support/` | What three or more screens need: `MomentText` (the two `date_time` formats), `Amount` and `Words` (numbers and Russian plurals), `EventIcon` (Lucide names to SF Symbols), `KeyboardDone`, `PetPhotoLoader` with `CachedPetImage` (one in-memory download of a pet photo per session instead of one per appearance). |
 | `Petzy/Auth/AuthSession.swift` | Signing in, refreshing and signing out. It is an actor, because the tokens are shared. |
 | `Petzy/Auth/TokenStorage.swift`, `KeychainTokenStorage.swift` | Where the tokens live: a protocol, and the Keychain behind it. |
 | The screen directories under `Petzy/Features/` | One per screen, named after it: `Auth`, `Documents`, `Feed`, `Login`, `MedicalCard`, `Medications`, `Pets`, `Settings` and `Shell`. Each holds a model and a view: `XView` draws, `XModel` holds the state and calls `APIClient`, `X` is the screen's own data model when it has one. |
@@ -168,6 +168,19 @@ fails CI before it has to be untangled.
 excluded, so a symbol used by tests alone shows up as unused. That is
 deliberate. Sometimes it means the test should go, sometimes the symbol.
 Every finding gets a decision, not a filter.
+
+CPU work here is measured in single milliseconds (a 200-item page decodes in
+under one, grouping 700 rows takes under one, the offline copy round-trips
+300 doses in about one), so the profiling looks at the main thread and the
+network instead. Two rules came out of it:
+
+- **Remote images go through `PetPhotoLoader`, not `AsyncImage`.** The loader
+  keeps the bytes in memory for the session and shares one request between
+  parallel readers; a failed download is not remembered. Each appearance of
+  the card used to refetch the file and flash the placeholder.
+- **Heavy pixel work leaves the main thread.** Decoding and re-encoding a
+  full camera photo takes hundreds of milliseconds, so the upload form does
+  it in a detached task and only comes back with the finished file.
 
 ## Where a new file goes
 

@@ -77,11 +77,8 @@ struct PetPhotoField: View {
                 .resizable()
                 .scaledToFill()
         } else if let url = model.profile?.photoURL {
-            AsyncImage(url: url) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                ProgressView()
-            }
+            CachedPetImage(url: url)
+                .id(url)
         } else {
             Image(systemName: "pawprint.fill")
                 .resizable()
