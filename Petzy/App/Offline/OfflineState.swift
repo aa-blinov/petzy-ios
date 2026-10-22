@@ -65,10 +65,10 @@ final class OfflineState {
         snapshot.card[petID]
     }
 
-    /// Копия записей питомца. `nil` — копии нет, и показывать нечего.
-    func cachedEvents(petID: String) -> [PetEvent]? {
-        let events = snapshot.events[petID] ?? []
-        return events.isEmpty ? nil : events
+    /// Копия ленты питомца. `nil` — копии нет, и показывать нечего.
+    func cachedFeed(petID: String) -> [FeedItem]? {
+        let items = snapshot.feed[petID] ?? []
+        return items.isEmpty ? nil : items
     }
 
     /// Копия после успешной загрузки. Без неё следующий запуск без сети
@@ -76,8 +76,8 @@ final class OfflineState {
     ///
     /// `owner` — логин человека, которому эти данные принадлежат: с этого
     /// момента копию показывают только ему.
-    func cache(events: [PetEvent], types: [String: EventTypeInfo], pets: [Pet], petID: String, owner: String?) {
-        snapshot.events[petID] = events
+    func cache(feed: [FeedItem], types: [String: EventTypeInfo], pets: [Pet], petID: String, owner: String?) {
+        snapshot.feed[petID] = feed
         snapshot.eventTypes = types
         snapshot.pets = pets
         snapshot.owner = owner

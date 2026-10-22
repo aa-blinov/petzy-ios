@@ -105,13 +105,3 @@ struct EventSavedResponse: Decodable, Sendable {
 // («2026-10-18T14:13:00+05:00»), у старых — без пояса («2026-10-04 11:00»).
 // Оба разбираются, и время остаётся тем, что человек ввёл у себя: смещение
 // не переводится в часовой пояс телефона.
-
-struct EventsPage: Decodable, Sendable {
-    let items: [PetEvent]
-    let nextCursor: String?
-
-    enum CodingKeys: String, CodingKey {
-        case items
-        case nextCursor = "next_cursor"
-    }
-}

@@ -1,9 +1,9 @@
 import Foundation
 
-/// Один день ленты: заголовок и записи этого дня.
-struct EventDay: Identifiable {
+/// Один день ленты: заголовок и всё, что в нём есть, — записи и приёмы.
+struct FeedDay: Identifiable {
     let date: String
-    let events: [PetEvent]
+    let items: [FeedItem]
 
     var id: String {
         date
@@ -18,20 +18,24 @@ enum Feed {
     ///
     /// Пустой `knownTypes` означает «ничего не фильтровать»: тесты разбора
     /// работают без справочника типов, а приложение всегда его передаёт.
-    static func group(_ events: [PetEvent], knownTypes: Set<String> = []) -> [EventDay] {
+    static func group(_ items: [FeedItem], knownTypes: Set<String> = []) -> [FeedDay] {
         var order: [String] = []
-        var buckets: [String: [PetEvent]] = [:]
-        for event in events {
-            guard !event.isDeleted else { continue }
-            if !knownTypes.isEmpty, !knownTypes.contains(event.type) {
-                continue
+        var buckets: [String: [FeedItem]] = [:]
+        for item in items {
+            // Приём — факт дневника, а не запись типа: справочник типов его не
+            // касается, и фильтр «типы, которые ещё есть» его не выбрасывает.
+            if let event = item.event {
+                guard !event.isDeleted else { continue }
+                if !knownTypes.isEmpty, !knownTypes.contains(event.type) {
+                    continue
+                }
             }
-            if buckets[event.day] == nil {
-                order.append(event.day)
+            if buckets[item.day] == nil {
+                order.append(item.day)
             }
-            buckets[event.day, default: []].append(event)
+            buckets[item.day, default: []].append(item)
         }
-        return order.map { EventDay(date: $0, events: buckets[$0] ?? []) }
+        return order.map { FeedDay(date: $0, items: buckets[$0] ?? []) }
     }
 
     /// Подпись дня: «Сегодня», «Вчера» или дата. Словами только два ближайших

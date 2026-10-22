@@ -189,6 +189,12 @@ final class FeedUITests: XCTestCase {
         let field = app.textFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10), "в форме правки нет поля")
         XCTAssertFalse(field.value as? String ?? "" == "", "поле правки пустое, запись при переходе потерялась")
+
+        // Снимок формы для README: её открывает тест, а не ручной тап.
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "record-form"
+        shot.lifetime = .keepAlways
+        add(shot)
     }
 
     /// Снимок экрана в отчёт прогона. Жест свайпа через `idb` строку не
@@ -214,9 +220,11 @@ final class FeedUITests: XCTestCase {
     /// любая запись время в себе содержит. Типовой состав ленты меняется от
     /// прогона к прогону, и проверка на конкретном типе ломалась о чужие
     /// записи сверху.
+    /// Строка записи, а не приёма: в ленте теперь и то, и другое, и у каждой
+    /// строки своя метка вида. Иначе первым находился приём, и правка записи
+    /// открывала лист приёма.
     private func recordRow(_ app: XCUIApplication) -> XCUIElement {
-        let time = NSPredicate(format: "label MATCHES %@", ".*\\d{2}:\\d{2}.*")
-        return app.buttons.matching(time).firstMatch
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "event-")).firstMatch
     }
 
     /// Заголовки дней в виде «04.10.2026». Отбор идёт предикатом, а не

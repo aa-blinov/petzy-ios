@@ -18,7 +18,7 @@ struct OfflineFeedTests {
 
         await model.loadFeed()
 
-        #expect(model.rawEvents.map(\.id) == ["e1"])
+        #expect(model.events.map(\.id) == ["e1"])
         #expect(model.offline.isShowingCached, "приложение обязано сказать, что показывает копию")
     }
 
@@ -52,7 +52,7 @@ struct OfflineFeedTests {
 
         await model.loadFeed()
 
-        #expect(store.load().events["p1"]?.map(\.id) == ["e1"])
+        #expect(store.load().feed["p1"]?.compactMap(\.event).map(\.id) == ["e1"])
         #expect(model.offline.isShowingCached == false)
     }
 
@@ -71,7 +71,7 @@ struct OfflineFeedTests {
         #expect(snapshot.queue.first?.localID.isEmpty == false, "без своего имени запись не отправить повторно")
         #expect(snapshot.queue.first?.petID == "p1")
         #expect(model.offline.pendingIDs == Set(snapshot.queue.map(\.localID)))
-        #expect(model.rawEvents.first?.id == snapshot.queue.first?.localID)
+        #expect(model.events.first?.id == snapshot.queue.first?.localID)
     }
 
     @Test("Очередь уходит при появлении сети и снимается с экрана")
@@ -92,7 +92,7 @@ struct OfflineFeedTests {
 
         #expect(store.load().queue.isEmpty)
         #expect(model.offline.pendingIDs.isEmpty)
-        #expect(model.rawEvents.map(\.id) == ["e1"])
+        #expect(model.events.map(\.id) == ["e1"])
         // Последний, а не первый: неудачная попытка из createEvent тоже попала в журнал.
         let sent = TestSupport.body(of: StubURLProtocol.requests.last {
             $0.url?.path == "/api/events" && $0.httpMethod == "POST"
@@ -122,7 +122,7 @@ struct OfflineFeedTests {
         await model.flushQueue()
 
         #expect(store.load().queue.isEmpty)
-        #expect(!model.rawEvents.map(\.id).contains { $0.hasPrefix("local-") }, "отброшенная запись осталась в ленте")
+        #expect(!model.events.map(\.id).contains { $0.hasPrefix("local-") }, "отброшенная запись осталась в ленте")
         #expect(model.offline.pendingIDs.isEmpty)
     }
 
@@ -140,12 +140,12 @@ struct OfflineFeedTests {
         var edited = Self.draft
         edited.comment = "Опечатка исправлена"
 
-        await model.updateEvent(id: model.rawEvents[0].id, draft: edited)
+        await model.updateEvent(id: model.events[0].id, draft: edited)
 
         #expect(StubURLProtocol.requestedPaths == ["/api/events"])
         let body = try? JSONDecoder().decode(PendingBody.self, from: store.load().queue.first?.payload ?? Data())
         #expect(body?.comment == "Опечатка исправлена")
-        #expect(model.rawEvents.first?.comment == "Опечатка исправлена")
+        #expect(model.events.first?.comment == "Опечатка исправлена")
         #expect(model.offline.pendingIDs.count == 1)
     }
 
@@ -158,11 +158,11 @@ struct OfflineFeedTests {
         StubURLProtocol.stubOffline()
         await model.createEvent(Self.draft)
 
-        await model.deleteEvent(id: model.rawEvents[0].id)
+        await model.deleteEvent(id: model.events[0].id)
 
         #expect(StubURLProtocol.requestedPaths == ["/api/events"], "удаление не должно ходить на сервер")
         #expect(store.load().queue.isEmpty)
-        #expect(model.rawEvents.isEmpty)
+        #expect(model.events.isEmpty)
         #expect(model.offline.pendingIDs.isEmpty)
     }
 
@@ -210,8 +210,8 @@ struct OfflineFeedTests {
         #expect(store.load().queue.count == 1)
         #expect(store.load().queue.first?.method == "PUT")
         #expect(store.load().queue.first?.path == "/api/events/e1")
-        #expect(model.rawEvents.first?.comment == "Опечатка исправлена")
-        #expect(model.rawEvents.count == 1, "правка не должна добавлять вторую запись в ленту")
+        #expect(model.events.first?.comment == "Опечатка исправлена")
+        #expect(model.events.count == 1, "правка не должна добавлять вторую запись в ленту")
 
         StubURLProtocol.reset()
         StubURLProtocol.stub(status: 200, json: ["success": true, "id": "e1"])
@@ -233,7 +233,7 @@ struct OfflineFeedTests {
         TestSupport.stubTypeReference()
         StubURLProtocol.stub(status: 200, json: Self.page())
         await model.loadFeed()
-        #expect(model.rawEvents.count == 1)
+        #expect(model.events.count == 1)
 
         // Связи нет: правка встаёт в очередь.
         StubURLProtocol.stubOffline()
@@ -248,8 +248,8 @@ struct OfflineFeedTests {
         StubURLProtocol.stub(status: 200, json: Self.page())
         await model.loadFeed()
 
-        #expect(model.rawEvents.map(\.id) == ["e1"], "правка без сети убрала запись из ленты")
-        #expect(model.rawEvents.first?.comment == "Опечатка исправлена", "на экране старая версия записи")
+        #expect(model.events.map(\.id) == ["e1"], "правка без сети убрала запись из ленты")
+        #expect(model.events.first?.comment == "Опечатка исправлена", "на экране старая версия записи")
         #expect(model.offline.pendingIDs.contains("e1"))
     }
 
@@ -270,14 +270,14 @@ struct OfflineFeedTests {
             photoURL: nil,
             updatedAt: nil
         )]
-        snapshot.events = ["p1": [PetEvent(
+        snapshot.feed = ["p1": [.event(PetEvent(
             id: "e1",
             type: "weight",
             dateTime: "2026-10-19T08:00:00+05:00",
             comment: "Поел",
             fields: [:],
             isDeleted: false
-        )]]
+        ))]]
         store.save(snapshot)
         return store
     }

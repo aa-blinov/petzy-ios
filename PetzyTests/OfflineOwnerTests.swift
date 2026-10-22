@@ -43,7 +43,7 @@ struct OfflineOwnerTests {
         await second.loadFeed()
 
         #expect(second.pets.isEmpty, "чужой питомец показан из копии")
-        #expect(second.rawEvents.isEmpty, "чужие записи показаны из копии")
+        #expect(second.feedItems.isEmpty, "чужие записи показаны из копии")
     }
 
     /// Свой дневник из копии показывается: без связи человек должен видеть то,
@@ -93,7 +93,7 @@ struct OfflineOwnerTests {
         model.signOut()
 
         #expect(store.load().pets.isEmpty, "после выхода дневник остался на устройстве")
-        #expect(store.load().events.isEmpty, "после выхода записи остались на устройстве")
+        #expect(store.load().feed.isEmpty, "после выхода записи остались на устройстве")
     }
 
     // MARK: - Образцы

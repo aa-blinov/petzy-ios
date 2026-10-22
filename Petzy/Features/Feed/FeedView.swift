@@ -9,6 +9,7 @@ struct FeedView: View {
     @State private var pickingType = false
     @State private var form: EventFormTarget?
     @State private var pendingDelete: PetEvent?
+    @State private var pickedIntake: MedicationIntake?
 
     var body: some View {
         NavigationStack {
@@ -39,6 +40,13 @@ struct FeedView: View {
                     form = EventFormTarget(draft: model.newDraft(for: type), recordID: nil)
                 }
             }
+        }
+        .sheet(item: $pickedIntake) { intake in
+            IntakeSheet(
+                intake: intake,
+                onMove: { intake, moment in await model.moveIntake(intake, to: moment) },
+                onCancel: { intake in await model.cancelIntake(intake) }
+            )
         }
         .sheet(item: $form) { target in
             EventFormView(model: model, draft: target.draft, recordID: target.recordID)
@@ -190,8 +198,13 @@ struct FeedView: View {
                 } else {
                     ForEach(model.days) { day in
                         Section(Feed.dayHeader(day.date, today: .now, calendar: .current)) {
-                            ForEach(day.events) { event in
-                                row(event)
+                            ForEach(day.items) { item in
+                                switch item {
+                                case let .event(event):
+                                    row(event)
+                                case let .intake(intake):
+                                    intakeRow(intake)
+                                }
                             }
                         }
                     }
@@ -246,6 +259,7 @@ struct FeedView: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("event-" + event.id)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Изменить") { openEditor(event) }
             // Полный свайп выключен: удаление на сервере жёсткое, и одна
@@ -259,9 +273,54 @@ struct FeedView: View {
         }
     }
 
+    /// Приём лекарства строкой ленты. Открывается тем же листом, что и в
+    /// разделе лекарств: перенести время или отменить приём можно оттуда, где
+    /// человек его увидел.
+    private func intakeRow(_ intake: MedicationIntake) -> some View {
+        Button {
+            pickedIntake = intake
+        } label: {
+            IntakeFeedRow(intake: intake)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("dose-" + intake.id)
+    }
+
     private func openEditor(_ event: PetEvent) {
         guard let type = model.typeInfo(for: event.type) else { return }
         form = EventFormTarget(draft: EventDraft(event: event, type: type), recordID: event.id)
+    }
+}
+
+/// Один приём лекарства: что дали, когда и сколько. Пропущенный приём
+/// называется иначе: слот закрыт, а лекарство не давали.
+private struct IntakeFeedRow: View {
+    let intake: MedicationIntake
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: intake.skipped ? "pills.circle" : "pills")
+                .foregroundStyle(.tint)
+                .frame(width: 28, height: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(intake.skipped ? "Пропущенный приём" : intake.medicationName)
+                        .font(.headline)
+                    Spacer()
+                    Text(intake.time)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Text(intake.skipped ? "Лекарство не давали" : intake.doseText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                if let comment = intake.comment, !comment.isEmpty {
+                    Text(comment).font(.subheadline)
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

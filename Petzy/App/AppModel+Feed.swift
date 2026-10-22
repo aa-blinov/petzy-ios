@@ -11,11 +11,11 @@ extension AppModel {
         // Копия своя: на общем устройстве следующий вошедший не должен видеть
         // чужой дневник.
         guard canUseDiary, !offline.isShowingCached, let petID = selectedPetID,
-              let cached = offline.cachedEvents(petID: petID) else { return }
+              let cached = offline.cachedFeed(petID: petID) else { return }
         // Копия без типов показала бы записи голыми ключами, поэтому берём и
         // типы: без них человек не прочитает, что за запись увидел.
         eventTypes = offline.snapshot.eventTypes
-        rawEvents = cached
+        feedItems = cached
         offline.isShowingCached = true
         // Записи и правки, сделанные без сети, показываются и по копии: в
         // метро человек сделал их, и ждать связи, чтобы увидеть свою запись,
@@ -27,7 +27,7 @@ extension AppModel {
     /// должен видеть их так же, как остальные.
     func showPending() {
         guard let petID = selectedPetID else { return }
-        rawEvents.append(contentsOf: offline.pendingEvents(petID: petID))
+        feedItems.append(contentsOf: offline.pendingEvents(petID: petID).map(FeedItem.event))
         applyPendingEdits()
     }
 
@@ -38,9 +38,8 @@ extension AppModel {
     func applyPendingEdits() {
         guard let petID = selectedPetID else { return }
         for edit in offline.pendingEventEdits(petID: petID) {
-            guard let index = rawEvents.firstIndex(where: { $0.id == edit.id }) else { continue }
-            let old = rawEvents[index]
-            rawEvents[index] = PetEvent(
+            guard let index = index(ofEvent: edit.id), let old = feedItems[index].event else { continue }
+            feedItems[index] = .event(PetEvent(
                 id: old.id,
                 type: old.type,
                 dateTime: "\(edit.date) \(edit.time)",
@@ -48,7 +47,7 @@ extension AppModel {
                 fields: edit.fields,
                 isDeleted: false,
                 updatedAt: old.updatedAt
-            )
+            ))
         }
     }
 
@@ -90,7 +89,7 @@ extension AppModel {
             // метро, и она должна дождаться связи вместе с остальными.
             if (error as? APIError)?.isTransport == true {
                 if let event = queueEvent(draft, petID: petID) {
-                    rawEvents.append(event)
+                    feedItems.append(.event(event))
                 }
                 feedNotice = "Записано в телефон, уйдёт на сервер, когда появится связь"
                 return
@@ -154,8 +153,8 @@ extension AppModel {
             localID: id
         ), let updated = offline.updatePending(id, payload: payload, title: draft.type.label),
         let event = OfflineState.event(from: updated),
-        let index = rawEvents.firstIndex(where: { $0.id == id }) else { return false }
-        rawEvents[index] = event
+        let index = index(ofEvent: id) else { return false }
+        feedItems[index] = .event(event)
         return true
     }
 
@@ -177,9 +176,8 @@ extension AppModel {
         ))
         // На экране сразу новое значение с отметкой «не отправлено»: человек
         // должен видеть, что он изменил, а не то, что было до правки.
-        if let index = rawEvents.firstIndex(where: { $0.id == id }) {
-            let old = rawEvents[index]
-            rawEvents[index] = PetEvent(
+        if let index = index(ofEvent: id), let old = feedItems[index].event {
+            feedItems[index] = .event(PetEvent(
                 id: old.id,
                 type: old.type,
                 dateTime: old.dateTime,
@@ -187,7 +185,7 @@ extension AppModel {
                 fields: draft.encodedFields,
                 isDeleted: false,
                 updatedAt: old.updatedAt
-            )
+            ))
         }
         feedNotice = "Правка сохранена в телефон, уйдёт на сервер, когда появится связь"
     }
@@ -195,7 +193,7 @@ extension AppModel {
     /// Версия записи, которую человек правил. Сервер откажет, если запись
     /// поменяли с тех пор, как её прочитали.
     private func version(of id: String) -> String? {
-        rawEvents.first { $0.id == id }?.updatedAt
+        feedItems.compactMap(\.event).first { $0.id == id }?.updatedAt
     }
 
     /// Удаление. Убираем из своей копии только после ответа сервера: иначе
@@ -206,13 +204,13 @@ extension AppModel {
         // нет, и запрос только спросил бы о том, чего не существует.
         if offline.pendingIDs.contains(id) {
             offline.removePending(id)
-            rawEvents.removeAll { $0.id == id }
+            feedItems.removeAll { $0.event?.id == id }
             return
         }
         feedErrorText = nil
         do {
             try await client.delete("/api/events/\(id)")
-            rawEvents.removeAll { $0.id == id }
+            feedItems.removeAll { $0.event?.id == id }
         } catch {
             handleFeedError(error)
         }
@@ -220,22 +218,27 @@ extension AppModel {
 
     // MARK: - Страницы ленты
 
-    /// Страница записей. Курсор вместо номера страницы: новая запись не сдвигает
-    /// страницу, поэтому ни одна запись не читается дважды и ни одна не теряется.
-    func fetchPage(petID: String, before: String?) async throws -> EventsPage {
-        // Без надгробий: удалённые записи сервер и так не отдаёт, а надгробия
-        // занимали бы место в странице — из ста записей на показ оставалась одна,
-        // и лента выглядела пустой. Свою копию приложение и так заменяет
-        // целиком, поэтому знать об удалениях по надгробиям не нужно.
-        var path = "/api/events?page_size=100&pet_id=" + Self.query(petID)
-        if let before {
-            path += "&before=" + Self.query(before)
-        }
-        return try await client.get(path, as: EventsPage.self)
+    /// Страница ленты: записи дневника и приёмы лекарств одним списком, как на
+    /// вебе. Курсор вместо номера страницы: новая запись не сдвигает страницу,
+    /// поэтому ни одна не читается дважды и ни одна не теряется.
+    func fetchPage(petID: String, before: String?) async throws -> TimelinePage {
+        try await HistoryAPI.timeline(client, petID: petID, before: before)
     }
 
-    func apply(_ page: EventsPage, appending: Bool) {
-        rawEvents = appending ? rawEvents + page.items : page.items
+    /// Только записи дневника: лента держит и приёмы, а экран рисует их
+    /// по-разному, и записи нужны ему отдельно.
+    var events: [PetEvent] {
+        feedItems.compactMap(\.event)
+    }
+
+    /// Место записи в ленте. Ищем по id записи, а не строки: у строки он с
+    /// видом впереди, и снаружи им не пользуются.
+    func index(ofEvent id: String) -> Int? {
+        feedItems.firstIndex { $0.event?.id == id }
+    }
+
+    func apply(_ page: TimelinePage, appending: Bool) {
+        feedItems = appending ? feedItems + page.items : page.items
         feedNextCursor = page.nextCursor
         hasMoreEvents = page.nextCursor != nil
     }
@@ -245,7 +248,7 @@ extension AppModel {
     /// сохранения иначе просто исчезает, и человек решает, что не записалась.
     func showSaved(_ id: String?, date: String) {
         feedNotice = nil
-        guard let id, !rawEvents.contains(where: { $0.id == id }) else { return }
+        guard let id, !feedItems.contains(where: { $0.event?.id == id }) else { return }
         feedNotice = "Она за " + MomentText.russianDay(date) + ", в ленте до неё надо долистать"
     }
 
@@ -257,10 +260,42 @@ extension AppModel {
         }
         // Сервера не было: оставляем на экране копию и говорим об этом, вместо
         // того чтобы заменить дневник пустотой.
-        if apiError?.isTransport == true, !rawEvents.isEmpty {
+        if apiError?.isTransport == true, !feedItems.isEmpty {
             offline.isShowingCached = true
             return
         }
         feedErrorText = apiError?.errorDescription ?? error.localizedDescription
+    }
+}
+
+extension AppModel {
+    /// Перенести время приёма, открытого из ленты. Лента перечитывается: приём
+    /// стоит в ней на своём дне, и после переноса он переезжает.
+    func moveIntake(_ intake: MedicationIntake, to moment: Moment) async {
+        feedErrorText = nil
+        do {
+            try await MedicationsAPI.moveIntake(
+                client,
+                intakeID: intake.id,
+                date: moment.day,
+                time: moment.time,
+                zone: TimeZone.current.identifier
+            )
+            await loadFeed()
+        } catch {
+            handleFeedError(error)
+        }
+    }
+
+    /// Отменить приём из ленты: отметка пропадает, списанное возвращается в
+    /// остаток.
+    func cancelIntake(_ intake: MedicationIntake) async {
+        feedErrorText = nil
+        do {
+            try await MedicationsAPI.deleteIntake(client, intakeID: intake.id)
+            await loadFeed()
+        } catch {
+            handleFeedError(error)
+        }
     }
 }

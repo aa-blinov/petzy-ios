@@ -118,7 +118,7 @@ struct AppModelTests {
         await model.loadFeed()
 
         #expect(
-            StubURLProtocol.requestedPaths == ["/api/event-types", "/api/events"],
+            StubURLProtocol.requestedPaths == ["/api/event-types", "/api/history/timeline"],
             "лента пошла не туда: \(StubURLProtocol.requestedPaths)"
         )
         #expect(model.feedErrorText == nil, "ошибка загрузки: \(model.feedErrorText ?? "нет")")
@@ -129,7 +129,7 @@ struct AppModelTests {
         await model.loadMore()
 
         #expect(model.days.map(\.date) == ["2026-10-18", "2026-10-17"])
-        #expect(model.days.flatMap(\.events).count == 2)
+        #expect(model.days.flatMap(\.items).compactMap(\.event).count == 2)
         #expect(model.hasMoreEvents == false)
         let lastQuery = StubURLProtocol.requests.last?.url?.query ?? ""
         #expect(lastQuery.contains("before=cur-1"), "вторая страница запрошена без курсора: \(lastQuery)")
@@ -192,7 +192,7 @@ struct AppModelTests {
         await model.loadFeed()
         await model.loadFeed()
 
-        let feedRequests = StubURLProtocol.requestedPaths.filter { $0 == "/api/events" }
+        let feedRequests = StubURLProtocol.requestedPaths.filter { $0 == "/api/history/timeline" }
         let trace = StubURLProtocol.requests.map { "\($0.url?.path ?? "")?\($0.url?.query ?? "")" }
         #expect(
             feedRequests.count == 6,
@@ -213,7 +213,7 @@ struct AppModelTests {
         await model.loadFeed()
 
         #expect(model.feedErrorText == nil)
-        #expect(model.rawEvents.isEmpty)
+        #expect(model.feedItems.isEmpty)
     }
 
     /// Фильтр истории принадлежит питомцу: оставленный от прежнего, он
@@ -291,13 +291,13 @@ struct AppModelTests {
         let model = await TestSupport.makeModel(defaults: TestSupport.makeDefaults())
         model.select(petID: "pet-1")
         await model.loadFeed()
-        #expect(model.rawEvents.count == 1)
+        #expect(model.feedItems.count == 1)
 
         await model.deleteEvent(id: "e-1")
 
         let request = StubURLProtocol.requests.first { $0.httpMethod == "DELETE" }
         #expect(request?.url?.path == "/api/events/e-1")
-        #expect(model.rawEvents.isEmpty)
+        #expect(model.feedItems.isEmpty)
     }
 
     /// Ответ сервера с чужой ошибкой должен дойти до человека, а не молчать.

@@ -1,8 +1,8 @@
 # Petzy for iOS
 
 Petzy for iOS is a native SwiftUI client for the Petzy pet health diary: a
-feed of daily records, medication courses, a medical card and documents for
-every pet of the account. It talks to the same backend as the Petzy web app,
+feed of daily records and doses, medication courses with reminders, a medical
+card and documents for every pet of the account. It talks to the same backend as the Petzy web app,
 so a login, a pet and its records are the same on both. The interface is
 Russian.
 
@@ -10,6 +10,15 @@ Russian.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![CI](https://github.com/aa-blinov/petzy-ios/actions/workflows/ci.yml/badge.svg)](https://github.com/aa-blinov/petzy-ios/actions/workflows/ci.yml)
+
+| | | |
+| --- | --- | --- |
+| ![The feed](docs/screenshots/feed.png) | ![What to record](docs/screenshots/quick-add.png) | ![A record](docs/screenshots/record-form.png) |
+| The feed: records and the doses already given, one list | What to record: the pet's own set of types | A record, drawn from the description of its type |
+| ![Medications](docs/screenshots/medications.png) | ![A dose](docs/screenshots/intake.png) | ![The medical card](docs/screenshots/medical-card.png) |
+| Medication courses, the stock left, the last doses | A dose: move the time or cancel it | The medical card, ready for a visit |
+| ![Documents](docs/screenshots/documents.png) | ![The pet](docs/screenshots/pet.png) | ![Settings](docs/screenshots/settings.png) |
+| Documents in any format, with expiry dates | The pet: photo, breed, notes and access | Settings: reminders, export, the account, the version |
 
 ---
 
@@ -44,18 +53,15 @@ there is nothing to build onto a device.
 
 ## What it does
 
-- **A feed of daily records.** Food and water, excretion, health, care,
-  activity and the conditions the pet lives in. The catalogue of types comes
-  from the server, the form is drawn from the description of the type, and
-  the required fields, the ranges and the numbers are checked before the
-  request goes out.
+- **A feed of daily records and doses.** Food and water, excretion, health,
+  care, activity and the conditions the pet lives in, and the doses of
+  medication already given, in one list, as on the web. A dose opens the same
+  sheet as in the medications section. The catalogue of types comes from the
+  server, the form is drawn from the description of the type, and the required
+  fields, the ranges and the numbers are checked before the request goes out.
 - **Editing and deleting.** A tap on a record opens it with its values, a
   swipe gives "Change" and "Delete", and the delete asks for confirmation.
   The full swipe is off: a record on the server does not come back.
-- **History and a chart.** Everything for all time, unlike the feed. The type
-  filter is sent to the server, and only the types the pet has records of are
-  listed. A type with a value draws a line, a counted type draws bars, and
-  under the chart it says in words what the chart shows.
 - **Export.** The records of a pet as a table, in CSV, TSV, HTML or Markdown,
   handed to the system share sheet.
 - **Medications.** Courses with the schedule in words, the dose, the
@@ -84,6 +90,9 @@ there is nothing to build onto a device.
 - **Your own record types.** A type with its own name and its own fields. The
   server assigns the key, the icon and the colour are yours to choose. Only
   an empty type can be deleted, and the app says so before the tap.
+- **Reminders about doses.** Local notifications built from the schedule of
+  the courses: they need no network and no server. The settings say when the
+  next one is.
 - **Working without a network.** What the phone has already seen is stored on
   the device, and the sections say so: "No connection, showing saved data". A
   record made in the basement waits in one queue and goes out by itself when
@@ -96,7 +105,7 @@ there is nothing to build onto a device.
 ```
 PetzyApp -> RootView -> AppShellView (five tabs)
                             |
-                            +-> AppModel: the session, the pets, the feed, the history
+                            +-> AppModel: the session, the pets, the feed
                             +-> one model per section and per pet
                             +-> APIClient -> HTTP -> the Petzy API
                             +-> OfflineState -> LocalStore -> offline.json

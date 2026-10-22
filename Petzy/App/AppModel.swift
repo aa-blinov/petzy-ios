@@ -63,12 +63,10 @@ final class AppModel {
     internal(set) var invites: [PetInvite] = []
     private(set) var selectedPetID: String?
 
-    /// Дни ленты выбранного питомца. Сами записи лежат в `rawEvents`: дни
-    /// собираются из них на показ, иначе догруженная страница не срослась бы
-    /// с уже показанными днями.
-    /// Записи на показ. Пишет сюда и офлайн-слой из `AppModel+Feed.swift`,
-    /// поэтому без `private(set)`, как и `historyRaw` рядом.
-    var rawEvents: [PetEvent] = []
+    /// Строки ленты на показ: записи дневника и приёмы лекарств вместе, как
+    /// их отдаёт `/api/history/timeline`. Пишет сюда и офлайн-слой из
+    /// `AppModel+Feed.swift`, поэтому без `private(set)`.
+    var feedItems: [FeedItem] = []
     /// Пишется из `AppModel+Feed.swift`, поэтому без `private(set)`, как
     /// и `historyCursor` рядом.
     var feedNextCursor: String?
@@ -116,8 +114,8 @@ final class AppModel {
     var exportedFile: URL?
 
     /// Готовая лента по дням. Пусто, пока грузится или грузить нечего.
-    var days: [EventDay] {
-        Feed.group(rawEvents, knownTypes: Set(eventTypes.keys))
+    var days: [FeedDay] {
+        Feed.group(feedItems, knownTypes: Set(eventTypes.keys))
     }
 
     /// Типы записи для выбора под кнопкой «+». Порядок внутри групп задаёт
@@ -218,7 +216,7 @@ final class AppModel {
         guard let petID = selectedPetID else {
             // Питомца нет: ленты тоже нет, а чужая ошибка на экране («Питомец
             // не найден») сбивала бы с толку и не уходила по «Повторить».
-            rawEvents = []
+            feedItems = []
             feedErrorText = nil
             return
         }
@@ -246,7 +244,7 @@ final class AppModel {
             try await apply(fetchPage(petID: petID, before: nil), appending: false)
             offline.isShowingCached = false
             showPending()
-            offline.cache(events: rawEvents, types: eventTypes, pets: pets, petID: petID, owner: currentUser)
+            offline.cache(feed: feedItems, types: eventTypes, pets: pets, petID: petID, owner: currentUser)
             // Сеть появилась: накопленное уходит само, без всякой кнопки.
             if offline.pendingCount > 0 {
                 await flushQueue()

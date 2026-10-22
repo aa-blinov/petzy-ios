@@ -279,21 +279,6 @@ struct IntakeMark: Sendable {
     var skipped = false
 }
 
-/// Отмеченный приём в истории курса.
-struct MedicationIntake: Identifiable, Sendable {
-    let id: String
-    let medicationID: String
-    let medicationName: String
-    let day: String
-    let time: String
-    let dose: Double
-    /// Приём пропущен: слот закрыт, а из остатка ничего не вычтено. Путать его
-    /// с данным нельзя, поэтому и в строке он называется иначе.
-    let skipped: Bool
-    let author: String?
-    let comment: String?
-}
-
 extension Medication {
     /// Порядок списка. Сначала курс, у которого ближайший приём ещё не
     /// отмечен, внутри — по времени приёма; потом те, где на сегодня всё;

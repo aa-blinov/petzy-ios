@@ -18,8 +18,35 @@ struct LocalStoreTests {
         #expect(loaded.pets.map(\.id) == ["p1"])
         #expect(loaded.pets.first?.name == "Рекс")
         #expect(loaded.eventTypes["weight"]?.label == "Вес")
-        #expect(loaded.events["p1"]?.first?.id == "e1")
-        #expect(loaded.events["p1"]?.first?.comment == "Поел")
+        #expect(loaded.feed["p1"]?.first?.event?.id == "e1")
+        #expect(loaded.feed["p1"]?.first?.event?.comment == "Поел")
+    }
+
+    /// Копия ленты держит и приём, и запись: приём — такой же факт дневника, и
+    /// без сети он должен оставаться на месте.
+    @Test("Приём переживает запись и чтение копии")
+    func intakeSurvivesRoundTrip() {
+        let url = Self.tempURL()
+        var snapshot = Self.sample
+        snapshot.feed["p1"] = [.intake(MedicationIntake(
+            id: "a1",
+            medicationID: "m1",
+            medicationName: "Мелоксидил",
+            day: "2026-10-19",
+            time: "19:21",
+            dose: 2.5,
+            unit: "мл",
+            skipped: false
+        ))]
+        LocalStore(url: url).save(snapshot)
+
+        let loaded = LocalStore(url: url).load()
+
+        let dose = loaded.feed["p1"]?.first?.intake
+        #expect(dose?.medicationName == "Мелоксидил")
+        #expect(dose?.doseText == "2,5 мл")
+        #expect(dose?.day == "2026-10-19")
+        #expect(dose?.time == "19:21")
     }
 
     @Test("Без файла копия пустая, а не ошибка")
@@ -27,7 +54,7 @@ struct LocalStoreTests {
         let loaded = LocalStore(url: Self.tempURL()).load()
 
         #expect(loaded.pets.isEmpty)
-        #expect(loaded.events.isEmpty)
+        #expect(loaded.feed.isEmpty)
         #expect(loaded.syncAt == nil)
     }
 
@@ -42,7 +69,7 @@ struct LocalStoreTests {
         let loaded = LocalStore(url: url).load()
 
         #expect(loaded.pets.isEmpty)
-        #expect(loaded.events.isEmpty)
+        #expect(loaded.feed.isEmpty)
     }
 
     /// Повторное сохранение заменяет копию, а не дописывает её: без этого с
@@ -51,15 +78,15 @@ struct LocalStoreTests {
     func saveReplacesPrevious() {
         let url = Self.tempURL()
         var first = Self.sample
-        first.events = ["p1": []]
+        first.feed = ["p1": []]
         LocalStore(url: url).save(first)
 
         var second = Self.sample
-        second.events = [:]
+        second.feed = [:]
         LocalStore(url: url).save(second)
 
         let loaded = LocalStore(url: url).load()
-        #expect(loaded.events.isEmpty)
+        #expect(loaded.feed.isEmpty)
         #expect(loaded.pets.count == 1)
     }
 
@@ -126,14 +153,14 @@ struct LocalStoreTests {
             fields: [],
             chart: nil
         )]
-        snapshot.events = ["p1": [PetEvent(
+        snapshot.feed = ["p1": [.event(PetEvent(
             id: "e1",
             type: "weight",
             dateTime: "2026-10-19T08:00:00+05:00",
             comment: "Поел",
             fields: ["weight": .number(29.3)],
             isDeleted: false
-        )]]
+        ))]]
         return snapshot
     }
 

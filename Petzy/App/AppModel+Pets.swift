@@ -7,7 +7,7 @@ extension AppModel {
             let response = try await client.get("/api/pets", as: PetsResponse.self)
             petsState = .loaded(response.pets)
             offline.cache(
-                events: rawEvents,
+                feed: feedItems,
                 types: eventTypes,
                 pets: response.pets,
                 petID: selectedPetID ?? "",

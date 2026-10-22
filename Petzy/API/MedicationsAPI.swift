@@ -131,7 +131,7 @@ enum MedicationsAPI {
     static func intakes(_ client: APIClient, petID: String) async throws -> [MedicationIntake] {
         let path = "/api/medications/intakes?pet_id=\(AppModel.query(petID))&page=1&page_size=100"
         let response: IntakesResponse = try await client.get(path)
-        return response.intakes.map(\.domain)
+        return response.intakes
     }
 }
 
@@ -175,7 +175,7 @@ private struct UpcomingResponse: Decodable {
 }
 
 private struct IntakesResponse: Decodable {
-    let intakes: [IntakeDTO]
+    let intakes: [MedicationIntake]
 }
 
 /// Поля, которые приложение читает. Остальные сервер присылает, и они
@@ -283,41 +283,6 @@ private struct MedicationDTO: Decodable {
 private struct ScheduleDTO: Decodable {
     let days: [Int]
     let times: [String]
-}
-
-private struct IntakeDTO: Decodable {
-    let id: String
-    let medicationID: String
-    let medicationName: String
-    let dateTime: String
-    let doseTaken: Double
-    let skipped: Bool?
-    let username: String?
-    let comment: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id = "_id"
-        case medicationID = "medication_id"
-        case medicationName = "medication_name"
-        case dateTime = "date_time"
-        case doseTaken = "dose_taken"
-        case skipped
-        case username, comment
-    }
-
-    var domain: MedicationIntake {
-        MedicationIntake(
-            id: id,
-            medicationID: medicationID,
-            medicationName: medicationName,
-            day: MomentText.day(of: dateTime),
-            time: MomentText.time(of: dateTime),
-            dose: doseTaken,
-            skipped: skipped ?? false,
-            author: username,
-            comment: comment
-        )
-    }
 }
 
 private struct UpcomingDoseDTO: Decodable {
