@@ -26,12 +26,6 @@ struct VisitPrepDraft {
 
     static let values = ["normal", "changed"]
 
-    init(complaint: String, picks: [String: String], baseVersion: String?) {
-        self.complaint = complaint
-        self.picks = picks
-        self.baseVersion = baseVersion
-    }
-
     init(prep: VisitPrep?, baseVersion: String?) {
         complaint = prep?.complaint ?? ""
         picks = prep?.checks.reduce(into: [:]) { result, check in

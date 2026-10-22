@@ -23,8 +23,20 @@ make lint-strict   # swiftlint, warnings count as errors, what CI runs
 make format        # rewrite the code per .swiftformat
 make format-check  # check the shape without changing anything
 make ci            # lint-strict, format-check, build and test, all of CI
+make metrics       # code quality: complexity, lengths, parameter counts
+make analyze       # static analysis: unused imports and declarations
+make dead-code     # dead code, via periphery (brew install periphery)
 make hooks         # point git at .githooks, once per clone
 ```
+
+Quality is measured, not guessed. `make metrics` prints cyclomatic
+complexity (mean, median, distribution, the worst functions) and the longest
+functions, types and files, from `.swiftlint-metrics.yml` where the
+thresholds are zeroed so every function lands in the report. The thresholds
+that CI enforces are in `.swiftlint.yml`: complexity 8 warns and 12 fails, a
+function of 50 lines warns, a file of 400 warns. The numbers in this
+codebase sit far below them — median complexity 1, maximum 7 — so the
+thresholds are a guard against growth, not a backlog.
 
 Xcode 27.1 and Swift 6.4.0 are pinned in `.xcode-version` and `.swift-version`.
 The app targets iOS 26.0 and above, the language mode is Swift 6, and the

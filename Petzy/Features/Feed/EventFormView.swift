@@ -37,11 +37,6 @@ struct EventFormView: View {
         _moment = State(initialValue: Self.time(from: draft.time, calendar: calendar))
     }
 
-    /// Пустая форма выбранного типа на текущий момент.
-    init(model: AppModel, type: EventTypeInfo) {
-        self.init(model: model, draft: Self.emptyDraft(type: type))
-    }
-
     var body: some View {
         NavigationStack {
             Form {

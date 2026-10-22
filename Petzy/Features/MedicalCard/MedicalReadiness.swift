@@ -52,13 +52,6 @@ enum MedicalAttention: Identifiable, Sendable {
         return nil
     }
 
-    var certificate: CardCertificate? {
-        if case let .certificate(certificate) = self {
-            return certificate
-        }
-        return nil
-    }
-
     /// Насколько это горячее: чем больше дней просрочено, тем раньше.
     var daysOverdue: Int {
         switch self {
@@ -120,17 +113,6 @@ extension MedicalCard {
             .map { .record($0) }
         items += certificates.filter { $0.status == .expired }.map { .certificate($0) }
         return items.sorted { $0.daysOverdue > $1.daysOverdue }
-    }
-
-    /// Просрочено ли что-то по этому виду. Записи берём из полного списка, а не
-    /// из показанных: показанных десять может не хватить, и значок на вкладке
-    /// врал бы.
-    private func isOverdue(_ kind: MedicalKind) -> Bool {
-        if overdueRecords.contains(where: { $0.kind == kind && !$0.superseded }) {
-            return true
-        }
-        // Сертификат — тоже прививка, и просроченный сертификат означает то же.
-        return kind == .vaccination && certificates.contains { $0.status == .expired }
     }
 
     /// Аллергии сказаны или отмечено, что их нет. «Не заполнено» и «нет» это

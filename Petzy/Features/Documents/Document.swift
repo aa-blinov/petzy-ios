@@ -93,11 +93,6 @@ struct PetDocument: Identifiable, Sendable {
         }
         return "\(fileSize / 1000) КБ"
     }
-
-    /// Картинка ли это: её телефон умеет показать сразу.
-    var isImage: Bool {
-        contentType.hasPrefix("image/")
-    }
 }
 
 /// Документ в том виде, как его заполняет форма. Экран отдаёт черновик, а

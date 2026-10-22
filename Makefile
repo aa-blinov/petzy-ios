@@ -23,7 +23,7 @@ DEST = platform=iOS Simulator,name=$(SIM)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup generate open build test test-ui run shot lint lint-strict format format-check ci hooks backend backend-stop logs clean
+.PHONY: help setup generate open build test test-ui run shot lint lint-strict metrics analyze dead-code format format-check ci hooks backend backend-stop logs clean
 
 help: ## Показать все команды
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-13s\033[0m %s\n",$$1,$$2}'
@@ -83,6 +83,22 @@ format: ## Привести код к виду по .swiftformat
 
 format-check: ## Проверить вид, ничего не меняя
 	@swiftformat Petzy PetzyTests PetzyUITests --lint
+
+metrics: ## Замерить качество кода: сложность, длины, параметры
+	@swiftlint lint --config .swiftlint-metrics.yml --reporter json 2>/dev/null | python3 scripts/metrics.py
+
+analyze: generate ## Статический анализ: неиспользуемые импорты и объявления
+	@# Сборка идёт в отдельный каталог: в общем всё уже собрано, в журнале нет
+	@# ни одной команды компиляции Swift, и анализатор честно находит 0 файлов.
+	@set -o pipefail; xcodebuild -project Petzy.xcodeproj -scheme Petzy \
+		-destination '$(DEST)' -derivedDataPath $(DERIVED)/analyze \
+		build-for-testing > $(DERIVED)/analyze.log 2>&1
+	@swiftlint analyze --strict --config .swiftlint.yml \
+		--compiler-log-path $(DERIVED)/analyze.log
+
+dead-code: ## Найти мёртвый код (periphery, нужен brew install periphery)
+	@periphery scan --project Petzy.xcodeproj --schemes Petzy \
+		--exclude-targets PetzyTests,PetzyUITests
 
 ci: lint-strict format-check build test ## Всё, что делает CI, локально одной командой
 

@@ -93,10 +93,6 @@ struct PetProfile: Sendable, Equatable {
     var speciesTitle: String? {
         PetSpecies.label(for: species)
     }
-
-    var birthDay: String? {
-        birthDate.map { MomentText.russianDay($0) }
-    }
 }
 
 /// Питомец в том виде, как его заполняет форма. Экран отдаёт черновик, а
