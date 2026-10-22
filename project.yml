@@ -40,6 +40,10 @@ targets:
       path: Petzy/Resources/Info.plist
       properties:
         CFBundleDisplayName: Petzy
+        # Версия живёт здесь, а не в Info.plist: файл генерируется из этого
+        # блока, и правка его руками пропадает на следующем `make generate`.
+        CFBundleShortVersionString: 1.0.0
+        CFBundleVersion: "1"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
